@@ -13,3 +13,8 @@ logs/
 dist/
 build/
 .DS_Store
+.roo/
+tests/
+.kilocodemodes
+.vscode/
+Thumbs.db
