@@ -1,6 +1,6 @@
 [submodule "server"]
 	path = server
 	url = https://github.com/Qiiks/Overwatch-Account-Share-Backend.git
-[submodule "client"]
-	path = client
-	url = https://github.com/Qiiks/glass-hero-hub.git
+[submodule "client/v0-credential-otp-sharing"]
+	path = client/v0-credential-otp-sharing
+	url = https://github.com/Qiiks/v0-credential-otp-sharing.git
