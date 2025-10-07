@@ -229,7 +229,7 @@ export default function TermsPage() {
               <p>For questions about these Terms of Service or the Service itself, please contact us:</p>
               <div className="bg-white/5 p-4 rounded-lg border border-white/10">
                 <p>
-                  <strong>Email:</strong> support@overwatchaccountshare.com
+                  <strong>Email:</strong> gameslayer.inc@gmail.com
                 </p>
                 <p>
                   <strong>Website:</strong> https://overwatchaccountshare.com
