@@ -1,153 +1,379 @@
-# Overwatch Account Share - Project AGENTS
+# AGENTS.md: AI Collaboration Guide
 
 ## Project Overview
 
-This project is a secure MERN stack application designed for sharing Overwatch account credentials among users. It features a React/Vite frontend for a modern user interface and a Node.js/Express backend to handle authentication, data storage, and API services.
+**Project Name:** Overwatch Account Share
+**Description:** A secure MERN stack application for sharing Overwatch account credentials within the community. Features a modern glassmorphism UI design with Next.js frontend and Node.js/Express backend powered by Supabase.
+**Primary Language:** JavaScript/TypeScript
+**Framework/Stack:**
+- Frontend: Next.js 14+ with App Router
+- Backend: Node.js with Express
+- Database: PostgreSQL via Supabase
+- Authentication: JWT + bcrypt
+- UI Framework: Tailwind CSS with shadcn/ui components
+- Package Manager: pnpm (frontend), npm (backend)
 
-## Repository Structure
+## Project Structure
 
-This repository is a monorepo with the following structure:
+```
+overwatch-account-share/
+├── client/                    # Next.js frontend (submodule)
+│   ├── app/                 # Next.js App Router pages
+│   │   ├── admin/           # Admin page
+│   │   ├── dashboard/       # Dashboard page
+│   │   ├── login/           # Login page
+│   │   ├── register/        # Registration page
+│   │   └── ...              # Other routes
+│   ├── components/          # Reusable UI components
+│   │   ├── modals/          # Modal components
+│   │   ├── transitions/     # Page transition animations
+│   │   └── ui/              # shadcn/ui components
+│   ├── lib/                 # Utility functions
+│   ├── public/              # Static assets
+│   ├── next.config.mjs      # Next.js configuration
+│   ├── tsconfig.json        # TypeScript configuration
+│   └── package.json         # Frontend dependencies
+│
+├── server/                  # Node.js/Express backend (submodule)
+│   ├── config/             # Database and app configuration
+│   ├── controllers/        # Business logic handlers
+│   ├── middleware/         # Express middleware
+│   ├── models/            # Database models
+│   ├── routes/            # API route definitions
+│   ├── migrations/        # Database migrations
+│   └── server.js          # Main server entry point
+│
+├── .kilocode/             # Kilo Code configuration
+│   └── rules/
+│       └── memory-bank/   # Project memory bank files
+│
+├── testsprite_tests/      # Test files
+├── tools/                 # Development tools
+├── .gitmodules           # Git submodule configuration
+├── package.json          # Root package.json with scripts
+└── sync-submodules.sh    # Script to sync submodules
+```
 
--   [`/client`](client): Contains the React frontend application built with Vite.
--   [`/server`](server): Contains the Node.js backend server using Express.
+## Key Files and Their Purposes
 
-Each sub-directory (`/client` and `/server`) has its own `AGENTS.md` file with more specific instructions and details relevant to that part of the application.
+### Configuration Files
+- `package.json` (root): Manages monorepo scripts and shared dependencies
+- `.gitmodules`: Defines submodule repositories for client and server
+- `client/next.config.mjs`: Next.js configuration
+- `client/tsconfig.json`: TypeScript configuration
+- `server/.env`: Environment variables (DATABASE_URL, JWT_SECRET, etc.)
 
-## Core Technologies
+### Core Application Files
+- `client/app/layout.tsx`: Root Next.js layout component
+- `client/app/page.tsx`: Home page component
+- `client/lib/utils.ts`: Utility functions
+- `server/server.js`: Express server initialization
+- `server/config/db.js`: Supabase database connection
 
--   **MongoDB**: NoSQL database for storing user and account data.
--   **Express**: Backend web application framework for Node.js.
--   **React**: JavaScript library for building the user interface.
--   **Node.js**: JavaScript runtime for the server.
--   **Tailwind CSS**: Utility-first CSS framework for styling.
--   **shadcn/ui**: Re-usable UI components.
+### Database Schema
+- Located in `supabase_schemas.md`
+- Tables: users, overwatch_accounts, overwatch_account_allowed_users, email_services, settings
 
-## Build and Test Commands
+### API Documentation
+- `API_Specification.md`: Complete API endpoint documentation
+- Endpoints organized by: /api/auth, /api/dashboard, /api/overwatch-accounts, /api/admin
 
-### Client (`/client`)
+## Development Workflow
 
--   **Run development server**: `npm run dev`
--   **Build for production**: `npm run build`
--   **Lint code**: `npm run lint`
--   **Preview production build**: `npm run preview`
+### Setup Instructions
+```bash
+# Clone with submodules
+git clone --recursive [repository-url]
 
-### Server (`/server`)
+# Install all dependencies
+npm run install-all
 
--   **Run development server**: `npm run dev`
--   **Start in production**: `npm start`
--   **Setup admin user**: `npm run setup-admin`
+# Start development servers
+npm start  # Runs both client and server concurrently
+```
 
-## Terminal Command Guidelines
+### Common Commands
+```bash
+# Frontend commands
+npm run start-client      # Start Next.js dev server
+npm run build-client      # Build Next.js app
+npm run lint-client       # Run ESLint on client
 
-### Kilo Code Terminal Limitations
-⚠️ **CRITICAL**: Once a command is executed in Kilo Code terminal, you cannot send inputs to it. Plan accordingly!
+# Backend commands
+npm run start-server      # Start Express server
+npm run install-server    # Install server dependencies
 
-### Windows-Specific Background Process Management
-**Important**: The `&` operator behavior depends on your shell:
+# Submodule management
+npm run sync-submodules   # Sync changes to submodule repos
+```
 
-- **Git Bash (Recommended)**: `&` runs processes in background (e.g., `npm run dev &`)
-- **Windows CMD**: `&` is a command separator, use `start /B` instead (e.g., `start /B npm run dev`)
+### Git Workflow
+- Main repository uses submodules for client and server
+- Changes to client push to: https://github.com/Qiiks/glass-hero-hub.git
+- Changes to server push to: https://github.com/Qiiks/Overwatch-Account-Share-Backend.git
+- Use `sync-submodules.sh` script to manage submodule updates
 
-### Background Process Commands
-**Important**: Use output redirection to capture logs and ensure the process stays in background.
+## Architecture Decisions
 
-- **Git Bash (Recommended)**: `cd server && node server.js > server.log 2>&1 &`
-- **Windows CMD**: `start /B cmd /C "cd server && node server.js > server.log 2>&1"`
-- **For debugging/testing**: Use extensive logging instead of interactive debugging
-- **For one-time commands**: Run in foreground to see results immediately
+### Frontend Architecture
+- **Component Structure**: Atomic design with reusable UI components
+- **State Management**: React hooks and context (no Redux currently)
+- **Routing**: Next.js App Router with file-based routing
+- **Rendering**: Server-side rendering (SSR) and static generation (SSG) capabilities
+- **Styling**: Tailwind CSS utility-first approach with glassmorphism theme
+- **API Communication**: Client-side API calls with potential for server components
 
-**Output Redirection Explanation:**
-- `> server.log`: Redirects standard output to server.log
-- `2>&1`: Redirects error output to the same file as standard output
-- `&`: Runs the entire command chain in the background
+### Backend Architecture
+- **API Design**: RESTful endpoints with JWT authentication
+- **Database**: Supabase (PostgreSQL) with lowercase column naming convention
+- **Authentication**: JWT tokens with bcrypt password hashing
+- **Middleware Stack**: 
+  - Authentication (`authMiddleware`)
+  - Admin authorization (`adminMiddleware`)
+  - Rate limiting
+  - Input sanitization
+  - Performance monitoring
 
-### Logging Strategy (Essential for Kilo Code)
-- **Always implement comprehensive logging** before running servers in background
-- **Use structured logging** with timestamps and context
-- **Log all errors, warnings, and key operations**
-- **Include request IDs** for tracing issues
-- **Log performance metrics** for monitoring
+### Data Flow
+1. Frontend makes API calls (client components) or fetches data (server components)
+2. Backend validates JWT token via middleware
+3. Controllers process business logic
+4. Models interact with Supabase database
+5. Response mapped from lowercase (DB) to camelCase (Frontend)
 
-### Log Reading Methods
-- **Live log monitoring**: `tail -f logs/filename.log` or `tail -f server/logs/*.log`
-- **Recent logs**: `tail -n 50 logs/filename.log` (last 50 lines)
-- **Search logs**: `grep "ERROR" logs/*.log` or `grep "keyword" logs/*.log`
-- **Log rotation**: Use `ls -la logs/` to see current log files
+## API Endpoints
 
-### Server-Specific Commands
-- **Start server (Git Bash)**: `cd server && node server.js > server.log 2>&1 &`
-- **Start server (Windows CMD)**: `start /B cmd /C "cd server && node server.js > server.log 2>&1"`
-- **Check if running**: `ps aux | grep node` or `lsof -i :5000`
-- **Stop server**: `pkill -f "node server.js"` or `kill PID`
-- **View server logs**: `tail -f server.log` or `tail -f server/logs/combined-*.log`
+### Authentication (`/api/auth`)
+- `POST /login` - User login
+- `POST /register` - User registration  
+- `GET /me` - Get current user
 
-### Development Workflow (Kilo Code Adapted)
-1. **Implement logging first**: Ensure all critical paths have console.log/logger statements
-2. **Start server in background**: `cd server && node server.js > server.log 2>&1 &`
-3. **Monitor logs in separate terminal**: `tail -f server.log` or `tail -f server/logs/combined-*.log`
-4. **Continue development work** while server runs (cannot interact with server terminal)
-5. **Stop server when done**: `pkill -f "node server.js"`
+### Dashboard (`/api/dashboard`)
+- `GET /` - Get dashboard data (user stats, accounts, activity)
 
-### Debugging in Kilo Code Environment
-- **Pre-implement debugging**: Add extensive logging before running
-- **Use separate terminals**: One for server, one for log monitoring
-- **Test in foreground first**: For critical debugging, run without `&` to see immediate output
-- **Accept limitations**: Cannot switch from foreground to background once started
+### Overwatch Accounts (`/api/overwatch-accounts`)
+- `GET /` - List accounts
+- `POST /` - Add new account
+- `PUT /:id` - Update account
+- `DELETE /:id` - Delete account
+- `POST /:id/share` - Share account with user
+
+### Admin (`/api/admin`)
+- `GET /stats` - Admin statistics
+- `GET /users` - List all users
+- `PATCH /users/:id/status` - Update user status
+- `GET /logs` - System activity logs
+
+## Database Schema
+
+### Users Table
+- id (UUID, Primary Key)
+- username (Text, Unique)
+- email (Text, Unique)
+- password (Text, hashed)
+- role (Text, default: 'user')
+- isAdmin (Boolean, default: false)
+- createdAt/updatedAt (Timestamps)
+
+### Overwatch Accounts Table
+- id (UUID, Primary Key)
+- accountTag (Text, Unique)
+- accountEmail (Text)
+- accountPassword (Text, encrypted)
+- owner_id (UUID, Foreign Key to users)
+- rank (Text)
+- mainHeroes (Text Array)
+- lastUsed (Timestamp)
+- sharingStatus (Text)
+
+### Junction Table
+- overwatch_account_allowed_users
+  - overwatch_account_id (Foreign Key)
+  - user_id (Foreign Key)
+  - Composite Primary Key
+
+## Testing Strategy
+
+### E2E Testing
+- **Framework**: Playwright
+- **Coverage**: Authentication flow, registration, dashboard access, API integration
+- **Location**: `testsprite_tests/` directory
+
+### Test Scenarios
+1. User registration with validation
+2. Login with JWT token verification
+3. Dashboard data loading
+4. Account CRUD operations
+5. Admin panel access control
+
+## Deployment Considerations
+
+### Environment Variables
+Required in production:
+- `DATABASE_URL` - Supabase connection string
+- `JWT_SECRET` - Secret for JWT signing
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anonymous key
+- `NODE_ENV` - Production/development flag
+- `PORT` - Server port (default: 5000)
+
+### Build Process
+```bash
+# Build frontend for production
+npm run build-client
+
+# Frontend output: client/dist
+# Serve with any static file server
+
+# Backend: Deploy server/ directory to Node.js host
+# Ensure all environment variables are set
+```
+
+### Security Considerations
+- All passwords hashed with bcrypt
+- JWT tokens for session management
+- CORS configured for specific origins
+- Rate limiting on API endpoints
+- Input sanitization middleware
+- HTTPS required in production
 
 ## Code Style Guidelines
 
--   **Client**: The client-side code follows standard React and TypeScript conventions, enforced by ESLint. The configuration can be found in [`client/eslint.config.js`](client/eslint.config.js).
--   **Server**: The server-side code does not currently have a linter or formatter. Please maintain a consistent style with the existing code.
+### Frontend Guidelines
+- **Components**: Functional components with TypeScript
+- **Naming**: PascalCase for components, camelCase for functions
+- **Imports**: Absolute imports from `@/` alias
+- **Styling**: Tailwind utility classes, avoid inline styles
+- **Types**: Define interfaces for all props and API responses
 
-## Testing Instructions
+### Backend Guidelines  
+- **Controllers**: Async/await pattern with try-catch
+- **Error Handling**: Consistent error response format
+- **Validation**: Input validation on all endpoints
+- **Database**: Lowercase column names, camelCase in responses
+- **Logging**: Winston logger for production logs
 
-Testing for this application should be performed exclusively using the Playwright MCP server. All tests should focus on browser automation tasks to simulate user interactions and verify application behavior.
+### Git Commit Convention
+```
+type(scope): description
 
-### Recommended Tools
+- feat: New feature
+- fix: Bug fix
+- docs: Documentation
+- style: Code style changes
+- refactor: Code refactoring
+- test: Test updates
+- chore: Build/config changes
+```
 
-Use the following Playwright MCP tools for all testing activities:
+## Common Tasks
 
--   `browser_navigate`: To navigate to different pages (e.g., login, dashboard, admin).
--   `browser_fill_form`: To fill in login forms or other input fields.
--   `browser_click`: To interact with buttons and links (e.g., login, logout, suspend).
--   `browser_snapshot`: To capture the state of the page for verification.
+### Adding a New Page
+1. Create page component in `client/app/[route-name]/page.tsx`
+2. Next.js automatically handles routing based on file structure
+3. Create corresponding API endpoints if needed
+4. Update navigation in `Navigation.tsx`
 
-## MCP Server Usage
+### Adding API Endpoint
+1. Define route in `server/routes/`
+2. Implement controller in `server/controllers/`
+3. Add middleware if authentication required
+4. Update API documentation
+5. Add TypeScript types in frontend
 
-### Playwright MCP Server
-- **Purpose**: Use the Playwright MCP server for all testing and debugging tasks that involve browser interaction.
-- **Key Tools**:
-    - `browser_navigate`: To navigate to different pages.
-    - `browser_fill_form`: To fill in forms.
-    - `browser_click`: To interact with UI elements.
-    - `browser_snapshot`: To capture the state of the page for verification.
+### Database Migration
+1. Create migration file in `server/migrations/`
+2. Follow naming: `YYYY-MM-DD-description.sql`
+3. Apply with migration script
+4. Update model files if schema changed
 
-### Ref MCP Server
-- **Purpose**: Use the Ref MCP server to search for documentation and read online articles.
-- **Key Tools**:
-    - `ref_search_documentation`: To find relevant documentation.
-    - `ref_read_url`: To read the content of a URL.
+## Troubleshooting Guide
 
-### Brave Search MCP Server
-- **Purpose**: Use the Brave Search MCP server for general web searches and to gather information from various online sources.
-- **Key Tools**:
-    - `brave_web_search`: To perform web searches.
+### Common Issues
 
-## Security Considerations
+#### Frontend Not Loading
+- Check if backend server is running (port 5000)
+- Verify API_URL in frontend configuration
+- Check browser console for CORS errors
 
--   The server uses `dotenv` to manage environment variables. A `.env.example` file is provided in the [`/server`](server) directory.
--   Authentication is handled with JWT, and middleware is in place for protecting routes.
+#### Authentication Failures
+- Verify JWT_SECRET matches between restarts
+- Check token expiration settings
+- Ensure database has correct user schema
 
-## Getting Started
+#### Database Connection Issues
+- Verify SUPABASE_URL and SUPABASE_ANON_KEY
+- Check network connectivity to Supabase
+- Verify database migrations are applied
 
-To get the application running locally, follow these steps:
+#### Submodule Sync Problems
+- Use `git submodule update --init --recursive`
+- Check permissions for submodule repositories
+- Verify `.gitmodules` paths are correct
 
-1.  **Start the backend server:**
-    ```bash
-    cd server && npm install && npm start
-    ```
+## Performance Optimization
 
-2.  **Start the frontend client:**
-    ```bash
-    cd client && npm install && npm run dev
-    ```
+### Frontend Optimizations
+- Automatic code splitting via Next.js
+- Image optimization with next/image component
+- Server-side rendering and static generation
+- Built-in performance optimizations
+- Memoization for expensive computations
+
+### Backend Optimizations
+- Database query optimization
+- Redis caching [INFERRED - Confidence: Medium] (redis dependency present)
+- Compression middleware enabled
+- Rate limiting to prevent abuse
+
+## Contact and Resources
+
+### Repository Links
+- Main: [INFERRED - Confidence: Low] (Not specified in files)
+- Client Submodule: https://github.com/Qiiks/glass-hero-hub.git
+- Server Submodule: https://github.com/Qiiks/Overwatch-Account-Share-Backend.git
+
+### Documentation
+- API Specification: `API_Specification.md`
+- Implementation Plan: `Implementation_Plan.md`
+- Changelog: `CHANGELOG.md`
+- Database Schema: `supabase_schemas.md`
+
+### Development Tools
+- **Kilo Code**: AI-powered development environment
+- **Playwright MCP**: E2E testing server
+- **Supabase Dashboard**: Database management
+- **Git Submodules**: Code organization
+
+## Notes for AI Agents
+
+### Current State (as of last update)
+- ✅ Backend-frontend integration complete
+- ✅ E2E tests passing
+- ✅ Database schema standardized to lowercase
+- ✅ API responses mapped to camelCase for frontend
+- ✅ Authentication flow working end-to-end
+- ✅ Legacy code removed
+
+### Priority Areas
+1. **UI Polish**: Modal alignment fixes needed (see Implementation_Plan.md)
+2. **Admin Features**: User registration toggle, create user functionality
+3. **Page Transitions**: Planned triangle animation system
+4. **Testing**: Expand test coverage beyond E2E basics
+
+### Known Technical Debt
+- No Redux/state management library (using React Context)
+- Manual submodule syncing required
+
+### Best Practices for Modifications
+1. Always update both TypeScript types and backend responses
+2. Maintain lowercase database columns, camelCase API responses
+3. Test authentication flow after any auth-related changes
+4. Run E2E tests before major commits
+5. Update memory bank files after significant changes
+
+---
+
+*Last Updated: 2025-10-05*  
+*Generated for: AI Agent Collaboration*  
+*Confidence Levels: High (verified in code), Medium (strong inference), Low (assumed)*

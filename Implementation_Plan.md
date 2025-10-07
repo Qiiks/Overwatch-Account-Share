@@ -8,8 +8,8 @@ This section details the plan for implementing smooth page transitions with a cu
 
 ### 1.1. Technology & Library Recommendations
 
-*   **`framer-motion`**: A powerful and easy-to-use animation library for React. It's perfect for creating the complex, performant, and accessible page transitions we need.
-*   **`three.js`** or **`@react-three/fiber`**: For generating and rendering the low-poly, procedurally generated triangular mesh. `@react-three/fiber` is a React renderer for `three.js` that will make it easier to integrate into our component-based architecture.
+*   **`framer-motion`**: A powerful and easy-to-use animation library for React/Next.js. It's perfect for creating the complex, performant, and accessible page transitions we need.
+*   **`three.js`** or **`@react-three/fiber`**: For generating and rendering the low-poly, procedurally generated triangular mesh. `@react-three/fiber` is a React renderer for `three.js` that will make it easier to integrate into our Next.js component-based architecture.
 
 ### 1.2. Component Breakdown
 
@@ -18,13 +18,13 @@ This section details the plan for implementing smooth page transitions with a cu
 
 ### 1.3. Step-by-Step Guide
 
-1.  **Install Dependencies**: Add `framer-motion` and `@react-three/fiber` to the `client`'s `package.json`.
+1.  **Install Dependencies**: Add `framer-motion` and `@react-three/fiber` to the `client`'s `package.json` using `pnpm`.
 2.  **Create `TriangleAnimation.tsx`**:
     *   Use `@react-three/fiber` to create a scene with a procedurally generated triangular mesh.
     *   The mesh should be styled to have a low-poly look with a subtle, pulsing glow.
     *   The component should accept animation variants from `framer-motion` to control its appearance and disappearance (e.g., `converge`, `dissolve`).
 3.  **Create `TransitionProvider.tsx`**:
-    *   Wrap the `<Routes>` component in `client/src/App.tsx` with this provider.
+    *   Integrate with Next.js's routing system using the App Router.
     *   Use `framer-motion`'s `AnimatePresence` to manage the mounting and unmounting of pages.
     *   On route changes, render the `TriangleAnimation.tsx` component to orchestrate the transition:
         *   Animate the triangles to converge and cover the screen.
@@ -86,7 +86,7 @@ This section covers the addition of new features to the admin panel.
 
 ### 2.2. Component Breakdown
 
-*   **`AdminSettings.tsx`**: A new component within [`client/src/pages/Admin.tsx`](client/src/pages/Admin.tsx:1) that will contain the toggle for user registrations.
+*   **`AdminSettings.tsx`**: A new component within [`client/app/admin/page.tsx`](client/app/admin/page.tsx:1) that will contain the toggle for user registrations.
 *   **`CreateUserForm.tsx`**: A new component that will be used to create new users. It will be a form with fields for username, email, password, and role. This could be placed within a modal or a dedicated section in the admin panel.
 
 ### 2.3. Step-by-Step Guide
@@ -109,8 +109,8 @@ This section covers the addition of new features to the admin panel.
     *   Build a form using `shadcn/ui` components (`Input`, `Label`, `Button`, `Select` for role).
     *   Implement form handling and validation (e.g., using `react-hook-form` and `zod`).
     *   On submission, send a `POST` request to the API to create the new user.
-3.  **Integrate into `Admin.tsx`**:
-    *   Add the `AdminSettings` component to the [`Admin.tsx`](client/src/pages/Admin.tsx:1) page, likely near the "Quick Actions" section.
+3.  **Integrate into `Admin Page`**:
+    *   Add the `AdminSettings` component to the [`client/app/admin/page.tsx`](client/app/admin/page.tsx:1) page, likely near the "Quick Actions" section.
     *   Add a button that opens a modal containing the `CreateUserForm.tsx` to create a new user. This could be placed in the "User Management" section.
 
 

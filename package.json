@@ -32,8 +32,22 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.3",
     "@playwright/test": "^1.55.0",
-    "@types/node": "^24.3.0"
+    "@types/node": "^24.3.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "concurrently": "^8.2.2"
   },
-  "scripts": {}
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "sync-submodules": "./sync-submodules.sh",
+    "start": "concurrently \"npm run start-server\" \"npm run start-client\"",
+    "start-client": "cd client && pnpm dev",
+    "build-client": "cd client && pnpm build",
+    "install-client": "cd client && pnpm install",
+    "lint-client": "cd client && pnpm lint",
+    "start-server": "node server/server.js",
+    "install-all": "npm install && npm run install-client && npm run install-server",
+    "install-server": "cd server && npm install"
+  }
 }
