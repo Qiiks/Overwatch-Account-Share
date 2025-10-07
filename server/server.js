@@ -74,7 +74,7 @@ app.use(helmet({
 app.disable('x-powered-by');
 
 // CORS configuration - allow both old and new frontend origins
-const allowedOrigins = ["http://localhost:3000", "http://127.0.0.1:8080", "http://localhost:5001"];
+const allowedOrigins = ["http://localhost:3000", "http://127.0.0.1:8080", "http://localhost:5001", "https://overwatch.qiikzx.dev"];
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc.)
