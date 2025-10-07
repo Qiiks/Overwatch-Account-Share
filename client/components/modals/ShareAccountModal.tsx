@@ -1,0 +1,207 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { GlassButton } from "@/components/ui/GlassButton"
+import { GlassInput } from "@/components/ui/GlassInput"
+import { Label } from "@/components/ui/label"
+
+interface Credential {
+  id: string
+  name: string
+  type: "password" | "otp" | "api_key"
+  lastUsed: string
+  isShared: boolean
+  sharedWith: string[]
+  owner: string
+}
+
+interface ShareAccountModalProps {
+  isOpen: boolean
+  onClose: () => void
+  credential: Credential | null
+}
+
+export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountModalProps) {
+  const [email, setEmail] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleShare = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!credential) return
+
+    setIsLoading(true)
+
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
+      const token = localStorage.getItem("auth_token")
+
+      // Fetch users to resolve email -> userId
+      const usersResp = await fetch(`${apiBase}/api/overwatch/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!usersResp.ok) {
+        alert("Failed to load users for sharing")
+        return
+      }
+      const usersData = await usersResp.json()
+      const user = (usersData?.data || usersData)?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase())
+      if (!user) {
+        alert("User not found. Make sure the email is registered.")
+        return
+      }
+
+      const response = await fetch(`${apiBase}/api/overwatch/accounts/${credential.id}/access`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userIds: [user.id] }),
+      })
+
+      if (response.ok) {
+        setEmail("")
+        onClose()
+        // Refresh the dashboard
+        window.location.reload()
+      } else {
+        alert("Failed to share credential")
+      }
+    } catch (error) {
+      console.error("Share credential error:", error)
+      alert("Failed to share credential")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRevoke = async (userEmail: string) => {
+    if (!credential) return
+
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
+      const token = localStorage.getItem("auth_token")
+
+      // Resolve email -> userId
+      const usersResp = await fetch(`${apiBase}/api/overwatch/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!usersResp.ok) {
+        alert("Failed to load users for revoke")
+        return
+      }
+      const usersData = await usersResp.json()
+      const user = (usersData?.data || usersData)?.find((u: any) => u.email?.toLowerCase() === userEmail.toLowerCase())
+      if (!user) {
+        alert("User not found")
+        return
+      }
+
+      // Fetch current allowed list, remove this user, and PUT
+      const currentAllowed = (credential.sharedWith || []).filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
+
+      // Map remaining emails -> ids
+      const idMap = (usersData?.data || usersData) as any[]
+      const remainingIds = currentAllowed
+        .map((e) => idMap.find((u: any) => u.email?.toLowerCase() === e.toLowerCase())?.id)
+        .filter(Boolean)
+
+      const response = await fetch(`${apiBase}/api/overwatch/accounts/${credential.id}/access`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userIds: remainingIds }),
+      })
+
+      if (response.ok) {
+        // Refresh the dashboard
+        window.location.reload()
+      } else {
+        alert("Failed to revoke access")
+      }
+    } catch (error) {
+      console.error("Revoke access error:", error)
+      alert("Failed to revoke access")
+    }
+  }
+
+  if (!credential) return null
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+        <DialogHeader>
+          <DialogTitle className="text-[#8A2BE2] text-xl">Share Credential</DialogTitle>
+          <DialogDescription className="text-[#EAEAEA]/70">
+            Share "{credential.name}" with other users securely
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Share with new user */}
+          <form onSubmit={handleShare} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-[#EAEAEA]">
+                Share with user (email)
+              </Label>
+              <GlassInput
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter user's email address"
+                required
+              />
+            </div>
+
+            <GlassButton type="submit" variant="primary" disabled={isLoading || !email} className="w-full">
+              {isLoading ? "Sharing..." : "Share Credential"}
+            </GlassButton>
+          </form>
+
+          {/* Currently shared with */}
+          {credential.sharedWith.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-[#EAEAEA]">Currently shared with:</Label>
+              <div className="space-y-2">
+                {credential.sharedWith.map((userEmail) => (
+                  <div
+                    key={userEmail}
+                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-[#8A2BE2]/20 flex items-center justify-center">
+                        <span className="text-sm font-medium text-[#8A2BE2]">{userEmail.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <span className="text-[#EAEAEA]">{userEmail}</span>
+                    </div>
+                    <GlassButton size="sm" variant="destructive" onClick={() => handleRevoke(userEmail)}>
+                      Revoke
+                    </GlassButton>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {credential.sharedWith.length === 0 && (
+            <div className="text-center py-4 text-[#EAEAEA]/50">
+              This credential is not currently shared with anyone.
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <GlassButton variant="ghost" onClick={onClose}>
+              Close
+            </GlassButton>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
