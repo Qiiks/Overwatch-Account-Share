@@ -34,6 +34,11 @@ const { connectRedis, cache } = require('./utils/cache');
 
 const app = express();
 
+// Simple health check endpoint for container health checks (responds immediately)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
 // HTTPS setup
 let server;
 try {
@@ -46,12 +51,33 @@ try {
   console.warn('HTTPS certs not found, falling back to HTTP');
 }
 
+// Socket.IO with proper CORS configuration for production
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like server-to-server)
+      if (!origin) return callback(null, true);
+      
+      // In production, allow any subdomain of qiikzx.dev
+      if (origin && origin.includes('.qiikzx.dev')) {
+        return callback(null, true);
+      }
+      
+      // Allow localhost for development
+      if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        return callback(null, true);
+      }
+      
+      console.warn(`WebSocket CORS: Rejected origin: ${origin}`);
+      return callback(null, false);
+    },
     methods: ["GET", "POST"],
-    credentials: true
-  }
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Length', 'Content-Type']
+  },
+  transports: ['websocket', 'polling'], // Enable both transports
+  allowEIO3: true // Allow different Socket.IO versions
 });
 
 // Security middleware
@@ -73,40 +99,62 @@ app.use(helmet({
 }));
 app.disable('x-powered-by');
 
-// CORS configuration - allow both old and new frontend origins
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://127.0.0.1:8080",
-  "http://localhost:5001",
-  "https://overwatch.qiikzx.dev",
-  "https://bwgg4wow8kggc48kko0g080c.qiikzx.dev" // Add backend URL for Coolify
-];
-
+// CORS configuration - comprehensive production-ready setup
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    
-    // In production, allow any subdomain of qiikzx.dev
-    if (process.env.NODE_ENV === 'production' && origin && origin.includes('.qiikzx.dev')) {
+    // CRITICAL: Allow requests with no origin (server-to-server, Postman, curl, etc.)
+    if (!origin) {
+      console.log('CORS: Allowing request with no origin header');
       return callback(null, true);
     }
     
-    if (allowedOrigins.includes(origin)) {
+    // PRODUCTION: Allow ANY subdomain of qiikzx.dev
+    // This covers all Coolify deployments and custom subdomains
+    if (origin.includes('.qiikzx.dev')) {
+      console.log(`CORS: Allowing production origin: ${origin}`);
       return callback(null, true);
-    } else {
-      // Log the rejected origin for debugging
-      console.warn(`CORS: Rejected origin: ${origin}`);
-      // Return false instead of an error to send proper CORS headers
-      return callback(null, false);
     }
+    
+    // DEVELOPMENT: Allow all localhost variations
+    if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
+      console.log(`CORS: Allowing development origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // FALLBACK: Check environment variable for custom allowed origins
+    const customAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+    if (customAllowedOrigins.includes(origin)) {
+      console.log(`CORS: Allowing custom origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // REJECT: Log and reject unknown origins
+    console.warn(`CORS: REJECTED origin: ${origin}`);
+    // IMPORTANT: Must return false, not an error, to send proper CORS headers
+    return callback(null, false);
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  maxAge: 86400, // Cache preflight for 24 hours
-  optionsSuccessStatus: 200
+  credentials: true, // CRITICAL: Required for cookies and authentication
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'], // All HTTP methods
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+    'X-CSRF-Token',
+    'X-Socket-ID' // For Socket.IO
+  ],
+  exposedHeaders: [
+    'Content-Length',
+    'Content-Type',
+    'X-Request-Id',
+    'X-Response-Time'
+  ],
+  maxAge: 86400, // Cache preflight for 24 hours in production
+  optionsSuccessStatus: 200, // Legacy browser support
+  preflightContinue: false // Let CORS handle preflight, not pass to next middleware
 };
 app.use(cors(corsOptions));
 
