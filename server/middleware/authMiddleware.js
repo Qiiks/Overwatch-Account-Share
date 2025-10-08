@@ -33,8 +33,9 @@ const authMiddleware = async (req, res, next) => {
   }
 
   try {
-    // Verify the JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Verify the JWT token - use fallback if JWT_SECRET not set
+    const jwtSecret = process.env.JWT_SECRET || 'production-secret-key-2025-overwatch-share-platform';
+    const decoded = jwt.verify(token, jwtSecret);
 
     // Fetch user from database
     const { data: user, error } = await supabase
