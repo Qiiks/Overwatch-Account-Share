@@ -41,12 +41,19 @@ services:
   client:
     build:
       context: ./client
+      # CRITICAL: Build arguments must be passed at build time for Next.js
+      args:
+        # Use environment variables with defaults for flexibility
+        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://bwgg4wow8kggc48kko0g080c.qiikzx.dev}
+        - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-https://overwatch.qiikzx.dev}
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_BASE_URL=https://bwgg4wow8kggc48kko0g080c.qiikzx.dev
-      - NEXT_PUBLIC_FRONTEND_URL=https://overwatch.qiikzx.dev
+      # These runtime env vars are not used by Next.js client-side code
+      # but kept for reference and potential server-side usage
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://bwgg4wow8kggc48kko0g080c.qiikzx.dev}
+      - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-https://overwatch.qiikzx.dev}
     depends_on:
       - server
     restart: unless-stopped
