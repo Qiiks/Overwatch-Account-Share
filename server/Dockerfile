@@ -12,24 +12,32 @@ RUN apk add --no-cache \
 # Create app directory
 WORKDIR /usr/src/app
 
-# Copy package files first for better Docker layer caching
-COPY package*.json ./
+# Create a non-root user to run the application FIRST
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
-# Install dependencies with clean install for production
+# Copy package files first for better Docker layer caching
+COPY --chown=nodejs:nodejs package*.json ./
+
+# Install dependencies with clean install for production as nodejs user
+USER nodejs
 RUN npm ci --only=production || npm install --production
 
-# Copy application source code
-COPY . .
+# Switch back to root to copy files
+USER root
 
-# Create logs directory
-RUN mkdir -p logs && chmod 755 logs
+# Copy application source code with proper ownership
+COPY --chown=nodejs:nodejs . .
 
-# Create a non-root user to run the application
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /usr/src/app
+# Create logs directory with proper ownership and permissions
+RUN mkdir -p logs && \
+    chown nodejs:nodejs logs && \
+    chmod 755 logs
 
-# Switch to non-root user
+# Ensure all files have correct ownership (double-check)
+RUN chown -R nodejs:nodejs /app
+
+# Switch to non-root user for runtime
 USER nodejs
 
 # Expose port
