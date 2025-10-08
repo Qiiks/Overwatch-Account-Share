@@ -46,7 +46,9 @@ RUN npm install -g pnpm
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
+# Create app directory and set ownership BEFORE copying files
 WORKDIR /usr/src/app
+RUN chown nodejs:nodejs /usr/src/app
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/.next ./.next
