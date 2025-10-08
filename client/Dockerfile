@@ -1,5 +1,5 @@
 # Base image
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -24,8 +24,42 @@ RUN pnpm install
 # Copy application source code with proper ownership
 COPY --chown=nodejs:nodejs . .
 
-# Build the app as nodejs user
+# CRITICAL: Accept build arguments for Next.js environment variables
+# These MUST be available at build time for Next.js to embed them in the client bundle
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_FRONTEND_URL
+
+# Set them as environment variables for the build process
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL}
+
+# Build the app with the environment variables available
 RUN pnpm build
+
+# Production stage
+FROM node:20-alpine AS runner
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Create nodejs user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+WORKDIR /usr/src/app
+
+# Copy built application from builder stage
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/.next ./.next
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/public ./public
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/next.config.mjs ./next.config.mjs
+
+# Switch to nodejs user
+USER nodejs
+
+# Install only production dependencies
+RUN pnpm install --prod
 
 # Expose port
 EXPOSE 3000
