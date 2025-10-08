@@ -74,11 +74,24 @@ app.use(helmet({
 app.disable('x-powered-by');
 
 // CORS configuration - allow both old and new frontend origins
-const allowedOrigins = ["http://localhost:3000", "http://127.0.0.1:8080", "http://localhost:5001", "https://overwatch.qiikzx.dev"];
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:8080",
+  "http://localhost:5001",
+  "https://overwatch.qiikzx.dev",
+  "https://bwgg4wow8kggc48kko0g080c.qiikzx.dev" // Add backend URL for Coolify
+];
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
+    
+    // In production, allow any subdomain of qiikzx.dev
+    if (process.env.NODE_ENV === 'production' && origin && origin.includes('.qiikzx.dev')) {
+      return callback(null, true);
+    }
+    
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
@@ -90,7 +103,9 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400, // Cache preflight for 24 hours
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));

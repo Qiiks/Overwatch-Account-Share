@@ -5,33 +5,52 @@ const getSupabase = () => global.supabase;
 
 class User {
   static async findOne(query) {
-    const { data, error } = await getSupabase()
-      .from('users')
-      .select('*')
-      .match(query)
-      .single();
+    try {
+      const { data, error } = await getSupabase()
+        .from('users')
+        .select('*')
+        .match(query)
+        .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-      throw error;
-    }
-
-    // If we found a user, add the matchPassword method to the plain object
-    if (data) {
-      data.matchPassword = async function(enteredPassword) {
-        // The database stores password as 'password_hash'
-        return await bcrypt.compare(enteredPassword, this.password_hash || this.password);
-      };
-      // Also map some fields for compatibility
-      data._id = data.id;
-      data.isApproved = data.isapproved;
-      data.isAdmin = data.isadmin;
-      // Ensure password field points to password_hash for compatibility
-      if (data.password_hash && !data.password) {
-        data.password = data.password_hash;
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Database error in User.findOne:', error);
+        throw error;
       }
-    }
 
-    return data;
+      // If we found a user, add the matchPassword method to the plain object
+      if (data) {
+        // Ensure password field is properly set from password_hash
+        if (data.password_hash) {
+          data.password = data.password_hash;
+        }
+        
+        // Add the matchPassword method with proper error handling
+        data.matchPassword = async function(enteredPassword) {
+          try {
+            // The database stores password as 'password_hash'
+            const hashedPassword = this.password_hash || this.password;
+            if (!hashedPassword) {
+              console.error('No password hash found for user:', this.email);
+              return false;
+            }
+            return await bcrypt.compare(enteredPassword, hashedPassword);
+          } catch (err) {
+            console.error('Error comparing passwords:', err);
+            return false;
+          }
+        };
+        
+        // Map fields for compatibility
+        data._id = data.id;
+        data.isApproved = data.isapproved !== undefined ? data.isapproved : true;
+        data.isAdmin = data.isadmin || false;
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Critical error in User.findOne:', err);
+      throw err;
+    }
   }
 
   static async findById(id, projection = '') {
