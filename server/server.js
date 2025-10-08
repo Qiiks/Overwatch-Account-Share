@@ -51,33 +51,61 @@ try {
   console.warn('HTTPS certs not found, falling back to HTTP');
 }
 
-// Socket.IO with proper CORS configuration for production
+// Socket.IO with PRODUCTION FIX CORS configuration
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
       // Allow requests with no origin (like server-to-server)
-      if (!origin) return callback(null, true);
+      if (!origin) {
+        console.log('WebSocket: Allowing connection with no origin');
+        return callback(null, true);
+      }
+      
+      // PRODUCTION FIX: Explicitly allow production domains
+      const allowedDomains = [
+        'https://overwatch.qiikzx.dev',
+        'https://bwgg4wow8kggc48kko0g080c.qiikzx.dev',
+        'http://overwatch.qiikzx.dev',
+        'http://bwgg4wow8kggc48kko0g080c.qiikzx.dev'
+      ];
+      
+      if (allowedDomains.includes(origin)) {
+        console.log(`WebSocket: Explicitly allowing production origin: ${origin}`);
+        return callback(null, true);
+      }
       
       // In production, allow any subdomain of qiikzx.dev
-      if (origin && origin.includes('.qiikzx.dev')) {
+      if (origin && (origin.includes('.qiikzx.dev') || origin === 'https://qiikzx.dev' || origin === 'http://qiikzx.dev')) {
+        console.log(`WebSocket: Allowing production origin: ${origin}`);
         return callback(null, true);
       }
       
       // Allow localhost for development
-      if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0'))) {
+        console.log(`WebSocket: Allowing development origin: ${origin}`);
         return callback(null, true);
       }
       
-      console.warn(`WebSocket CORS: Rejected origin: ${origin}`);
+      // Check environment variable for custom allowed origins
+      const customAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+      if (customAllowedOrigins.includes(origin)) {
+        console.log(`WebSocket: Allowing custom origin: ${origin}`);
+        return callback(null, true);
+      }
+      
+      console.warn(`WebSocket CORS: REJECTED origin: ${origin}`);
       return callback(null, false);
     },
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Socket-ID'],
     exposedHeaders: ['Content-Length', 'Content-Type']
   },
   transports: ['websocket', 'polling'], // Enable both transports
-  allowEIO3: true // Allow different Socket.IO versions
+  allowEIO3: true, // Allow different Socket.IO versions
+  pingTimeout: 60000, // Increase ping timeout for production
+  pingInterval: 25000, // Increase ping interval for production
+  connectTimeout: 45000 // Increase connection timeout for production
 });
 
 // Security middleware
@@ -99,7 +127,7 @@ app.use(helmet({
 }));
 app.disable('x-powered-by');
 
-// CORS configuration - comprehensive production-ready setup
+// CORS configuration - PRODUCTION FIX with explicit headers
 const corsOptions = {
   origin: function (origin, callback) {
     // CRITICAL: Allow requests with no origin (server-to-server, Postman, curl, etc.)
@@ -108,15 +136,25 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // PRODUCTION: Allow ANY subdomain of qiikzx.dev
-    // This covers all Coolify deployments and custom subdomains
-    if (origin.includes('.qiikzx.dev')) {
+    // PRODUCTION FIX: Explicitly check for production domains
+    const productionDomains = [
+      'https://overwatch.qiikzx.dev',
+      'https://bwgg4wow8kggc48kko0g080c.qiikzx.dev'
+    ];
+    
+    if (productionDomains.includes(origin)) {
+      console.log(`CORS: Explicitly allowing production origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // PRODUCTION: Allow ANY subdomain of qiikzx.dev (including http and https)
+    if (origin && (origin.includes('.qiikzx.dev') || origin === 'https://qiikzx.dev' || origin === 'http://qiikzx.dev')) {
       console.log(`CORS: Allowing production origin: ${origin}`);
       return callback(null, true);
     }
     
     // DEVELOPMENT: Allow all localhost variations
-    if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
+    if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0'))) {
       console.log(`CORS: Allowing development origin: ${origin}`);
       return callback(null, true);
     }
@@ -150,16 +188,51 @@ const corsOptions = {
     'Content-Length',
     'Content-Type',
     'X-Request-Id',
-    'X-Response-Time'
+    'X-Response-Time',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
   ],
   maxAge: 86400, // Cache preflight for 24 hours in production
   optionsSuccessStatus: 200, // Legacy browser support
   preflightContinue: false // Let CORS handle preflight, not pass to next middleware
 };
+
+// Apply CORS middleware
 app.use(cors(corsOptions));
 
 // Add explicit OPTIONS handling for preflight requests
 app.options('*', cors(corsOptions));
+
+// PRODUCTION FIX: Add fallback CORS headers for all responses
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Only add headers if not already set by cors middleware
+  if (!res.headersSent) {
+    // Check if origin is allowed
+    if (!origin ||
+        origin.includes('.qiikzx.dev') ||
+        origin === 'https://qiikzx.dev' ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')) {
+      
+      // Set CORS headers explicitly as fallback
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-CSRF-Token, X-Socket-ID');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type, X-Request-Id, X-Response-Time');
+      
+      // Handle preflight
+      if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Max-Age', '86400');
+        return res.sendStatus(200);
+      }
+    }
+  }
+  
+  next();
+});
 
 // Response compression middleware
 app.use(compression());
