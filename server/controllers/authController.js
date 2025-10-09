@@ -127,20 +127,20 @@ exports.login = [
         });
       }
       
-      // Check if JWT_SECRET is available, use a secure default for production if not set
-      const jwtSecret = process.env.JWT_SECRET || 'production-secret-key-2025-overwatch-share-platform';
-      
+      // Check if JWT_SECRET is available
       if (!process.env.JWT_SECRET) {
-        console.warn('WARNING: JWT_SECRET not set in environment, using default. This should be fixed in production!');
+        return res.status(500).json({
+          success: false,
+          error: 'Server configuration error'
+        });
       }
       
       let token;
       try {
-        token = jwt.sign({ id: user._id }, jwtSecret, {
+        token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
           expiresIn: '1h'
         });
       } catch (jwtError) {
-        console.error('JWT Error:', jwtError);
         return res.status(500).json({
           success: false,
           error: 'Error generating authentication token'
