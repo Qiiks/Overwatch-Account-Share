@@ -34,4 +34,4 @@
 
 ### Configurable CORS and Socket Origins (2025-10-09)
 - Centralized API and WebSocket origin allow-lists with support for environment overrides to permit production domains.
-- Updated Helmet CSP `connect-src` policy to include the configured origins, preventing blocked dashboard requests and socket timeouts in production.
+- Normalized and protocol-expanded origin handling (http/https + ws/wss) and updated Helmet CSP `connect-src` policy so production dashboard requests and socket handshakes succeed.

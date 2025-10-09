@@ -60,7 +60,33 @@ const configuredOrigins = [
   .map(origin => (origin || '').trim())
   .filter(Boolean);
 
-const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...configuredOrigins]));
+const normalizeOrigin = (origin) => {
+  if (!origin) return null;
+  try {
+    const url = new URL(origin);
+    const base = `${url.protocol}//${url.host}`;
+    return base.replace(/\/$/, '');
+  } catch (err) {
+    return origin.replace(/\/$/, '');
+  }
+};
+
+const addProtocolVariants = (origin) => {
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return [];
+  const variants = new Set([normalized]);
+  if (normalized.startsWith('http://')) {
+    variants.add(normalized.replace('http://', 'https://'));
+  } else if (normalized.startsWith('https://')) {
+    variants.add(normalized.replace('https://', 'http://'));
+  }
+  return Array.from(variants);
+};
+
+const allowedOrigins = Array.from(new Set([
+  ...defaultAllowedOrigins.flatMap(addProtocolVariants),
+  ...configuredOrigins.flatMap(addProtocolVariants)
+])).filter(Boolean);
 
 logger.info('Configured CORS origins', { allowedOrigins });
 
@@ -81,7 +107,11 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", ...allowedOrigins],
+      connectSrc: [
+        "'self'",
+        ...allowedOrigins,
+        ...allowedOrigins.map(origin => origin.replace('http://', 'ws://').replace('https://', 'wss://'))
+      ],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
