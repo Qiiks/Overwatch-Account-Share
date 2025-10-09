@@ -88,9 +88,13 @@ const addProtocolVariants = (origin) => {
 const allowedOrigins = Array.from(new Set([
   ...defaultAllowedOrigins.flatMap(addProtocolVariants),
   ...configuredOrigins.flatMap(addProtocolVariants)
-])).filter(Boolean);
+]))
+  .map(origin => normalizeOrigin(origin))
+  .filter(Boolean);
 
-logger.info('Configured CORS origins', { allowedOrigins });
+const allowedOriginsSet = new Set(allowedOrigins);
+
+logger.info('Configured CORS origins', { allowedOrigins: Array.from(allowedOriginsSet) });
 
 const io = new Server(server, {
   cors: {
@@ -98,6 +102,38 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true
   }
+});
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`CORS: Rejected origin: ${origin}`);
+    return callback(new Error(`CORS: Origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+app.use((err, req, res, next) => {
+  if (err && typeof err.message === 'string' && err.message.startsWith('CORS:')) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Origin not allowed by CORS',
+      origin: req.headers.origin || null
+    });
+  }
+  next(err);
 });
 
 // Security middleware
@@ -122,29 +158,6 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 app.disable('x-powered-by');
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      // Log the rejected origin for debugging
-      console.warn(`CORS: Rejected origin: ${origin}`);
-      // Return false instead of an error to send proper CORS headers
-      return callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-
-// Add explicit OPTIONS handling for preflight requests
-app.options('*', cors(corsOptions));
 
 // Response compression middleware
 app.use(compression());
