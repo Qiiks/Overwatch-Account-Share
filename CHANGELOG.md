@@ -37,3 +37,7 @@
 - Normalized and protocol-expanded origin handling (http/https + ws/wss) and updated Helmet CSP `connect-src` policy so production dashboard requests and socket handshakes succeed.
 - Added the current production hosts to the default allow-list to cover deployments even if environment variables are missing.
 - Hardened the CORS middleware to normalize origins, enforce headers on every response, and surface explicit 403 errors for disallowed origins to unblock production login requests.
+
+### Google OAuth Redirect Resolution (2025-10-09)
+- Taught the backend to compute the Google OAuth redirect URI dynamically from env configuration, client URL, or proxy headers so HTTPS callbacks match Google Console settings in production.
+- Enabled `trust proxy` on Express to honor `x-forwarded-proto`, preventing mismatched `http` redirects behind Coolify/NGINX.

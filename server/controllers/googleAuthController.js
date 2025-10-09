@@ -5,6 +5,33 @@ const UserGoogleAccount = require('../models/UserGoogleAccount');
 
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-state-secret-for-dev';
 
+const resolveRedirectUri = (req) => {
+  const configured = (process.env.GOOGLE_REDIRECT_URI || '').trim();
+  if (configured) {
+    try {
+      return new URL(configured).toString();
+    } catch (err) {
+      console.warn('Invalid GOOGLE_REDIRECT_URI, falling back to dynamic computation', { configured });
+    }
+  }
+
+  const clientBase = (process.env.CLIENT_URL || '').trim();
+  if (clientBase) {
+    try {
+      return new URL('/api/google-auth/otp/callback', clientBase).toString();
+    } catch (err) {
+      console.warn('Invalid CLIENT_URL for redirect computation', { clientBase });
+    }
+  }
+
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const protocol = (forwardedProto ? forwardedProto.split(',')[0] : req.protocol || 'http').replace(/[^a-z]+/gi, '').toLowerCase() === 'https' ? 'https' : 'http';
+  const host = forwardedHost || req.get('host');
+
+  return `${protocol}://${host}/api/google-auth/otp/callback`;
+};
+
 // A simple state encryption for this step.
 const encryptState = (data) => {
     const iv = crypto.randomBytes(16);
@@ -29,6 +56,7 @@ exports.initGoogleOTPAuth = async (req, res) => {
   try {
     const { redirectUrl } = req.body;
     const userId = req.user.id;
+    const redirectUri = resolveRedirectUri(req);
 
     const stateData = {
       userId,
@@ -42,7 +70,7 @@ exports.initGoogleOTPAuth = async (req, res) => {
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
+      redirectUri
     );
 
     const authUrl = oauth2Client.generateAuthUrl({
@@ -54,7 +82,7 @@ exports.initGoogleOTPAuth = async (req, res) => {
       ],
       state,
       prompt: 'consent',
-      redirectUri: process.env.GOOGLE_REDIRECT_URI  // Fixed: Use camelCase 'redirectUri'
+      redirectUri
     });
 
     res.json({ authUrl });
@@ -83,10 +111,11 @@ exports.googleOTPCallback = async (req, res) => {
   }
 
   try {
+    const redirectUri = resolveRedirectUri(req);
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
+      redirectUri
     );
 
     const { tokens } = await oauth2Client.getToken(code);
