@@ -133,7 +133,7 @@ exports.googleOTPCallback = async (req, res) => {
       scopes: tokens.scope.split(' ')
     });
 
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}${stateData.redirectUrl}?oauth_success=true`);
+    res.redirect(`${process.env.FRONTEND_URL}/accounts?oauth_success=true`);
   } catch (err) {
     console.error('OAuth callback error:', err);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}${stateData.redirectUrl}?oauth_error=authentication_failed`);
