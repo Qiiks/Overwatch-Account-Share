@@ -31,3 +31,7 @@
 ### Production Health Endpoint for Coolify Deployment (2025-10-09)
 - Added a dedicated Next.js App Router API route at `/api/health` so platform-level health checks succeed.
 - Ensured the Docker health probe can validate the frontend container without triggering false 503 responses.
+
+### Configurable CORS and Socket Origins (2025-10-09)
+- Centralized API and WebSocket origin allow-lists with support for environment overrides to permit production domains.
+- Updated Helmet CSP `connect-src` policy to include the configured origins, preventing blocked dashboard requests and socket timeouts in production.
