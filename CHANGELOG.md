@@ -27,3 +27,7 @@
 ### Authentication Response Improvements and Admin Navigation Fix (2025-10-07)
 - Extended the login controller response to include role, admin flag, username, and approval status for downstream clients.
 - Persisted username and admin privileges in local storage after login and dashboard fetch so the navigation renders the Admin button when appropriate.
+
+### Production Health Endpoint for Coolify Deployment (2025-10-09)
+- Added a dedicated Next.js App Router API route at `/api/health` so platform-level health checks succeed.
+- Ensured the Docker health probe can validate the frontend container without triggering false 503 responses.
