@@ -11,7 +11,7 @@ class UserGoogleAccount {
     const supabase = getSupabase();
     const payload = {
       user_id: data.user_id || data.userId,
-      google_email: data.google_email || data.email,
+      email: data.google_email || data.email,
       display_name: data.display_name,
       refresh_token: data.refresh_token,
       access_token: data.access_token,
@@ -26,7 +26,7 @@ class UserGoogleAccount {
 
     Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
-    const existing = await this.findOne({ userId: payload.user_id, googleEmail: payload.google_email });
+    const existing = await this.findOne({ userId: payload.user_id, googleEmail: payload.email });
 
     if (existing) {
       const { data: updated, error } = await supabase
@@ -86,7 +86,7 @@ class UserGoogleAccount {
       queryBuilder = queryBuilder.eq('user_id', query.userId);
     }
     if (query.googleEmail) {
-      queryBuilder = queryBuilder.eq('google_email', query.googleEmail);
+      queryBuilder = queryBuilder.eq('email', query.googleEmail);
     }
     if (query.isPrimary) {
       queryBuilder = queryBuilder.eq('is_primary', query.isPrimary);
@@ -108,7 +108,7 @@ class UserGoogleAccount {
       queryBuilder = queryBuilder.eq('user_id', query.userId);
     }
     if (query.googleEmail) {
-      queryBuilder = queryBuilder.eq('google_email', query.googleEmail);
+      queryBuilder = queryBuilder.eq('email', query.googleEmail);
     }
     if (query.isPrimary !== undefined) {
       queryBuilder = queryBuilder.eq('is_primary', query.isPrimary);
@@ -163,7 +163,7 @@ class UserGoogleAccount {
       queryBuilder = queryBuilder.eq('user_id', query.userId);
     }
     if (query.googleEmail) {
-      queryBuilder = queryBuilder.eq('google_email', query.googleEmail);
+      queryBuilder = queryBuilder.eq('email', query.googleEmail);
     }
     if (query._id) {
       queryBuilder = queryBuilder.eq('id', query._id);
@@ -188,7 +188,7 @@ class UserGoogleAccount {
       queryBuilder = queryBuilder.eq('user_id', query.userId);
     }
     if (query.googleEmail) {
-      queryBuilder = queryBuilder.eq('google_email', query.googleEmail);
+      queryBuilder = queryBuilder.eq('email', query.googleEmail);
     }
     
     const { data, error } = await queryBuilder;
@@ -222,7 +222,7 @@ class UserGoogleAccount {
       .from('user_google_accounts')
       .insert({
         user_id: this.userId,
-        google_email: this.googleEmail,
+        email: this.googleEmail,
         account_name: this.accountName,
         refresh_token: this.refreshToken,
         is_primary: this.isPrimary
