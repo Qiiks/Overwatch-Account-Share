@@ -136,6 +136,17 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
+app.use((req, res, next) => {
+  const requestOrigin = req.headers.origin;
+  const normalizedOrigin = normalizeOrigin(requestOrigin);
+  if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
+    res.header('Access-Control-Allow-Origin', requestOrigin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Vary', 'Origin');
+  }
+  next();
+});
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
