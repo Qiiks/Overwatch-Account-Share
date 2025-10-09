@@ -34,6 +34,8 @@ const { connectRedis, cache } = require('./utils/cache');
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // HTTPS setup
 let server;
 try {
