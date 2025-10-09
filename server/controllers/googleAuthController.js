@@ -5,35 +5,21 @@ const UserGoogleAccount = require('../models/UserGoogleAccount');
 
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-state-secret-for-dev';
 
-const resolveRedirectUri = (req) => {
-  // First priority: Use explicitly configured GOOGLE_REDIRECT_URI
-  const configured = (process.env.GOOGLE_REDIRECT_URI || '').trim();
-  if (configured) {
-    try {
-      return new URL(configured).toString();
-    } catch (err) {
-      console.warn('Invalid GOOGLE_REDIRECT_URI, falling back to dynamic computation', { configured });
-    }
+const resolveRedirectUri = () => {
+  const configured = process.env.GOOGLE_REDIRECT_URI;
+  
+  if (!configured || configured.trim() === '') {
+    console.error('CRITICAL: GOOGLE_REDIRECT_URI is not set in environment variables.');
+    throw new Error('Google OAuth redirect URI is not configured on the server.');
   }
-
-  // Second priority: Use API_URL or BACKEND_URL to construct the redirect URI
-  const backendBase = (process.env.API_URL || process.env.BACKEND_URL || '').trim();
-  if (backendBase) {
-    try {
-      return new URL('/api/google-auth/otp/callback', backendBase).toString();
-    } catch (err) {
-      console.warn('Invalid API_URL/BACKEND_URL for redirect computation', { backendBase });
-    }
+  
+  try {
+    // Validate that it's a proper URL
+    return new URL(configured).toString();
+  } catch (err) {
+    console.error('CRITICAL: GOOGLE_REDIRECT_URI is not a valid URL.', { value: configured });
+    throw new Error('Google OAuth redirect URI is invalid on the server.');
   }
-
-  // Last resort: Dynamic computation based on request headers
-  // This should work correctly for the backend since the request is to the backend
-  const forwardedProto = req.headers['x-forwarded-proto'];
-  const forwardedHost = req.headers['x-forwarded-host'];
-  const protocol = (forwardedProto ? forwardedProto.split(',')[0] : req.protocol || 'http').replace(/[^a-z]+/gi, '').toLowerCase() === 'https' ? 'https' : 'http';
-  const host = forwardedHost || req.get('host');
-
-  return `${protocol}://${host}/api/google-auth/otp/callback`;
 };
 
 // A simple state encryption for this step.
@@ -60,7 +46,7 @@ exports.initGoogleOTPAuth = async (req, res) => {
   try {
     const { redirectUrl } = req.body;
     const userId = req.user.id;
-    const redirectUri = resolveRedirectUri(req);
+    const redirectUri = resolveRedirectUri();
 
     const stateData = {
       userId,
@@ -115,7 +101,7 @@ exports.googleOTPCallback = async (req, res) => {
   }
 
   try {
-    const redirectUri = resolveRedirectUri(req);
+    const redirectUri = resolveRedirectUri();
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
