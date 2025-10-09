@@ -46,9 +46,27 @@ try {
   console.warn('HTTPS certs not found, falling back to HTTP');
 }
 
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:8080',
+  'http://localhost:5001',
+  'http://localhost:5173'
+];
+
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+]
+  .map(origin => (origin || '').trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...configuredOrigins]));
+
+logger.info('Configured CORS origins', { allowedOrigins });
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL,
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -63,7 +81,7 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", ...allowedOrigins],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
@@ -73,8 +91,6 @@ app.use(helmet({
 }));
 app.disable('x-powered-by');
 
-// CORS configuration - allow both old and new frontend origins
-const allowedOrigins = ["http://localhost:3000", "http://127.0.0.1:8080", "http://localhost:5001"];
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc.)
