@@ -36,6 +36,11 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+// Simple health check endpoint (before middleware for quick response)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
 // HTTPS setup
 let server;
 try {

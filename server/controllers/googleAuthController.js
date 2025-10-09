@@ -6,6 +6,7 @@ const UserGoogleAccount = require('../models/UserGoogleAccount');
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-state-secret-for-dev';
 
 const resolveRedirectUri = (req) => {
+  // First priority: Use explicitly configured GOOGLE_REDIRECT_URI
   const configured = (process.env.GOOGLE_REDIRECT_URI || '').trim();
   if (configured) {
     try {
@@ -15,15 +16,18 @@ const resolveRedirectUri = (req) => {
     }
   }
 
-  const clientBase = (process.env.CLIENT_URL || '').trim();
-  if (clientBase) {
+  // Second priority: Use API_URL or BACKEND_URL to construct the redirect URI
+  const backendBase = (process.env.API_URL || process.env.BACKEND_URL || '').trim();
+  if (backendBase) {
     try {
-      return new URL('/api/google-auth/otp/callback', clientBase).toString();
+      return new URL('/api/google-auth/otp/callback', backendBase).toString();
     } catch (err) {
-      console.warn('Invalid CLIENT_URL for redirect computation', { clientBase });
+      console.warn('Invalid API_URL/BACKEND_URL for redirect computation', { backendBase });
     }
   }
 
+  // Last resort: Dynamic computation based on request headers
+  // This should work correctly for the backend since the request is to the backend
   const forwardedProto = req.headers['x-forwarded-proto'];
   const forwardedHost = req.headers['x-forwarded-host'];
   const protocol = (forwardedProto ? forwardedProto.split(',')[0] : req.protocol || 'http').replace(/[^a-z]+/gi, '').toLowerCase() === 'https' ? 'https' : 'http';
