@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { GlassButton } from "@/components/ui/GlassButton"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
+import { useSettings } from "@/context/SettingsContext"
 
 export function Navigation() {
   const router = useRouter()
@@ -14,6 +15,7 @@ export function Navigation() {
   const [username, setUsername] = useState("")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { settings } = useSettings()
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token")
@@ -116,9 +118,11 @@ export function Navigation() {
                     LOGIN
                   </GlassButton>
                 </Link>
-                <Link href="/register">
-                  <GlassButton className="font-mono">REGISTER</GlassButton>
-                </Link>
+                {settings?.allow_registration && (
+                  <Link href="/register">
+                    <GlassButton className="font-mono">REGISTER</GlassButton>
+                  </Link>
+                )}
               </>
             ) : (
               <>
@@ -228,9 +232,11 @@ export function Navigation() {
                     LOGIN
                   </GlassButton>
                 </Link>
-                <Link href="/register" className="block">
-                  <GlassButton className="w-full font-mono">REGISTER</GlassButton>
-                </Link>
+                {settings?.allow_registration && (
+                  <Link href="/register" className="block">
+                    <GlassButton className="w-full font-mono">REGISTER</GlassButton>
+                  </Link>
+                )}
               </>
             ) : (
               <>

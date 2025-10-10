@@ -19,6 +19,7 @@ const emailRoutes = require('./routes/email');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const googleAuthRoutes = require('./routes/googleAuth');
+const settingsRoutes = require('./routes/settings');
 const { supabase } = require('./config/db');
 const { startOtpFetching } = require('./services/otpService');
 const jwt = require('jsonwebtoken');
@@ -301,6 +302,7 @@ app.use('/api/email', emailRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/google-auth', googleAuthRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

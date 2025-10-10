@@ -358,3 +358,251 @@
     background-position: 100% 50%;
   }
 }
+
+/* ================================ */
+/* CYBERPUNK CREDENTIAL DISPLAY CSS */
+/* ================================ */
+
+/* Glitch text animation */
+@keyframes glitch-text {
+  0% { text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), 0.025em 0.05em 0 rgba(0, 0, 255, 0.75); }
+  14% { text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), 0.025em 0.05em 0 rgba(0, 0, 255, 0.75); }
+  15% { text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75); }
+  49% { text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75); }
+  50% { text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75); }
+  99% { text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75); }
+  100% { text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75), -0.025em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em -0.05em 0 rgba(0, 0, 255, 0.75); }
+}
+
+.glitch-text {
+  animation: glitch-text 0.5s infinite;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.1em;
+}
+
+/* Cyberpunk glow effect */
+.cyberpunk-glow {
+  box-shadow:
+    0 0 20px rgba(255, 0, 0, 0.5),
+    inset 0 0 20px rgba(255, 0, 0, 0.1);
+  animation: pulse-red-glow 2s infinite;
+}
+
+@keyframes pulse-red-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 20px rgba(255, 0, 0, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.8), inset 0 0 30px rgba(255, 0, 0, 0.2); }
+}
+
+/* Animated border for encrypted content */
+.animated-border {
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, #ff0080, #00ff88, #0080ff, #ff0080);
+  background-size: 400% 400%;
+  animation: gradient-shift 3s ease infinite;
+  border-radius: inherit;
+  opacity: 0.5;
+  z-index: -1;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Matrix rain effect overlay */
+.matrix-rain-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.1;
+}
+
+.matrix-rain-overlay::before {
+  content: '01010111 01100101 00100000 01100001 01110010 01100101';
+  position: absolute;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 200%;
+  background: linear-gradient(0deg, transparent, rgba(0, 255, 0, 0.4), transparent);
+  animation: matrix-fall 10s linear infinite;
+  font-family: monospace;
+  font-size: 10px;
+  line-height: 10px;
+  color: #00ff00;
+  word-break: break-all;
+}
+
+@keyframes matrix-fall {
+  to { transform: translateY(100%); }
+}
+
+/* Corner accents for locked content */
+.corner-accent {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 0, 0, 0.5);
+  animation: corner-pulse 2s infinite;
+}
+
+.corner-accent.top-left {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.corner-accent.top-right {
+  top: -1px;
+  right: -1px;
+  border-left: none;
+  border-bottom: none;
+}
+
+.corner-accent.bottom-left {
+  bottom: -1px;
+  left: -1px;
+  border-right: none;
+  border-top: none;
+}
+
+.corner-accent.bottom-right {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+@keyframes corner-pulse {
+  0%, 100% { opacity: 0.5; border-color: rgba(255, 0, 0, 0.5); }
+  50% { opacity: 1; border-color: rgba(255, 0, 0, 1); }
+}
+
+/* Scan lines effect for encrypted content */
+.scan-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 0, 0, 0.03) 2px,
+    rgba(255, 0, 0, 0.03) 4px
+  );
+  animation: scan-lines-move 8s linear infinite;
+}
+
+@keyframes scan-lines-move {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 10px; }
+}
+
+/* Animated text for authorization required */
+.animated-text {
+  background: linear-gradient(90deg, #ff0080, #00ff88, #0080ff, #ff0080);
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-text 3s ease infinite;
+}
+
+@keyframes gradient-text {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Credential container styles */
+.credential-container {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+/* Account card with cyberpunk theme */
+.account-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.account-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00ffff, transparent);
+  animation: scan-horizontal 4s linear infinite;
+}
+
+@keyframes scan-horizontal {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Lock icon pulse animation */
+@keyframes lock-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Copy button success state */
+.copy-success {
+  animation: copy-flash 0.3s ease;
+}
+
+@keyframes copy-flash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Enhanced neon text shadows */
+.neon-cyan {
+  color: #00ffff;
+  text-shadow:
+    0 0 5px #00ffff,
+    0 0 10px #00ffff,
+    0 0 15px #00ffff,
+    0 0 20px #00ffff;
+}
+
+.neon-red {
+  color: #ff0040;
+  text-shadow:
+    0 0 5px #ff0040,
+    0 0 10px #ff0040,
+    0 0 15px #ff0040,
+    0 0 20px #ff0040;
+}
+
+.neon-green {
+  color: #00ff88;
+  text-shadow:
+    0 0 5px #00ff88,
+    0 0 10px #00ff88,
+    0 0 15px #00ff88,
+    0 0 20px #00ff88;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .glitch-text {
+    font-size: 0.875rem;
+  }
+  
+  .corner-accent {
+    width: 15px;
+    height: 15px;
+  }
+}
