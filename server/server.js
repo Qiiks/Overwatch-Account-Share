@@ -63,12 +63,20 @@ const defaultAllowedOrigins = [
   'https://bwgg4wow8kggc48kko0g080c.qiikzx.dev'
 ];
 
+// Add production URLs from environment variables
 const configuredOrigins = [
   process.env.FRONTEND_URL,
+  process.env.NEXT_PUBLIC_FRONTEND_URL, // In case it's set with Next.js naming
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
 ]
   .map(origin => (origin || '').trim())
   .filter(Boolean);
+
+// Log environment configuration for debugging
+console.log('[CORS Config] Environment variables:');
+console.log('  FRONTEND_URL:', process.env.FRONTEND_URL || '(not set)');
+console.log('  NEXT_PUBLIC_FRONTEND_URL:', process.env.NEXT_PUBLIC_FRONTEND_URL || '(not set)');
+console.log('  ALLOWED_ORIGINS:', process.env.ALLOWED_ORIGINS || '(not set)');
 
 const normalizeOrigin = (origin) => {
   if (!origin) return null;
@@ -102,7 +110,15 @@ const allowedOrigins = Array.from(new Set([
 
 const allowedOriginsSet = new Set(allowedOrigins);
 
-logger.info('Configured CORS origins', { allowedOrigins: Array.from(allowedOriginsSet) });
+// Log final CORS configuration
+console.log('[CORS Config] Final allowed origins:');
+Array.from(allowedOriginsSet).forEach(origin => {
+  console.log(`  - ${origin}`);
+});
+logger.info('Configured CORS origins', {
+  allowedOrigins: Array.from(allowedOriginsSet),
+  totalCount: allowedOriginsSet.size
+});
 
 const io = new Server(server, {
   cors: {
@@ -114,43 +130,105 @@ const io = new Server(server, {
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin) return callback(null, true);
-
-    const normalizedOrigin = normalizeOrigin(origin);
-    if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
+    // Allow requests with no origin (e.g., mobile apps, Postman, server-to-server)
+    if (!origin) {
+      console.log('[CORS] Request with no origin header - allowing');
       return callback(null, true);
     }
 
-    console.warn(`CORS: Rejected origin: ${origin}`);
-    return callback(new Error(`CORS: Origin ${origin} not allowed`));
+    const normalizedOrigin = normalizeOrigin(origin);
+    
+    // Detailed logging for debugging
+    console.log(`[CORS] Checking origin: ${origin}`);
+    console.log(`[CORS] Normalized to: ${normalizedOrigin}`);
+    
+    if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
+      console.log(`[CORS] ✅ Origin allowed: ${origin}`);
+      return callback(null, true);
+    }
+
+    // Log detailed rejection info
+    console.error(`[CORS] ❌ Origin rejected: ${origin}`);
+    console.error(`[CORS] Normalized origin: ${normalizedOrigin}`);
+    console.error(`[CORS] Looking for origins containing 'qiikzx.dev':`);
+    Array.from(allowedOriginsSet).forEach(allowed => {
+      if (allowed.includes('qiikzx.dev')) {
+        console.error(`[CORS]   - ${allowed}`);
+      }
+    });
+    
+    // Return error with details
+    const error = new Error(`CORS: Origin ${origin} not allowed`);
+    error.statusCode = 403;
+    return callback(error);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400, // 24 hours
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
+// Apply CORS middleware
 app.use(cors(corsOptions));
+
+// Ensure preflight requests are handled for all routes
 app.options('*', cors(corsOptions));
 
+// Additional CORS headers for extra safety
+app.use((req, res, next) => {
+  // Log incoming request details for debugging
+  if (req.headers.origin) {
+    console.log(`[CORS Debug] ${req.method} ${req.path} from origin: ${req.headers.origin}`);
+  }
+  next();
+});
+
+// CORS error handler - must come after cors() middleware
 app.use((err, req, res, next) => {
   if (err && typeof err.message === 'string' && err.message.startsWith('CORS:')) {
+    console.error('[CORS Error Handler] CORS rejection for:', {
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path,
+      error: err.message
+    });
+    
+    // Send detailed error in development, generic in production
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     return res.status(403).json({
       status: 'error',
       message: 'Origin not allowed by CORS',
-      origin: req.headers.origin || null
+      origin: req.headers.origin || null,
+      ...(isDevelopment && {
+        details: err.message,
+        allowedOrigins: Array.from(allowedOriginsSet).filter(o => o.includes('.dev'))
+      })
     });
   }
   next(err);
 });
 
+// Explicit CORS headers for successful requests
 app.use((req, res, next) => {
   const requestOrigin = req.headers.origin;
-  const normalizedOrigin = normalizeOrigin(requestOrigin);
-  if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
-    res.header('Access-Control-Allow-Origin', requestOrigin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Vary', 'Origin');
+  if (requestOrigin) {
+    const normalizedOrigin = normalizeOrigin(requestOrigin);
+    if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
+      // Explicitly set CORS headers for allowed origins
+      res.header('Access-Control-Allow-Origin', requestOrigin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      res.header('Vary', 'Origin');
+      
+      // Log successful CORS header setting
+      if (req.path !== '/health' && req.path !== '/ready') { // Skip health check logs
+        console.log(`[CORS Headers] Set for ${requestOrigin} on ${req.method} ${req.path}`);
+      }
+    }
   }
   next();
 });
