@@ -30,7 +30,9 @@ export function RegistrationToggle() {
       }
 
       const data = await response.json()
-      setAllowRegistration(data.allowRegistration || false)
+      // Backend returns data.data.allow_registration for public settings
+      const registrationStatus = data.data?.allow_registration ?? data.allow_registration ?? false
+      setAllowRegistration(registrationStatus)
     } catch (error) {
       console.error("Failed to fetch registration status:", error)
       toast.error("Failed to load registration settings")
@@ -52,7 +54,7 @@ export function RegistrationToggle() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ allowRegistration: checked }),
+        body: JSON.stringify({ allow_registration: checked }),
       })
 
       if (!response.ok) {
@@ -60,7 +62,8 @@ export function RegistrationToggle() {
       }
 
       const data = await response.json()
-      setAllowRegistration(data.allowRegistration)
+      // Backend returns data.data.value for the updated setting
+      setAllowRegistration(data.data?.value ?? checked)
       
       toast.success(
         checked 
