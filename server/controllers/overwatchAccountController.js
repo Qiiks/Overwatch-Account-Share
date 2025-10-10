@@ -95,7 +95,25 @@ exports.addAccount = [
     });
 
     try {
-      // Bypass double-check for testing
+      // Check for exact duplicates of accountTag
+      const existingAccountByTag = await findOverwatchAccountByAccountTag(accountTag);
+      if (existingAccountByTag) {
+        return res.status(400).json({
+          success: false,
+          error: [{ msg: 'An account with this Battletag already exists' }]
+        });
+      }
+
+      // Check for exact duplicates of accountEmail
+      // NOTE: We allow multiple accounts with the same normalized email (aliases)
+      // but not the exact same email address
+      const existingAccountByEmail = await findOverwatchAccountByAccountEmail(accountEmail);
+      if (existingAccountByEmail) {
+        return res.status(400).json({
+          success: false,
+          error: [{ msg: 'An account with this email address already exists' }]
+        });
+      }
 
       const newAccount = await createOverwatchAccount({
         accountTag: accountTag,  // Model will handle the mapping to lowercase
