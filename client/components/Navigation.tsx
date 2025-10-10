@@ -50,14 +50,20 @@ export function Navigation() {
   }, [pathname])
 
   const handleLogout = () => {
+    // Clear all session-related data from localStorage
     localStorage.removeItem("auth_token")
+    localStorage.removeItem("user")  // Clear the complete user object
     localStorage.removeItem("user_role")
     localStorage.removeItem("is_admin")
     localStorage.removeItem("username")
+    
+    // Reset local state
     setIsLoggedIn(false)
     setIsAdmin(false)
     setUsername("")
-    router.push("/")
+    
+    // Redirect to login page
+    router.push("/login")
     setIsMenuOpen(false)
   }
 
