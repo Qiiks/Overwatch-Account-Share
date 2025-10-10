@@ -3,7 +3,9 @@ const router = express.Router();
 const {
     getStats,
     getUsers,
+    listUsers,
     updateUserStatus,
+    deleteUser,
     getLogs,
     getAdminDashboard,
     getRegistrationStatus,
@@ -22,14 +24,24 @@ router.use(protect, adminMiddleware);
 router.get('/stats', getStats);
 
 // @route   GET /api/admin/users
-// @desc    Get all users
+// @desc    Get all users (listUsers)
 // @access  Admin
-router.get('/users', getUsers);
+router.get('/users', listUsers);
 
 // @route   PATCH /api/admin/users/:id/status
 // @desc    Update user status
 // @access  Admin
 router.patch('/users/:id/status', updateUserStatus);
+
+// @route   DELETE /api/admin/users/:id
+// @desc    Delete a user
+// @access  Admin
+router.delete('/users/:id', deleteUser);
+
+// @route   POST /api/admin/users
+// @desc    Create a new user
+// @access  Admin
+router.post('/users', createUser);
 
 // @route   GET /api/admin/logs
 // @desc    Get system logs
@@ -51,8 +63,9 @@ router.get('/registration-status', getRegistrationStatus);
 // @access  Admin
 router.post('/toggle-registrations', toggleRegistrations);
 
+// Legacy route for backward compatibility
 // @route   POST /api/admin/create-user
-// @desc    Create a new user
+// @desc    Create a new user (legacy endpoint)
 // @access  Admin
 router.post('/create-user', createUser);
 

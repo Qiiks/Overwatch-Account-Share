@@ -3,7 +3,7 @@ const getSupabase = () => global.supabase;
 
 class Settings {
   static async findOne(query) {
-    let queryBuilder = getSupabase().from('settings').select('*');
+    let queryBuilder = getSupabase().from('system_settings').select('*');
     
     if (query.key) {
       queryBuilder = queryBuilder.eq('key', query.key);
@@ -23,7 +23,7 @@ class Settings {
   
   static async findById(id) {
     const { data, error } = await getSupabase()
-      .from('settings')
+      .from('system_settings')
       .select('*')
       .eq('id', id)
       .single();
@@ -36,7 +36,7 @@ class Settings {
   }
   
   static async find(query = {}) {
-    let queryBuilder = getSupabase().from('settings').select('*');
+    let queryBuilder = getSupabase().from('system_settings').select('*');
     
     if (query.key) {
       queryBuilder = queryBuilder.eq('key', query.key);
@@ -52,7 +52,7 @@ class Settings {
   }
   
   static async findOneAndUpdate(query, update, options = {}) {
-    let queryBuilder = getSupabase().from('settings');
+    let queryBuilder = getSupabase().from('system_settings');
     
     // Prepare the update data
     const updateData = {};
@@ -82,7 +82,7 @@ class Settings {
   }
   
   static async deleteOne(query) {
-    let queryBuilder = getSupabase().from('settings').delete();
+    let queryBuilder = getSupabase().from('system_settings').delete();
     
     if (query._id) {
       queryBuilder = queryBuilder.eq('id', query._id);
@@ -102,7 +102,7 @@ class Settings {
   
   static async upsert(key, value) {
     const { data, error } = await getSupabase()
-      .from('settings')
+      .from('system_settings')
       .upsert({
         key: key,
         value: value
@@ -119,6 +119,41 @@ class Settings {
     return data;
   }
   
+  // Helper method to get a setting by name
+  static async getSetting(name) {
+    try {
+      const setting = await this.findOne({ key: name });
+      return setting ? setting.value : null;
+    } catch (error) {
+      console.error(`Error getting setting ${name}:`, error);
+      return null;
+    }
+  }
+  
+  // Helper method to update a setting
+  static async updateSetting(name, value) {
+    try {
+      // Try to update existing setting first
+      const existing = await this.findOne({ key: name });
+      
+      if (existing) {
+        // Update existing setting
+        const updated = await this.findOneAndUpdate(
+          { key: name },
+          { value: value }
+        );
+        return updated;
+      } else {
+        // Create new setting if it doesn't exist
+        const newSetting = await this.upsert(name, value);
+        return newSetting;
+      }
+    } catch (error) {
+      console.error(`Error updating setting ${name}:`, error);
+      throw error;
+    }
+  }
+  
   constructor(data) {
     this.key = data.key;
     this.value = data.value;
@@ -127,7 +162,7 @@ class Settings {
   
   async save() {
     const { data, error } = await getSupabase()
-      .from('settings')
+      .from('system_settings')
       .insert({
         key: this.key,
         value: this.value

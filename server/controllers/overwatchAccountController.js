@@ -6,12 +6,14 @@ const {
   findOverwatchAccountById,
   updateOverwatchAccount,
   deleteOverwatchAccount,
-  getAccessibleAccounts
+  getAccessibleAccounts,
+  getDecryptedPassword
 } = require('../models/OverwatchAccount');
 const dbClient = require('../config/db');
 const supabase = dbClient.supabase;
 const { body, validationResult } = require('express-validator');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
+const { decrypt } = require('../utils/encryption');
 
 exports.addAccount = [
   // Validate and sanitize inputs - accept both frontend field names and backend field names
@@ -33,15 +35,15 @@ exports.addAccount = [
     .if(body('email').exists())
     .trim()
     .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .isEmail().withMessage('Please provide a valid email'),
+    // CRITICAL: Do NOT use .normalizeEmail() - we need to preserve exact email format with dots
   
   body('accountEmail')
     .if(body('accountEmail').exists())
     .trim()
     .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .isEmail().withMessage('Please provide a valid email'),
+    // CRITICAL: Do NOT use .normalizeEmail() - we need to preserve exact email format with dots
 
   body('password')
     .if(body('password').exists())
@@ -218,8 +220,8 @@ exports.updateAccount = [
   body('accountEmail')
     .optional()
     .trim()
-    .isEmail().withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .isEmail().withMessage('Please provide a valid email'),
+    // CRITICAL: Do NOT use .normalizeEmail() - we need to preserve exact email format with dots
   
   // Also support frontend field names
   body('battletag')
@@ -231,8 +233,8 @@ exports.updateAccount = [
   body('email')
     .optional()
     .trim()
-    .isEmail().withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .isEmail().withMessage('Please provide a valid email'),
+    // CRITICAL: Do NOT use .normalizeEmail() - we need to preserve exact email format with dots
   
   body('password')
     .optional()
@@ -440,6 +442,209 @@ exports.deleteAccount = async (req, res, next) => {
     });
   } catch (error) {
     // Pass error to centralized error handler
+    next(error);
+  }
+};
+
+/**
+ * CRITICAL SECURITY ENDPOINT: Get account credentials with authorization checks
+ * Returns real credentials for authorized users, cipher text for unauthorized
+ */
+exports.getAccountCredentials = async (req, res, next) => {
+  try {
+    const accountId = req.params.id;
+    const userId = req.user?.id;
+    
+    console.log(`[SECURITY] Credential access attempt for account ${accountId} by user ${userId}`);
+    
+    // Fetch the account
+    const account = await findOverwatchAccountById(accountId);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found'
+      });
+    }
+    
+    // Critical authorization checks
+    const isOwner = userId && account.owner_id === userId;
+    let hasSharedAccess = false;
+    
+    if (!isOwner && userId) {
+      // Check if user has shared access
+      const { data: allowedUser } = await supabase
+        .from('overwatch_account_allowed_users')
+        .select('*')
+        .eq('overwatch_account_id', accountId)
+        .eq('user_id', userId)
+        .single();
+      
+      hasSharedAccess = !!allowedUser;
+    }
+    
+    const hasAccess = isOwner || hasSharedAccess;
+    
+    // Log access attempt for security audit
+    console.log(`[SECURITY AUDIT] Account: ${accountId}, User: ${userId}, Owner: ${isOwner}, Shared: ${hasSharedAccess}, Access: ${hasAccess}`);
+    
+    if (!hasAccess) {
+      // Return cyberpunk cipher text for unauthorized users
+      return res.status(200).json({
+        success: true,
+        data: {
+          accountTag: account.accounttag,
+          accountEmail: generateCipherText('email'),
+          accountPassword: generateCipherText('password'),
+          otp: generateCipherText('otp'),
+          hasAccess: false,
+          accessType: 'none'
+        }
+      });
+    }
+    
+    // Authorized user - decrypt the password
+    let decryptedPassword;
+    
+    if (account.password_encryption_type === 'aes') {
+      try {
+        decryptedPassword = decrypt(account.accountpassword);
+      } catch (error) {
+        console.error('[SECURITY] Failed to decrypt AES password:', error);
+        decryptedPassword = '[Decryption Failed]';
+      }
+    } else {
+      // Legacy bcrypt password - cannot decrypt
+      decryptedPassword = '[Legacy Password - Update Required]';
+    }
+    
+    // Return real credentials for authorized users
+    res.status(200).json({
+      success: true,
+      data: {
+        accountTag: account.accounttag,
+        accountEmail: account.accountemail,
+        accountPassword: decryptedPassword,
+        otp: account.otp || '--:--:--',
+        hasAccess: true,
+        accessType: isOwner ? 'owner' : 'shared'
+      }
+    });
+    
+  } catch (error) {
+    console.error('[SECURITY] Error in getAccountCredentials:', error);
+    next(error);
+  }
+};
+
+/**
+ * Helper function to generate cyberpunk-style cipher text
+ */
+function generateCipherText(type) {
+  const glitchChars = '░▒▓█▌│║▐►◄↕↔';
+  const hexChars = '0123456789ABCDEF';
+  
+  const generateHex = (length) => {
+    return [...Array(length)]
+      .map(() => hexChars[Math.floor(Math.random() * hexChars.length)])
+      .join('');
+  };
+  
+  const generateGlitch = (length) => {
+    return [...Array(length)]
+      .map(() => glitchChars[Math.floor(Math.random() * glitchChars.length)])
+      .join('');
+  };
+  
+  const cipherPatterns = {
+    email: `ENCRYPTED::${generateHex(16)}::${generateGlitch(4)}`,
+    password: `CIPHER::LOCKED::${generateHex(8)}::ACCESS_DENIED`,
+    otp: `${generateGlitch(3)}::RESTRICTED::${Date.now().toString(16).toUpperCase()}`
+  };
+  
+  return cipherPatterns[type] || `ENCRYPTED::${generateHex(12)}`;
+}
+
+/**
+ * Get all accounts with conditional credential display
+ * Shows cipher text for accounts user doesn't have access to
+ */
+exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    
+    // Get all accounts with owner information
+    const { data: accounts, error } = await supabase
+      .from('overwatch_accounts')
+      .select(`
+        *,
+        owner:users!owner_id(id, username)
+      `);
+    
+    if (error) throw error;
+    
+    // Process each account to determine access level
+    const processedAccounts = await Promise.all(accounts.map(async (account) => {
+      const isOwner = userId && account.owner_id === userId;
+      
+      // Check shared access
+      let hasSharedAccess = false;
+      if (!isOwner && userId) {
+        const { data: allowedUser } = await supabase
+          .from('overwatch_account_allowed_users')
+          .select('*')
+          .eq('overwatch_account_id', account.id)
+          .eq('user_id', userId)
+          .single();
+        
+        hasSharedAccess = !!allowedUser;
+      }
+      
+      const hasAccess = isOwner || hasSharedAccess;
+      
+      // Prepare response based on access level
+      const responseData = {
+        id: account.id,
+        accountTag: account.accounttag,
+        rank: account.rank,
+        mainHeroes: account.mainheroes,
+        owner: account.owner,
+        hasAccess: hasAccess,
+        accessType: isOwner ? 'owner' : (hasSharedAccess ? 'shared' : 'none')
+      };
+      
+      if (hasAccess) {
+        // Show real credentials for authorized users
+        let decryptedPassword = account.accountpassword;
+        if (account.password_encryption_type === 'aes') {
+          try {
+            decryptedPassword = decrypt(account.accountpassword);
+          } catch (error) {
+            decryptedPassword = '[Decryption Error]';
+          }
+        } else {
+          decryptedPassword = '[Legacy - Update Required]';
+        }
+        
+        responseData.accountEmail = account.accountemail;
+        responseData.accountPassword = decryptedPassword;
+        responseData.otp = account.otp || '--:--:--';
+      } else {
+        // Show cipher text for unauthorized users
+        responseData.accountEmail = generateCipherText('email');
+        responseData.accountPassword = generateCipherText('password');
+        responseData.otp = generateCipherText('otp');
+      }
+      
+      return responseData;
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: processedAccounts
+    });
+    
+  } catch (error) {
     next(error);
   }
 };

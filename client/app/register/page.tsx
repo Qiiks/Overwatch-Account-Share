@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/GlassCard"
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
+import { useSettings } from "@/context/SettingsContext"
 
 function validatePassword(password: string): string | null {
   // Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special @$!%*?&
@@ -40,6 +41,7 @@ function validatePassword(password: string): string | null {
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { settings, loading } = useSettings()
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -49,8 +51,14 @@ export default function RegisterPage() {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [registrationOpen, setRegistrationOpen] = useState(true)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  // Redirect to login if registration is disabled
+  useEffect(() => {
+    if (!loading && settings && !settings.allow_registration) {
+      router.push("/login")
+    }
+  }, [settings, loading, router])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -111,7 +119,24 @@ export default function RegisterPage() {
     }
   }
 
-  if (!registrationOpen) {
+  // Show loading state while settings are being fetched
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
+        <DotGrid />
+        <div className="relative z-10 w-full max-w-md px-4">
+          <GlassCard>
+            <GlassCardHeader className="text-center">
+              <GlassCardTitle className="text-2xl font-bold text-[#8A2BE2]">Loading...</GlassCardTitle>
+            </GlassCardHeader>
+          </GlassCard>
+        </div>
+      </div>
+    )
+  }
+
+  // Show registration closed message if registration is disabled
+  if (settings && !settings.allow_registration) {
     return (
       <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
         <DotGrid />

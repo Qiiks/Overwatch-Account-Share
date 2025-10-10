@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { cache } = require('../utils/cache');
 const { findEmailServiceByEmail } = require('./EmailService');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
@@ -49,9 +50,9 @@ const createOverwatchAccount = async (accountData) => {
   //   throw new Error('The provided email is not a valid active email service');
   // }
 
-  // Hash the password
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(accountPassword, salt);
+  // Use AES encryption for new passwords (reversible for credential viewing)
+  // SECURITY: This allows the "View Credentials" feature to work
+  const encryptedPassword = encrypt(accountPassword);
 
   // Generate normalized email for OTP matching
   const normalizedEmail = getNormalizedEmail(accountEmail);
@@ -60,9 +61,10 @@ const createOverwatchAccount = async (accountData) => {
   const insertData = {
     ...rest,
     accountemail: accountEmail,  // Map to lowercase column name
-    accountpassword: hashedPassword,  // Map to lowercase column name
+    accountpassword: encryptedPassword,  // Now using AES encryption
     accounttag: accountTag,  // Already lowercase in DB
-    normalized_account_email: normalizedEmail  // New field for OTP matching
+    normalized_account_email: normalizedEmail,  // New field for OTP matching
+    password_encryption_type: 'aes'  // Mark as AES encrypted
   };
   
   // Only add linked_google_account_id if it's provided and not empty
@@ -179,8 +181,9 @@ const updateOverwatchAccount = async (id, updateData) => {
   
   // Map camelCase to lowercase column names
   if (updateData.accountPassword) {
-    const salt = await bcrypt.genSalt(10);
-    mappedUpdateData.accountpassword = await bcrypt.hash(updateData.accountPassword, salt);
+    // Use AES encryption for updated passwords
+    mappedUpdateData.accountpassword = encrypt(updateData.accountPassword);
+    mappedUpdateData.password_encryption_type = 'aes';
   }
   if (updateData.accountEmail !== undefined) {
     mappedUpdateData.accountemail = updateData.accountEmail;
@@ -244,13 +247,48 @@ const deleteOverwatchAccount = async (id) => {
 };
 
 /**
- * Compare account password with hashed password
+ * Compare account password with stored password (bcrypt or AES)
  * @param {string} enteredPassword - The password to check
- * @param {string} hashedPassword - The hashed password to compare against
+ * @param {string} storedPassword - The stored password (hashed or encrypted)
+ * @param {string} encryptionType - The encryption type ('bcrypt' or 'aes')
  * @returns {boolean} Whether the passwords match
  */
-const matchAccountPassword = async (enteredPassword, hashedPassword) => {
-  return await bcrypt.compare(enteredPassword, hashedPassword);
+const matchAccountPassword = async (enteredPassword, storedPassword, encryptionType = 'bcrypt') => {
+  if (encryptionType === 'aes') {
+    // For AES, decrypt and compare
+    try {
+      const decryptedPassword = decrypt(storedPassword);
+      return decryptedPassword === enteredPassword;
+    } catch (error) {
+      console.error('Error decrypting password:', error);
+      return false;
+    }
+  } else {
+    // For bcrypt, use compare
+    return await bcrypt.compare(enteredPassword, storedPassword);
+  }
+};
+
+/**
+ * Get decrypted password for an account (only works with AES encryption)
+ * @param {string} accountId - The account ID
+ * @returns {string|null} The decrypted password or null if not AES encrypted
+ */
+const getDecryptedPassword = async (accountId) => {
+  const account = await findOverwatchAccountById(accountId);
+  if (!account) return null;
+  
+  if (account.password_encryption_type === 'aes') {
+    try {
+      return decrypt(account.accountpassword);
+    } catch (error) {
+      console.error('Error decrypting password:', error);
+      return null;
+    }
+  }
+  
+  // Cannot decrypt bcrypt passwords
+  return null;
 };
 
 /**
@@ -428,6 +466,7 @@ module.exports = {
   updateOverwatchAccount,
   deleteOverwatchAccount,
   matchAccountPassword,
+  getDecryptedPassword,
   addAllowedUser,
   removeAllowedUser,
   getAccessibleAccounts,

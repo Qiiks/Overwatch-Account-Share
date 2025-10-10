@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Settings = require('../models/Settings');
 const jwt = require('jsonwebtoken');
 const { body, validationResult, matchedData } = require('express-validator');
 const bcrypt = require('bcrypt');
@@ -40,6 +41,23 @@ exports.register = [
         success: false,
         error: errors.array()
       });
+    }
+
+    // Check if registration is allowed
+    try {
+      const allowRegistration = await Settings.getSetting('allow_registration');
+      // If setting exists and is false, reject registration
+      if (allowRegistration === false) {
+        return res.status(403).json({
+          success: false,
+          error: 'User registration is currently disabled by the administrator.'
+        });
+      }
+      // If setting is true or doesn't exist (null), allow registration to proceed
+    } catch (error) {
+      console.error('Error checking registration settings:', error);
+      // If there's an error checking settings, we'll allow registration to proceed
+      // to avoid blocking legitimate users due to system errors
     }
 
     const { username, password, email } = req.body;
@@ -150,9 +168,11 @@ exports.login = [
       res.status(200).json({
         success: true,
         token,
+        id: user._id,  // Add user ID to response
         role: user.role || 'user',
         isAdmin: !!user.isAdmin,
         username: user.username,
+        email: user.email,  // Also include email for completeness
         isApproved: user.isApproved
       });
     } catch (error) {

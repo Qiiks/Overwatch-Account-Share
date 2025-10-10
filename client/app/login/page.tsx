@@ -49,6 +49,15 @@ export default function LoginPage() {
         } else {
           localStorage.removeItem("username")
         }
+        // Store the complete user object for authorization checks
+        const userObject = {
+          id: data.id,
+          username: data.username,
+          email: data.email,
+          role: data.role || "user",
+          isAdmin: data.isAdmin || false
+        }
+        localStorage.setItem("user", JSON.stringify(userObject))
         router.push("/dashboard")
       } else {
         // Handle error
