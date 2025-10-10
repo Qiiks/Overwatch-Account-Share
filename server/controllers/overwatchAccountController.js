@@ -11,6 +11,7 @@ const {
 const dbClient = require('../config/db');
 const supabase = dbClient.supabase;
 const { body, validationResult } = require('express-validator');
+const { getNormalizedEmail } = require('../utils/emailNormalizer');
 
 exports.addAccount = [
   // Validate and sanitize inputs - accept both frontend field names and backend field names
@@ -270,6 +271,7 @@ exports.updateAccount = [
       }
       if (email !== undefined && email !== '') {
         updateData.accountEmail = email;
+        updateData.normalized_account_email = getNormalizedEmail(email);
       }
       if (password !== undefined && password !== '') {
         updateData.accountPassword = password;
