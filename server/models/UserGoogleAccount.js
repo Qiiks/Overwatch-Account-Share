@@ -200,6 +200,26 @@ class UserGoogleAccount {
     return data;
   }
   
+  /**
+   * Deactivate a Google account
+   * @param {string} id - The Google account ID
+   * @returns {Object} The updated account
+   */
+  static async deactivate(id) {
+    const { data, error } = await getSupabase()
+      .from('user_google_accounts')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data;
+  }
+  
   constructor(data) {
     this.userId = data.userId;
     this.googleEmail = data.googleEmail;

@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const { cache } = require('../utils/cache');
 const { findEmailServiceByEmail } = require('./EmailService');
+const { getNormalizedEmail } = require('../utils/emailNormalizer');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
@@ -13,7 +14,16 @@ const getSupabase = () => global.supabase;
 const createOverwatchAccount = async (accountData) => {
   // NOTE: accountTag is now used instead of battleTag per new schema.
   // If migrating existing data, ensure all battleTag values are moved to accountTag.
-  const { accountPassword, accountEmail, accountTag, linked_google_account_id, ...rest } = accountData;
+  const {
+    accountPassword,
+    accountEmail,
+    accountTag,
+    linked_google_account_id,
+    otp,
+    otp_fetched_at,
+    otp_expires_at,
+    ...rest
+  } = accountData;
 
   // Log for debugging
   console.log('Creating Overwatch account with:', {
@@ -43,17 +53,32 @@ const createOverwatchAccount = async (accountData) => {
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(accountPassword, salt);
 
+  // Generate normalized email for OTP matching
+  const normalizedEmail = getNormalizedEmail(accountEmail);
+
   // Map to proper database column names (all lowercase as per actual database)
   const insertData = {
     ...rest,
     accountemail: accountEmail,  // Map to lowercase column name
     accountpassword: hashedPassword,  // Map to lowercase column name
-    accounttag: accountTag  // Already lowercase in DB
+    accounttag: accountTag,  // Already lowercase in DB
+    normalized_account_email: normalizedEmail  // New field for OTP matching
   };
   
   // Only add linked_google_account_id if it's provided and not empty
   if (linked_google_account_id) {
     insertData.linked_google_account_id = linked_google_account_id;
+  }
+
+  // Add OTP fields if provided
+  if (otp !== undefined) {
+    insertData.otp = otp;
+  }
+  if (otp_fetched_at !== undefined) {
+    insertData.otp_fetched_at = otp_fetched_at;
+  }
+  if (otp_expires_at !== undefined) {
+    insertData.otp_expires_at = otp_expires_at;
   }
 
   const { data, error } = await getSupabase()
@@ -159,6 +184,8 @@ const updateOverwatchAccount = async (id, updateData) => {
   }
   if (updateData.accountEmail !== undefined) {
     mappedUpdateData.accountemail = updateData.accountEmail;
+    // Update normalized email whenever account email is updated
+    mappedUpdateData.normalized_account_email = getNormalizedEmail(updateData.accountEmail);
   }
   if (updateData.accountTag !== undefined) {
     mappedUpdateData.accounttag = updateData.accountTag;
@@ -170,9 +197,19 @@ const updateOverwatchAccount = async (id, updateData) => {
   if (updateData.linked_google_account_id !== undefined) {
     mappedUpdateData.linked_google_account_id = updateData.linked_google_account_id;
   }
+  // Handle OTP fields
+  if (updateData.otp !== undefined) {
+    mappedUpdateData.otp = updateData.otp;
+  }
+  if (updateData.otp_fetched_at !== undefined) {
+    mappedUpdateData.otp_fetched_at = updateData.otp_fetched_at;
+  }
+  if (updateData.otp_expires_at !== undefined) {
+    mappedUpdateData.otp_expires_at = updateData.otp_expires_at;
+  }
   // Copy any other fields that don't need mapping
   Object.keys(updateData).forEach(key => {
-    if (!['accountPassword', 'accountEmail', 'accountTag', 'accounttag', 'linked_google_account_id'].includes(key)) {
+    if (!['accountPassword', 'accountEmail', 'accountTag', 'accounttag', 'linked_google_account_id', 'otp', 'otp_fetched_at', 'otp_expires_at'].includes(key)) {
       mappedUpdateData[key] = updateData[key];
     }
   });
@@ -306,6 +343,82 @@ const getAllAccounts = async () => {
   return data || [];
 };
 
+/**
+ * Update OTP for an Overwatch account
+ * @param {string} normalizedEmail - The normalized email to search for
+ * @param {string} otp - The OTP code
+ * @param {Date} fetchedAt - When the OTP was fetched
+ * @param {Date} expiresAt - When the OTP expires
+ * @returns {Object} The updated account
+ */
+const updateAccountOTP = async (normalizedEmail, otp, fetchedAt, expiresAt) => {
+  const { data, error } = await getSupabase()
+    .from('overwatch_accounts')
+    .update({
+      otp: otp,
+      otp_fetched_at: fetchedAt,
+      otp_expires_at: expiresAt
+    })
+    .eq('normalized_account_email', normalizedEmail)
+    .select();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data[0];
+};
+
+/**
+ * Find Overwatch accounts by normalized email
+ * @param {string} normalizedEmail - The normalized email to search for
+ * @returns {Array} The found accounts
+ */
+const findAccountsByNormalizedEmail = async (normalizedEmail) => {
+  const { data, error } = await getSupabase()
+    .from('overwatch_accounts')
+    .select('*')
+    .eq('normalized_account_email', normalizedEmail);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data || [];
+};
+
+/**
+ * Alias for findOverwatchAccountByAccountEmail for compatibility
+ * @param {string} email - The account email to search for
+ * @returns {Object|null} The found account or null
+ */
+const findByEmail = async (email) => {
+  return findOverwatchAccountByAccountEmail(email);
+};
+
+/**
+ * Clear expired OTPs from all accounts
+ * @returns {number} The number of accounts cleared
+ */
+const clearExpiredOTPs = async () => {
+  const now = new Date().toISOString();
+  
+  const { data, error } = await getSupabase()
+    .from('overwatch_accounts')
+    .update({
+      otp: null,
+      otp_fetched_at: null,
+      otp_expires_at: null
+    })
+    .lt('otp_expires_at', now)
+    .not('otp', 'is', null)
+    .select();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data ? data.length : 0;
+};
+
 module.exports = {
   createOverwatchAccount,
   findOverwatchAccountByAccountTag,
@@ -318,7 +431,11 @@ module.exports = {
   addAllowedUser,
   removeAllowedUser,
   getAccessibleAccounts,
-  getAllAccounts
+  getAllAccounts,
+  updateAccountOTP,
+  findAccountsByNormalizedEmail,
+  findByEmail,
+  clearExpiredOTPs
 };
 // NOTE: If you have legacy data with battleTag, you must run the migration to rename it to accountTag in Supabase.
 // Manual migration step: Check for any remaining references to battleTag in your data and update them to accountTag.
