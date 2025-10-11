@@ -646,6 +646,121 @@ function generateCipherText(type) {
 }
 
 /**
+ * Share an account with another user by email
+ * Non-admin endpoint for account owners to share their accounts
+ */
+exports.shareAccountByEmail = async (req, res, next) => {
+  try {
+    const accountId = req.params.id;
+    const { email } = req.body;
+    const requesterId = req.user.id;
+
+    // Validate email is provided
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: [{ msg: 'Email is required' }]
+      });
+    }
+
+    // Find the user by email
+    const { data: targetUser, error: userError } = await supabase
+      .from('users')
+      .select('id, username, email')
+      .eq('email', email)
+      .single();
+
+    if (userError || !targetUser) {
+      return res.status(404).json({
+        success: false,
+        error: [{ msg: 'User with this email not found' }]
+      });
+    }
+
+    // Find the account
+    const account = await findOverwatchAccountById(accountId);
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: [{ msg: 'Account not found' }]
+      });
+    }
+
+    // Verify that the requester is the owner of the account
+    if (account.owner_id !== requesterId) {
+      return res.status(403).json({
+        success: false,
+        error: [{ msg: 'You are not authorized to share this account. Only the owner can share.' }]
+      });
+    }
+
+    // Check if the account is already shared with this user
+    const { data: existingShare, error: checkError } = await supabase
+      .from('overwatch_account_allowed_users')
+      .select('*')
+      .eq('overwatch_account_id', accountId)
+      .eq('user_id', targetUser.id)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      // PGRST116 is the error code for "no rows found" which is expected
+      console.error('Error checking existing share:', checkError);
+      throw checkError;
+    }
+
+    if (existingShare) {
+      return res.status(400).json({
+        success: false,
+        error: [{ msg: 'This account is already shared with this user' }]
+      });
+    }
+
+    // Insert new share record into junction table
+    const { error: insertError } = await supabase
+      .from('overwatch_account_allowed_users')
+      .insert({
+        overwatch_account_id: accountId,
+        user_id: targetUser.id
+      });
+
+    if (insertError) {
+      console.error('Error sharing account:', insertError);
+      throw insertError;
+    }
+
+    // Invalidate cache for both the account owner and the newly shared user
+    const ownerCacheKey = cacheKeys.accounts(account.owner_id);
+    const userCacheKey = cacheKeys.accounts(targetUser.id);
+    
+    await Promise.all([
+      cache.del(ownerCacheKey),
+      cache.del(userCacheKey)
+    ]);
+
+    console.log(`[Cache] Invalidated cache for owner ${account.owner_id} and shared user ${targetUser.id}`);
+
+    // Return success message with user info
+    res.status(200).json({
+      success: true,
+      message: `Account successfully shared with ${targetUser.username}`,
+      data: {
+        accountId: accountId,
+        sharedWith: {
+          id: targetUser.id,
+          username: targetUser.username,
+          email: targetUser.email
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in shareAccountByEmail:', error);
+    next(error);
+  }
+};
+
+/**
  * Get all accounts with conditional credential display
  * Shows cipher text for accounts user doesn't have access to
  */

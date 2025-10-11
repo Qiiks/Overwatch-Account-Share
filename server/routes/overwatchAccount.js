@@ -8,7 +8,8 @@ const {
   getUsersForSharing,
   deleteAccount,
   getAccountCredentials,
-  getAllAccountsWithConditionalCredentials
+  getAllAccountsWithConditionalCredentials,
+  shareAccountByEmail
 } = require('../controllers/overwatchAccountController');
 const { protect } = require('../middleware/authMiddleware');
 const optionalAuth = require('../middleware/optionalAuth');
@@ -32,5 +33,6 @@ router.put('/:id/access', protect, updateAccountAccess);
 router.get('/users', protect, getUsersForSharing);
 router.get('/:id/credentials', credentialRateLimit, protect, getAccountCredentials); // CRITICAL: Rate limited credential endpoint
 router.delete('/:id', protect, deleteAccount);
+router.post('/:id/share-by-email', protect, shareAccountByEmail); // New endpoint for non-admin sharing
 
 module.exports = router;
