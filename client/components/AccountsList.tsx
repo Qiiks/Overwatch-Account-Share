@@ -33,7 +33,11 @@ interface Credentials {
   accessType: string;
 }
 
-export function AccountsList() {
+interface AccountsListProps {
+  onDataChange?: () => void | Promise<void>;
+}
+
+export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   const [accounts, setAccounts] = useState<OverwatchAccount[]>([]);
   const [credentials, setCredentials] = useState<Record<string, Credentials>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -299,7 +303,14 @@ export function AccountsList() {
                         Manage Account
                       </button>
                     )}
-                    <button className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all">
+                    <button
+                      onClick={() => {
+                        // If ShareAccountModal integration is added later, pass onDataChange as onActionSuccess
+                        // For now, just log or handle the share action
+                        console.log('Share access clicked for account:', account.id);
+                      }}
+                      className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all"
+                    >
                       Share Access
                     </button>
                   </>

@@ -65,8 +65,44 @@ const getDashboard = async (req, res) => {
             }
 
             accountsShared = sharedAccounts.length;
+            
+            // Combine all accounts
+            const allAccounts = [...ownedAccounts, ...sharedAccounts];
+            
+            // Fetch shared users for all accounts
+            const accountSharedUsers = {};
+            if (allAccounts.length > 0) {
+                const accountIds = allAccounts.map(acc => acc.id);
+                
+                // Query to get all shared users for these accounts with their emails and IDs
+                const { data: sharedUsersData, error: sharedUsersError } = await supabase
+                    .from('overwatch_account_allowed_users')
+                    .select(`
+                        overwatch_account_id,
+                        users!inner(id, email)
+                    `)
+                    .in('overwatch_account_id', accountIds);
+                
+                if (sharedUsersError) {
+                    console.error('Error fetching shared users:', sharedUsersError);
+                } else if (sharedUsersData) {
+                    // Group shared users by account ID
+                    sharedUsersData.forEach(item => {
+                        if (!accountSharedUsers[item.overwatch_account_id]) {
+                            accountSharedUsers[item.overwatch_account_id] = [];
+                        }
+                        if (item.users && item.users.email && item.users.id) {
+                            accountSharedUsers[item.overwatch_account_id].push({
+                                id: item.users.id,
+                                email: item.users.email
+                            });
+                        }
+                    });
+                }
+            }
+            
             // Map account fields to frontend expectations
-            accounts = [...ownedAccounts, ...sharedAccounts].map(account => ({
+            accounts = allAccounts.map(account => ({
                 id: account.id,
                 _id: account.id,
                 gamertag: account.accounttag,
@@ -74,7 +110,7 @@ const getDashboard = async (req, res) => {
                 rank: account.rank,
                 heroes: account.heroes,
                 lastUsed: account.lastused,
-                sharedWith: account.sharedwith,
+                sharedWith: accountSharedUsers[account.id] || [], // Array of objects with {id, email}
                 status: account.status,
                 owner_id: account.owner_id,  // CRITICAL: Include owner_id for proper categorization
                 createdAt: account.createdat,
