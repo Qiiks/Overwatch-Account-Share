@@ -33,7 +33,7 @@ interface Credential {
   type: "password" | "otp" | "api_key"
   lastUsed: string
   isShared: boolean
-  sharedWith: string[]
+  sharedWith: { id: string; email: string; }[]
   owner: string
   googleAccountId?: string
 }
@@ -42,9 +42,10 @@ interface ManageAccountModalProps {
   isOpen: boolean
   onClose: () => void
   credential: Credential | null
+  onActionSuccess?: () => void | Promise<void>
 }
 
-export function ManageAccountModal({ isOpen, onClose, credential }: ManageAccountModalProps) {
+export function ManageAccountModal({ isOpen, onClose, credential, onActionSuccess }: ManageAccountModalProps) {
   const [formData, setFormData] = useState({
     battletag: "",
     email: "",
@@ -136,8 +137,10 @@ export function ManageAccountModal({ isOpen, onClose, credential }: ManageAccoun
 
       if (response.ok) {
         onClose()
-        // Refresh the dashboard
-        window.location.reload()
+        // Trigger data refresh without page reload
+        if (onActionSuccess) {
+          await onActionSuccess()
+        }
       } else {
         alert("Failed to update Overwatch account")
       }
@@ -165,8 +168,10 @@ export function ManageAccountModal({ isOpen, onClose, credential }: ManageAccoun
       if (response.ok) {
         setShowDeleteDialog(false)
         onClose()
-        // Refresh the dashboard
-        window.location.reload()
+        // Trigger data refresh without page reload
+        if (onActionSuccess) {
+          await onActionSuccess()
+        }
       } else {
         alert("Failed to delete Overwatch account")
       }

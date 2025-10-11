@@ -12,8 +12,6 @@ import { ShareAccountModal } from "@/components/modals/ShareAccountModal"
 import { ManageAccountModal } from "@/components/modals/ManageAccountModal"
 import { AccountSettingsModal } from "@/components/modals/AccountSettingsModal"
 import { GoogleAccountsManager } from "@/components/GoogleAccountsManager"
-// Temporarily comment out socket.io-client import until package is installed
-// import { io, Socket } from "socket.io-client"
 
 interface Credential {
   id: string
@@ -21,7 +19,7 @@ interface Credential {
   type: "password" | "otp" | "api_key"
   lastUsed: string
   isShared: boolean
-  sharedWith: string[]
+  sharedWith: { id: string; email: string; }[]
   owner: string
 }
 
@@ -170,7 +168,7 @@ export default function DashboardPage() {
           type: (acc.type as any) || "password",
           lastUsed: acc.updatedAt || acc.createdAt || "-",
           isShared: userId ? acc.owner_id !== userId : false,
-          sharedWith: [],
+          sharedWith: acc.sharedWith || [],
           owner: userId && acc.owner_id === userId ? "me" : acc.owner_id || "",
         })) as Credential[]
 
@@ -405,11 +403,13 @@ export default function DashboardPage() {
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         credential={selectedCredential}
+        onActionSuccess={fetchDashboardData}
       />
       <ManageAccountModal
         isOpen={showManageModal}
         onClose={() => setShowManageModal(false)}
         credential={selectedCredential}
+        onActionSuccess={fetchDashboardData}
       />
       <AccountSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
     </div>

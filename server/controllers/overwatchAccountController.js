@@ -14,6 +14,7 @@ const supabase = dbClient.supabase;
 const { body, validationResult } = require('express-validator');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
 const { decrypt } = require('../utils/encryption');
+const { cache, cacheKeys } = require('../utils/cache');
 
 exports.addAccount = [
   // Validate and sanitize inputs - accept both frontend field names and backend field names
@@ -344,11 +345,52 @@ exports.updateAccountAccess = async (req, res, next) => {
       });
     }
 
-    // First, remove all existing allowed users
-    await supabase
+    // Get the list of previously allowed users before making changes
+    const { data: oldAllowedUsers, error: fetchOldError } = await supabase
+      .from('overwatch_account_allowed_users')
+      .select('user_id')
+      .eq('overwatch_account_id', accountId);
+    
+    if (fetchOldError) {
+      console.error('Error fetching old allowed users:', fetchOldError);
+      throw fetchOldError;
+    }
+    
+    const oldUserIds = oldAllowedUsers ? oldAllowedUsers.map(u => u.user_id) : [];
+
+    // Validate that all userIds exist in the users table
+    if (userIds && userIds.length > 0) {
+      const { data: validUsers, error: validationError } = await supabase
+        .from('users')
+        .select('id')
+        .in('id', userIds);
+      
+      if (validationError) {
+        throw validationError;
+      }
+
+      // Check if all provided userIds are valid
+      const validUserIds = validUsers.map(u => u.id);
+      const invalidUserIds = userIds.filter(id => !validUserIds.includes(id));
+      
+      if (invalidUserIds.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: [{ msg: `Invalid user IDs provided: ${invalidUserIds.join(', ')}` }]
+        });
+      }
+    }
+
+    // First, remove all existing allowed users with error handling
+    const { error: deleteError } = await supabase
       .from('overwatch_account_allowed_users')
       .delete()
       .eq('overwatch_account_id', accountId);
+
+    if (deleteError) {
+      console.error('Error removing existing allowed users:', deleteError);
+      throw deleteError;
+    }
 
     // Then, add the new allowed users
     if (userIds && userIds.length > 0) {
@@ -357,37 +399,75 @@ exports.updateAccountAccess = async (req, res, next) => {
         user_id: userId
       }));
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('overwatch_account_allowed_users')
         .insert(allowedUsersData);
 
-      if (error) {
-        throw error;
+      if (insertError) {
+        console.error('Error adding new allowed users:', insertError);
+        throw insertError;
       }
     }
 
-    // Get updated account with allowed users
+    // Cache invalidation: Determine all affected users
+    const newUserIds = userIds || [];
+    const allAffectedUserIds = new Set([
+      ...oldUserIds,  // Users who lost access
+      ...newUserIds   // Users who gained access
+    ]);
+    
+    // Invalidate cache for the account owner
+    const ownerCacheKey = cacheKeys.accounts(account.owner_id);
+    
+    // Create cache invalidation promises
+    const cacheInvalidationPromises = [
+      cache.del(ownerCacheKey)  // Invalidate owner's cache
+    ];
+    
+    // Invalidate cache for all affected users
+    for (const userId of allAffectedUserIds) {
+      const userCacheKey = cacheKeys.accounts(userId);
+      cacheInvalidationPromises.push(cache.del(userCacheKey));
+    }
+    
+    // Execute all cache invalidations in parallel
+    await Promise.all(cacheInvalidationPromises);
+    
+    console.log(`[Cache] Invalidated cache for owner ${account.owner_id} and ${allAffectedUserIds.size} affected users`);
+
+    // Get updated account with allowed users using LEFT JOIN
+    // Using left join ensures we get the account even if there are no allowed users
     const { data: updatedAccount, error: fetchError } = await supabase
       .from('overwatch_accounts')
       .select(`
         *,
-        overwatch_account_allowed_users!inner(user_id)
+        overwatch_account_allowed_users(user_id)
       `)
       .eq('id', accountId)
       .single();
 
     if (fetchError) {
+      console.error('Error fetching updated account:', fetchError);
       throw fetchError;
     }
+
+    // Format the response to include shared users list
+    const sharedUserIds = updatedAccount.overwatch_account_allowed_users
+      ? updatedAccount.overwatch_account_allowed_users.map(u => u.user_id)
+      : [];
 
     res.status(200).json({
       success: true,
       data: {
         ...updatedAccount,
         accountTag: updatedAccount.accounttag,
+        sharedUsers: sharedUserIds,
+        // Remove the raw overwatch_account_allowed_users from response
+        overwatch_account_allowed_users: undefined
       }
     });
   } catch (error) {
+    console.error('Error in updateAccountAccess:', error);
     // Pass error to centralized error handler
     next(error);
   }

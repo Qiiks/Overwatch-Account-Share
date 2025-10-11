@@ -14,7 +14,7 @@ interface Credential {
   type: "password" | "otp" | "api_key"
   lastUsed: string
   isShared: boolean
-  sharedWith: string[]
+  sharedWith: { id: string; email: string; }[]
   owner: string
 }
 
@@ -22,9 +22,10 @@ interface ShareAccountModalProps {
   isOpen: boolean
   onClose: () => void
   credential: Credential | null
+  onActionSuccess?: () => void | Promise<void>
 }
 
-export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountModalProps) {
+export function ShareAccountModal({ isOpen, onClose, credential, onActionSuccess }: ShareAccountModalProps) {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -39,7 +40,7 @@ export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountM
       const token = localStorage.getItem("auth_token")
 
       // Fetch users to resolve email -> userId
-      const usersResp = await fetch(`${apiBase}/api/overwatch/users`, {
+      const usersResp = await fetch(`${apiBase}/api/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!usersResp.ok) {
@@ -53,7 +54,7 @@ export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountM
         return
       }
 
-      const response = await fetch(`${apiBase}/api/overwatch/accounts/${credential.id}/access`, {
+      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}/access`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -65,8 +66,10 @@ export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountM
       if (response.ok) {
         setEmail("")
         onClose()
-        // Refresh the dashboard
-        window.location.reload()
+        // Trigger data refresh without page reload
+        if (onActionSuccess) {
+          await onActionSuccess()
+        }
       } else {
         alert("Failed to share credential")
       }
@@ -85,31 +88,12 @@ export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountM
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
       const token = localStorage.getItem("auth_token")
 
-      // Resolve email -> userId
-      const usersResp = await fetch(`${apiBase}/api/overwatch/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!usersResp.ok) {
-        alert("Failed to load users for revoke")
-        return
-      }
-      const usersData = await usersResp.json()
-      const user = (usersData?.data || usersData)?.find((u: any) => u.email?.toLowerCase() === userEmail.toLowerCase())
-      if (!user) {
-        alert("User not found")
-        return
-      }
+      // Calculate the remainingIds by filtering the credential.sharedWith array directly
+      const remainingIds = credential.sharedWith
+        .filter(user => user.email.toLowerCase() !== userEmail.toLowerCase())
+        .map(user => user.id)
 
-      // Fetch current allowed list, remove this user, and PUT
-      const currentAllowed = (credential.sharedWith || []).filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
-
-      // Map remaining emails -> ids
-      const idMap = (usersData?.data || usersData) as any[]
-      const remainingIds = currentAllowed
-        .map((e) => idMap.find((u: any) => u.email?.toLowerCase() === e.toLowerCase())?.id)
-        .filter(Boolean)
-
-      const response = await fetch(`${apiBase}/api/overwatch/accounts/${credential.id}/access`, {
+      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}/access`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -119,8 +103,10 @@ export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountM
       })
 
       if (response.ok) {
-        // Refresh the dashboard
-        window.location.reload()
+        // Trigger data refresh without page reload
+        if (onActionSuccess) {
+          await onActionSuccess()
+        }
       } else {
         alert("Failed to revoke access")
       }
@@ -169,18 +155,18 @@ export function ShareAccountModal({ isOpen, onClose, credential }: ShareAccountM
             <div className="space-y-3">
               <Label className="text-[#EAEAEA]">Currently shared with:</Label>
               <div className="space-y-2">
-                {credential.sharedWith.map((userEmail) => (
+                {credential.sharedWith.map((user) => (
                   <div
-                    key={userEmail}
+                    key={user.id}
                     className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10"
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-full bg-[#8A2BE2]/20 flex items-center justify-center">
-                        <span className="text-sm font-medium text-[#8A2BE2]">{userEmail.charAt(0).toUpperCase()}</span>
+                        <span className="text-sm font-medium text-[#8A2BE2]">{user.email.charAt(0).toUpperCase()}</span>
                       </div>
-                      <span className="text-[#EAEAEA]">{userEmail}</span>
+                      <span className="text-[#EAEAEA]">{user.email}</span>
                     </div>
-                    <GlassButton size="sm" variant="destructive" onClick={() => handleRevoke(userEmail)}>
+                    <GlassButton size="sm" variant="destructive" onClick={() => handleRevoke(user.email)}>
                       Revoke
                     </GlassButton>
                   </div>
