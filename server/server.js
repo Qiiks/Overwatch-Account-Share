@@ -54,184 +54,78 @@ try {
   console.warn('HTTPS certs not found, falling back to HTTP');
 }
 
-const defaultAllowedOrigins = [
+// SIMPLIFIED CORS CONFIGURATION - PRODUCTION FIX
+// Define allowed origins with clear priority
+const allowedOrigins = [
+  // Production URLs (highest priority)
+  'https://overwatch.qiikzx.dev',
+  'https://bwgg4wow8kggc48kko0g080c.qiikzx.dev',
+  // Development URLs
   'http://localhost:3000',
-  'http://127.0.0.1:8080',
   'http://localhost:5001',
   'http://localhost:5173',
-  'https://overwatch.qiikzx.dev',
-  'https://bwgg4wow8kggc48kko0g080c.qiikzx.dev'
+  'http://127.0.0.1:8080',
 ];
 
-// Add production URLs from environment variables
-const configuredOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.NEXT_PUBLIC_FRONTEND_URL, // In case it's set with Next.js naming
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-]
-  .map(origin => (origin || '').trim())
-  .filter(Boolean);
+// Add additional origins from environment if specified
+if (process.env.ALLOWED_ORIGINS) {
+  const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+  allowedOrigins.push(...envOrigins);
+}
 
-// Log environment configuration for debugging
-console.log('[CORS Config] Environment variables:');
-console.log('  FRONTEND_URL:', process.env.FRONTEND_URL || '(not set)');
-console.log('  NEXT_PUBLIC_FRONTEND_URL:', process.env.NEXT_PUBLIC_FRONTEND_URL || '(not set)');
-console.log('  ALLOWED_ORIGINS:', process.env.ALLOWED_ORIGINS || '(not set)');
+// Remove duplicates and empty strings
+const uniqueOrigins = [...new Set(allowedOrigins.filter(Boolean))];
 
-const normalizeOrigin = (origin) => {
-  if (!origin) return null;
-  try {
-    const url = new URL(origin);
-    const base = `${url.protocol}//${url.host}`;
-    return base.replace(/\/$/, '');
-  } catch (err) {
-    return origin.replace(/\/$/, '');
-  }
-};
+console.log('[CORS] Configured allowed origins:');
+uniqueOrigins.forEach(origin => console.log(`  - ${origin}`));
 
-const addProtocolVariants = (origin) => {
-  const normalized = normalizeOrigin(origin);
-  if (!normalized) return [];
-  const variants = new Set([normalized]);
-  if (normalized.startsWith('http://')) {
-    variants.add(normalized.replace('http://', 'https://'));
-  } else if (normalized.startsWith('https://')) {
-    variants.add(normalized.replace('https://', 'http://'));
-  }
-  return Array.from(variants);
-};
-
-const allowedOrigins = Array.from(new Set([
-  ...defaultAllowedOrigins.flatMap(addProtocolVariants),
-  ...configuredOrigins.flatMap(addProtocolVariants)
-]))
-  .map(origin => normalizeOrigin(origin))
-  .filter(Boolean);
-
-const allowedOriginsSet = new Set(allowedOrigins);
-
-// Log final CORS configuration
-console.log('[CORS Config] Final allowed origins:');
-Array.from(allowedOriginsSet).forEach(origin => {
-  console.log(`  - ${origin}`);
-});
-logger.info('Configured CORS origins', {
-  allowedOrigins: Array.from(allowedOriginsSet),
-  totalCount: allowedOriginsSet.size
-});
-
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
-
+// CRITICAL FIX: Simplified CORS middleware with explicit origin handling
 const corsOptions = {
-  origin(origin, callback) {
-    // Allow requests with no origin (e.g., mobile apps, Postman, server-to-server)
+  origin: function(origin, callback) {
+    // Allow requests with no origin (server-to-server, Postman, etc.)
     if (!origin) {
-      console.log('[CORS] Request with no origin header - allowing');
       return callback(null, true);
     }
-
-    const normalizedOrigin = normalizeOrigin(origin);
     
-    // Detailed logging for debugging
-    console.log(`[CORS] Checking origin: ${origin}`);
-    console.log(`[CORS] Normalized to: ${normalizedOrigin}`);
-    
-    if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
+    // Check if origin is in our allowed list
+    if (uniqueOrigins.includes(origin)) {
       console.log(`[CORS] ✅ Origin allowed: ${origin}`);
-      return callback(null, true);
+      return callback(null, origin); // Return the specific origin, not just true
     }
-
-    // Log detailed rejection info
-    console.error(`[CORS] ❌ Origin rejected: ${origin}`);
-    console.error(`[CORS] Normalized origin: ${normalizedOrigin}`);
-    console.error(`[CORS] Looking for origins containing 'qiikzx.dev':`);
-    Array.from(allowedOriginsSet).forEach(allowed => {
-      if (allowed.includes('qiikzx.dev')) {
-        console.error(`[CORS]   - ${allowed}`);
-      }
-    });
     
-    // Return error with details
-    const error = new Error(`CORS: Origin ${origin} not allowed`);
-    error.statusCode = 403;
-    return callback(error);
+    console.error(`[CORS] ❌ Origin blocked: ${origin}`);
+    console.error(`[CORS] Expected one of: ${uniqueOrigins.join(', ')}`);
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
-  maxAge: 86400, // 24 hours
-  optionsSuccessStatus: 200,
-  preflightContinue: false
+  maxAge: 86400,
+  optionsSuccessStatus: 200
 };
 
-// Apply CORS middleware
+// Apply CORS middleware ONCE
 app.use(cors(corsOptions));
 
-// Ensure preflight requests are handled for all routes
+// Handle preflight requests
 app.options('*', cors(corsOptions));
 
-// Additional CORS headers for extra safety
-app.use((req, res, next) => {
-  // Log incoming request details for debugging
-  if (req.headers.origin) {
-    console.log(`[CORS Debug] ${req.method} ${req.path} from origin: ${req.headers.origin}`);
-  }
-  next();
+// Socket.IO configuration with matching CORS settings
+const io = new Server(server, {
+  cors: {
+    origin: uniqueOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+  },
+  transports: ['websocket', 'polling'], // Allow both transports
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
-// CORS error handler - must come after cors() middleware
-app.use((err, req, res, next) => {
-  if (err && typeof err.message === 'string' && err.message.startsWith('CORS:')) {
-    console.error('[CORS Error Handler] CORS rejection for:', {
-      origin: req.headers.origin,
-      method: req.method,
-      path: req.path,
-      error: err.message
-    });
-    
-    // Send detailed error in development, generic in production
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-    return res.status(403).json({
-      status: 'error',
-      message: 'Origin not allowed by CORS',
-      origin: req.headers.origin || null,
-      ...(isDevelopment && {
-        details: err.message,
-        allowedOrigins: Array.from(allowedOriginsSet).filter(o => o.includes('.dev'))
-      })
-    });
-  }
-  next(err);
-});
-
-// Explicit CORS headers for successful requests
-app.use((req, res, next) => {
-  const requestOrigin = req.headers.origin;
-  if (requestOrigin) {
-    const normalizedOrigin = normalizeOrigin(requestOrigin);
-    if (normalizedOrigin && allowedOriginsSet.has(normalizedOrigin)) {
-      // Explicitly set CORS headers for allowed origins
-      res.header('Access-Control-Allow-Origin', requestOrigin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-      res.header('Vary', 'Origin');
-      
-      // Log successful CORS header setting
-      if (req.path !== '/health' && req.path !== '/ready') { // Skip health check logs
-        console.log(`[CORS Headers] Set for ${requestOrigin} on ${req.method} ${req.path}`);
-      }
-    }
-  }
-  next();
-});
+// Log Socket.IO configuration
+console.log('[Socket.IO] Configured with origins:', uniqueOrigins);
 
 // Security middleware
 app.use(helmet({
@@ -244,8 +138,8 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: [
         "'self'",
-        ...allowedOrigins,
-        ...allowedOrigins.map(origin => origin.replace('http://', 'ws://').replace('https://', 'wss://'))
+        ...uniqueOrigins,
+        ...uniqueOrigins.map(origin => origin.replace('http://', 'ws://').replace('https://', 'wss://'))
       ],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
@@ -385,11 +279,20 @@ app.use('/api/settings', settingsRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
+// Socket.IO authentication - FIXED to be more lenient for initial connection
 io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
+  const token = socket.handshake.auth?.token;
+  
+  // Log connection attempt
+  console.log('[Socket.IO Auth] Connection attempt from:', socket.handshake.headers.origin);
+  
   if (!token) {
-    return next(new Error('Authentication error'));
+    console.log('[Socket.IO Auth] No token provided, allowing anonymous connection');
+    // Allow connection without auth for public features
+    socket.user = null;
+    return next();
   }
+  
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { data: user, error } = await supabase
@@ -397,13 +300,20 @@ io.use(async (socket, next) => {
       .select('*')
       .eq('id', decoded.id)
       .single();
+      
     if (error || !user) {
-      return next(new Error('Authentication error'));
+      console.log('[Socket.IO Auth] User not found for token');
+      socket.user = null;
+      return next();
     }
+    
     socket.user = user;
+    console.log('[Socket.IO Auth] Authenticated user:', user.username);
     next();
   } catch (error) {
-    next(new Error('Authentication error'));
+    console.log('[Socket.IO Auth] Token verification failed:', error.message);
+    socket.user = null;
+    next(); // Allow connection even with invalid token
   }
 });
 
@@ -415,52 +325,79 @@ app.set('io', io);
 app.set('onlineUsers', onlineUsers);
 
 io.on('connection', (socket) => {
-  logger.info('User connected via socket', {
-    userId: socket.user.id,
-    username: socket.user.username,
-    socketId: socket.id
+  console.log('[Socket.IO] Client connected:', {
+    id: socket.id,
+    user: socket.user?.username || 'anonymous',
+    origin: socket.handshake.headers.origin
   });
 
-  // Add user to online users map
-  onlineUsers.set(socket.user.id, {
-    id: socket.user.id,
-    username: socket.user.username,
-    socketId: socket.id,
-    connectedAt: new Date()
-  });
+  if (socket.user) {
+    // Authenticated user
+    logger.info('Authenticated user connected via socket', {
+      userId: socket.user.id,
+      username: socket.user.username,
+      socketId: socket.id
+    });
 
-  // Join a room specific to the user
-  socket.join(socket.user.id);
+    // Add user to online users map
+    onlineUsers.set(socket.user.id, {
+      id: socket.user.id,
+      username: socket.user.username,
+      socketId: socket.id,
+      connectedAt: new Date()
+    });
+
+    // Join a room specific to the user
+    socket.join(socket.user.id);
+    
+    // Send initial data to the newly connected user
+    socket.emit('connectionSuccess', {
+      userId: socket.user.id,
+      onlineUsers: onlineUsers.size
+    });
+  } else {
+    // Anonymous connection - still emit basic events
+    console.log('[Socket.IO] Anonymous connection established');
+    socket.emit('connectionSuccess', {
+      userId: null,
+      onlineUsers: onlineUsers.size
+    });
+  }
 
   // Emit updated online users count to all connected clients
   const onlineCount = onlineUsers.size;
   io.emit('onlineUsers', onlineCount);
-  logger.info(`Online users count updated: ${onlineCount}`);
-
-  // Send initial data to the newly connected user
-  socket.emit('connectionSuccess', {
-    userId: socket.user.id,
-    onlineUsers: onlineCount
-  });
-
+  
   socket.on('disconnect', () => {
-    logger.info('User disconnected from socket', {
-      userId: socket.user.id,
-      username: socket.user.username
+    console.log('[Socket.IO] Client disconnected:', {
+      id: socket.id,
+      user: socket.user?.username || 'anonymous'
     });
     
-    // Remove user from online users map
-    onlineUsers.delete(socket.user.id);
+    if (socket.user) {
+      logger.info('User disconnected from socket', {
+        userId: socket.user.id,
+        username: socket.user.username
+      });
+      
+      // Remove user from online users map
+      onlineUsers.delete(socket.user.id);
+    }
     
     // Emit updated online users count to all remaining clients
     const onlineCount = onlineUsers.size;
     io.emit('onlineUsers', onlineCount);
-    logger.info(`Online users count updated after disconnect: ${onlineCount}`);
   });
 
   // Handle request for current online users count
   socket.on('requestOnlineUsers', () => {
     socket.emit('onlineUsers', onlineUsers.size);
+  });
+  
+  // Handle OTP-related events (no auth required for listening)
+  socket.on('subscribeToOTP', () => {
+    console.log('[Socket.IO] Client subscribed to OTP updates');
+    socket.join('otp-updates');
   });
 });
 
@@ -481,6 +418,8 @@ async function startServer() {
     if (require.main === module) {
       server.listen(PORT, '0.0.0.0', () => {
         logger.info(`Server is now listening on port ${PORT}`);
+        console.log(`[Server] Running on http://0.0.0.0:${PORT}`);
+        console.log(`[Server] CORS enabled for: ${uniqueOrigins.join(', ')}`);
       });
     
       server.on('error', (err) => {

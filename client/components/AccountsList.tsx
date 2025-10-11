@@ -127,13 +127,18 @@ export function AccountsList() {
 
     fetchAccounts();
 
-    // Establish WebSocket connection
+    // Establish WebSocket connection with authentication
     const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+    const token = localStorage.getItem('auth_token');
+    
     const newSocket = io(socketUrl, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Allow both transports
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      auth: {
+        token: token || undefined // Send token if available
+      }
     });
 
     // Connection event handlers
