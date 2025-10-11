@@ -39,28 +39,13 @@ export function ShareAccountModal({ isOpen, onClose, credential, onActionSuccess
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
       const token = localStorage.getItem("auth_token")
 
-      // Fetch users to resolve email -> userId
-      const usersResp = await fetch(`${apiBase}/api/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!usersResp.ok) {
-        alert("Failed to load users for sharing")
-        return
-      }
-      const usersData = await usersResp.json()
-      const user = (usersData?.data || usersData)?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase())
-      if (!user) {
-        alert("User not found. Make sure the email is registered.")
-        return
-      }
-
-      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}/access`, {
-        method: "PUT",
+      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}/share-by-email`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ userIds: [user.id] }),
+        body: JSON.stringify({ email: email }),
       })
 
       if (response.ok) {
