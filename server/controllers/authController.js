@@ -121,10 +121,9 @@ exports.login = [
       const user = await User.findOne({ email: sanitizedEmail });
 
       if (!user) {
-        // Use 401 instead of 404 for security reasons - don't reveal if user exists
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid credentials'
+        // Return 404 when user is not found
+        return res.status(404).json({
+          message: 'User not found'
         });
       }
 
@@ -132,8 +131,7 @@ exports.login = [
 
       if (!isMatch) {
         return res.status(401).json({
-          success: false,
-          error: 'Invalid credentials'
+          message: 'Invalid email or password'
         });
       }
 

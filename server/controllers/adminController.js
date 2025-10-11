@@ -94,47 +94,39 @@ const listUsers = async (req, res) => {
     try {
         const supabase = global.supabase;
         
-        // Get all users from Supabase
+        // Get all users with account count using join
         const { data: users, error: usersError } = await supabase
             .from('users')
-            .select('id, username, email, isadmin, isapproved, createdat, updatedat');
+            .select('id, username, email, isadmin, isapproved, createdat, updatedat, overwatch_accounts(count)');
 
         if (usersError) {
             console.error('Error fetching users:', usersError);
             throw usersError;
         }
 
-        // Get account counts for all users
-        const { data: accountCounts, error: countsError } = await supabase
-            .from('overwatch_accounts')
-            .select('owner_id');
-
-        if (countsError) {
-            console.error('Error fetching account counts:', countsError);
-            throw countsError;
-        }
-
-        // Count accounts per user
-        const accountCountMap = {};
-        if (accountCounts) {
-            accountCounts.forEach(account => {
-                accountCountMap[account.owner_id] = (accountCountMap[account.owner_id] || 0) + 1;
-            });
-        }
-
+        // Debug: Log the raw user data to see what Supabase returns
+        console.log('[DEBUG] Raw users data from Supabase:', JSON.stringify(users.slice(0, 2), null, 2));
+        
         // Format users for frontend
-        const formattedUsers = users.map(user => ({
-            _id: user.id,
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.isadmin ? 'admin' : 'user',
-            joinDate: user.createdat ? new Date(user.createdat).toLocaleDateString() : 'N/A',
-            accountsOwned: accountCountMap[user.id] || 0,
-            status: user.isapproved ? 'active' : 'suspended',
-            lastLogin: user.updatedat ? new Date(user.updatedat).toLocaleDateString() : 'Never',
-            isAdmin: user.isadmin || false
-        }));
+        const formattedUsers = users.map(user => {
+            // Debug: Log the overwatch_accounts structure for first user
+            if (user.username === 'Qiikzx') {
+                console.log('[DEBUG] Qiikzx overwatch_accounts data:', user.overwatch_accounts);
+            }
+            
+            return {
+                _id: user.id,
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.isadmin ? 'admin' : 'user',
+                joinDate: user.createdat ? new Date(user.createdat).toLocaleDateString() : 'N/A',
+                accountsOwned: user.overwatch_accounts?.[0]?.count || 0,
+                status: user.isapproved ? 'active' : 'suspended',
+                lastLogin: user.updatedat ? new Date(user.updatedat).toLocaleDateString() : 'Never',
+                isAdmin: user.isadmin || false
+            };
+        });
 
         res.json(formattedUsers);
     } catch (error) {

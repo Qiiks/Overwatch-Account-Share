@@ -24,10 +24,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
@@ -60,14 +62,32 @@ export default function LoginPage() {
         localStorage.setItem("user", JSON.stringify(userObject))
         router.push("/dashboard")
       } else {
-        // Handle error
-        console.error("Login failed")
+        // Parse error response to get specific message
+        const errorData = await response.json()
+        setError(errorData.message || "Login failed")
+        console.error("Login failed:", errorData)
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle network errors or parsing errors
+      if (error.response?.data?.message) {
+        setError(error.response.data.message)
+      } else {
+        setError("An error occurred. Please try again.")
+      }
       console.error("Login error:", error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value)
+    if (error) setError("")
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value)
+    if (error) setError("")
   }
 
   return (
@@ -92,7 +112,7 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
                   placeholder="Enter your email"
                   required
                 />
@@ -106,11 +126,17 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handlePasswordChange}
                   placeholder="Enter your password"
                   required
                 />
               </div>
+
+              {error && (
+                <div className="text-red-500 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-md p-2">
+                  {error}
+                </div>
+              )}
 
               <div className="flex items-center space-x-2">
                 <Checkbox

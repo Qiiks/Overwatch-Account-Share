@@ -233,7 +233,7 @@ export default function AdminPage() {
         </GlassCard>
 
         {/* User Management */}
-        <UserManagement />
+        <UserManagement onUsersChange={fetchAdminData} />
       </div>
     </div>
   )

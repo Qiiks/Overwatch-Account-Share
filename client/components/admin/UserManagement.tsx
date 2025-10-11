@@ -24,7 +24,11 @@ interface User {
   joinDate?: string
 }
 
-export function UserManagement() {
+interface UserManagementProps {
+  onUsersChange?: () => void
+}
+
+export function UserManagement({ onUsersChange }: UserManagementProps) {
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -78,19 +82,32 @@ export function UserManagement() {
 
       if (response.ok) {
         const data = await response.json()
+        // Debug: Log raw API response
+        console.log('[DEBUG] Raw API response for users:', data)
+        
         // Map the data to ensure consistent structure
-        const mappedUsers = data.map((user: any) => ({
-          id: user.id || user._id,
-          username: user.username,
-          email: user.email,
-          role: user.role || (user.isAdmin ? "admin" : "user"),
-          status: user.status || (user.isApproved ? "active" : "suspended"),
-          lastLogin: user.lastLogin || "Never",
-          credentialCount: user.credentialCount || user.accountsOwned || 0,
-          accountsOwned: user.accountsOwned || 0,
-          flaggedCount: user.flaggedCount || 0,
-          joinDate: user.joinDate || "N/A"
-        }))
+        const mappedUsers = data.map((user: any) => {
+          // Debug: Log individual user data
+          if (user.username === 'Qiikzx') {
+            console.log('[DEBUG] Qiikzx user data from API:', user)
+            console.log('[DEBUG] Qiikzx accountsOwned value:', user.accountsOwned)
+          }
+          
+          return {
+            id: user.id || user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role || (user.isAdmin ? "admin" : "user"),
+            status: user.status || (user.isApproved ? "active" : "suspended"),
+            lastLogin: user.lastLogin || "Never",
+            credentialCount: user.credentialCount || user.accountsOwned || 0,
+            accountsOwned: user.accountsOwned || 0,
+            flaggedCount: user.flaggedCount || 0,
+            joinDate: user.joinDate || "N/A"
+          }
+        })
+        
+        console.log('[DEBUG] Mapped users:', mappedUsers)
         setUsers(mappedUsers)
       } else {
         toast.error("Failed to fetch users")
@@ -120,6 +137,7 @@ export function UserManagement() {
       if (response.ok) {
         toast.success(`User ${newStatus === "active" ? "activated" : "suspended"} successfully`)
         fetchUsers() // Refresh the list
+        onUsersChange?.() // Trigger parent data refresh
       } else {
         const error = await response.json()
         toast.error(error.message || `Failed to update user status`)
@@ -128,7 +146,7 @@ export function UserManagement() {
       console.error("Failed to update user status:", error)
       toast.error("Failed to update user status")
     }
-  }, [])
+  }, [onUsersChange])
 
   const handleUserDelete = useCallback(async (userId: string) => {
     try {
@@ -145,6 +163,7 @@ export function UserManagement() {
       if (response.ok) {
         toast.success("User deleted successfully")
         fetchUsers() // Refresh the list
+        onUsersChange?.() // Trigger parent data refresh
       } else {
         const error = await response.json()
         toast.error(error.message || "Failed to delete user")
@@ -153,14 +172,15 @@ export function UserManagement() {
       console.error("Failed to delete user:", error)
       toast.error("Failed to delete user")
     }
-  }, [])
+  }, [onUsersChange])
 
   const handleUserCreated = useCallback((newUser: User) => {
     // Add the new user to the list
     setUsers(prev => [...prev, newUser])
     setShowCreateModal(false)
     toast.success("User created successfully")
-  }, [])
+    onUsersChange?.() // Trigger parent data refresh
+  }, [onUsersChange])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -279,9 +299,9 @@ export function UserManagement() {
                     </td>
                     <td className="p-4 text-[#EAEAEA]/80">
                       {user.accountsOwned || 0}
-                      {user.flaggedCount && user.flaggedCount > 0 && (
+                      {(user.flaggedCount ?? 0) > 0 ? (
                         <span className="ml-2 text-red-400">⚠️ {user.flaggedCount}</span>
-                      )}
+                      ) : null}
                     </td>
                     <td className="p-4 text-[#EAEAEA]/60">{user.lastLogin}</td>
                     <td className="p-4 text-right">
