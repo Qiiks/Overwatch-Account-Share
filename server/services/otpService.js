@@ -2,6 +2,7 @@ const { google } = require('googleapis');
 const UserGoogleAccount = require('../models/UserGoogleAccount');
 const OverwatchAccount = require('../models/OverwatchAccount');
 const encryption = require('../utils/encryption');
+const { logger } = require('../utils/logger');
 
 class OTPService {
     constructor() {
@@ -79,7 +80,7 @@ class OTPService {
                 return cleanValue;
             }
         } catch (error) {
-            console.error('[OTP Service] Error parsing email headers:', error);
+            logger.error('[OTP Service] Error parsing email headers:', error);
         }
         
         return null;
@@ -137,35 +138,35 @@ class OTPService {
      */
     async fetchOTPsForAllAccounts(io) {
         try {
-            console.log('[OTP Service] Starting OTP fetch cycle...');
+            logger.info('[OTP Service] Starting OTP fetch cycle...');
             
             // Get all active Google accounts across all users
             const googleAccounts = await UserGoogleAccount.find({ is_active: true });
             
             if (!googleAccounts || googleAccounts.length === 0) {
-                console.log('[OTP Service] No active Google accounts found');
+                logger.info('[OTP Service] No active Google accounts found');
                 return;
             }
             
-            console.log(`[OTP Service] Found ${googleAccounts.length} active Google accounts`);
+            logger.info(`[OTP Service] Found ${googleAccounts.length} active Google accounts`);
             
             for (const googleAccount of googleAccounts) {
                 try {
                     await this.fetchOTPsFromGoogleAccount(googleAccount, io);
                 } catch (error) {
-                    console.error(`[OTP Service] Error fetching from Google account ${googleAccount.email}:`, error.message);
+                    logger.error(`[OTP Service] Error fetching from Google account ${googleAccount.email}:`, error.message);
                     
                     // Handle authentication errors
                     if (error.response && [400, 401].includes(error.response.status)) {
-                        console.error(`[OTP Service] Deactivating Google account ${googleAccount.id} due to auth error`);
+                        logger.warn(`[OTP Service] Deactivating Google account ${googleAccount.id} due to auth error`);
                         await UserGoogleAccount.deactivate(googleAccount.id);
                     }
                 }
             }
             
-            console.log('[OTP Service] OTP fetch cycle completed');
+            logger.info('[OTP Service] OTP fetch cycle completed');
         } catch (error) {
-            console.error('[OTP Service] Critical error in fetch cycle:', error);
+            logger.error('[OTP Service] Critical error in fetch cycle:', error);
         }
     }
 
@@ -188,11 +189,13 @@ class OTPService {
         const messages = res.data.messages || [];
         
         if (messages.length === 0) {
-            console.log(`[OTP Service] No recent unread verification emails found for ${googleAccount.email}`);
+            if (process.env.NODE_ENV !== 'production') {
+                logger.debug(`[OTP Service] No recent unread verification emails found for ${googleAccount.email}`);
+            }
             return;
         }
 
-        console.log(`[OTP Service] Processing ${messages.length} verification emails from ${googleAccount.email}`);
+        logger.info(`[OTP Service] Processing ${messages.length} verification emails from ${googleAccount.email}`);
 
         for (const message of messages) {
             try {
@@ -207,17 +210,23 @@ class OTPService {
                 const recipientEmail = this.extractRecipientEmail(msg.data.payload.headers || []);
                 
                 if (!recipientEmail) {
-                    console.log(`[OTP Service] Could not extract recipient email from message ${message.id}`);
+                    if (process.env.NODE_ENV !== 'production') {
+                        logger.debug(`[OTP Service] Could not extract recipient email from message ${message.id}`);
+                    }
                     continue;
                 }
 
-                console.log(`[OTP Service] Message ${message.id} sent to: ${recipientEmail}`);
+                if (process.env.NODE_ENV !== 'production') {
+                    logger.debug(`[OTP Service] Message ${message.id} sent to: ${recipientEmail}`);
+                }
 
                 // Find the exact Overwatch account by matching the exact email
                 const overwatchAccount = await OverwatchAccount.findByEmail(recipientEmail);
 
                 if (!overwatchAccount) {
-                    console.log(`[OTP Service] No Overwatch account found for email: ${recipientEmail}`);
+                    if (process.env.NODE_ENV !== 'production') {
+                        logger.debug(`[OTP Service] No Overwatch account found for email: ${recipientEmail}`);
+                    }
                     continue;
                 }
 
@@ -225,7 +234,9 @@ class OTPService {
                 const htmlBody = this.extractHtmlBody(msg.data.payload);
                 
                 if (!htmlBody) {
-                    console.log(`[OTP Service] No HTML body found in message ${message.id}`);
+                    if (process.env.NODE_ENV !== 'production') {
+                        logger.debug(`[OTP Service] No HTML body found in message ${message.id}`);
+                    }
                     continue;
                 }
 
@@ -233,14 +244,16 @@ class OTPService {
                 const otp = this.extractOTPFromBody(htmlBody);
                 
                 if (!otp) {
-                    console.log(`[OTP Service] No OTP found in message ${message.id}`);
+                    if (process.env.NODE_ENV !== 'production') {
+                        logger.debug(`[OTP Service] No OTP found in message ${message.id}`);
+                    }
                     continue;
                 }
 
                 // Update the specific account with the OTP
                 await this.updateAccountOTP(overwatchAccount, otp, io);
                 
-                console.log(`[OTP Service] Successfully updated OTP for ${overwatchAccount.accounttag} (${recipientEmail}): ${otp}`);
+                logger.info(`[OTP Service] Successfully updated OTP for account (${recipientEmail})`);
                 
                 // Mark the email as read to prevent reprocessing
                 await gmail.users.messages.modify({
@@ -251,11 +264,13 @@ class OTPService {
                     }
                 }).catch(err => {
                     // If we don't have permission to modify, just log it
-                    console.log(`[OTP Service] Could not mark message ${message.id} as read:`, err.message);
+                    if (process.env.NODE_ENV !== 'production') {
+                        logger.debug(`[OTP Service] Could not mark message ${message.id} as read:`, err.message);
+                    }
                 });
                 
             } catch (error) {
-                console.error(`[OTP Service] Error processing message ${message.id}:`, error.message);
+                logger.error(`[OTP Service] Error processing message ${message.id}:`, error.message);
             }
         }
     }
@@ -305,7 +320,9 @@ class OTPService {
         // Also emit to global 'otp' event for backward compatibility
         io.to(account.owner_id.toString()).emit('otp', payload);
         
-        console.log(`[OTP Service] Emitted OTP update for ${account.accounttag} to user ${account.owner_id}`);
+        if (process.env.NODE_ENV !== 'production') {
+            logger.debug(`[OTP Service] Emitted OTP update to user ${account.owner_id}`);
+        }
     }
 
     /**
@@ -315,10 +332,10 @@ class OTPService {
         try {
             const expiredAccounts = await OverwatchAccount.clearExpiredOTPs();
             if (expiredAccounts > 0) {
-                console.log(`[OTP Service] Cleaned up ${expiredAccounts} expired OTPs`);
+                logger.info(`[OTP Service] Cleaned up ${expiredAccounts} expired OTPs`);
             }
         } catch (error) {
-            console.error('[OTP Service] Error cleaning up expired OTPs:', error);
+            logger.error('[OTP Service] Error cleaning up expired OTPs:', error);
         }
     }
 
@@ -327,7 +344,7 @@ class OTPService {
      * @param {Object} io - Socket.io instance
      */
     startScheduler(io) {
-        console.log('[OTP Service] Starting OTP scheduler...');
+        logger.info('[OTP Service] Starting OTP scheduler...');
         
         // Fetch OTPs every 30 seconds
         setInterval(() => {
@@ -348,7 +365,7 @@ class OTPService {
 const otpService = new OTPService();
 
 const startOtpFetching = (io) => {
-    console.log('Starting OTP fetching service...');
+    logger.info('Starting OTP fetching service...');
     otpService.startScheduler(io);
 };
 

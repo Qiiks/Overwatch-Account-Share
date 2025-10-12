@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const logger = require('../utils/logger');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
@@ -13,7 +14,7 @@ class User {
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Database error in User.findOne:', error);
+        logger.error('Database error in User.findOne:', error);
         throw error;
       }
 
@@ -30,12 +31,12 @@ class User {
             // The database stores password as 'password_hash'
             const hashedPassword = this.password_hash || this.password;
             if (!hashedPassword) {
-              console.error('No password hash found for user:', this.email);
+              logger.error('No password hash found for user:', this.email);
               return false;
             }
             return await bcrypt.compare(enteredPassword, hashedPassword);
           } catch (err) {
-            console.error('Error comparing passwords:', err);
+            logger.error('Error comparing passwords:', err);
             return false;
           }
         };
@@ -48,7 +49,7 @@ class User {
 
       return data;
     } catch (err) {
-      console.error('Critical error in User.findOne:', err);
+      logger.error('Critical error in User.findOne:', err);
       throw err;
     }
   }

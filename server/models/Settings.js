@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
 
@@ -125,7 +127,7 @@ class Settings {
       const setting = await this.findOne({ key: name });
       return setting ? setting.value : null;
     } catch (error) {
-      console.error(`Error getting setting ${name}:`, error);
+      logger.error(`Error getting setting ${name}:`, error);
       return null;
     }
   }
@@ -149,7 +151,7 @@ class Settings {
         return newSetting;
       }
     } catch (error) {
-      console.error(`Error updating setting ${name}:`, error);
+      logger.error(`Error updating setting ${name}:`, error);
       throw error;
     }
   }

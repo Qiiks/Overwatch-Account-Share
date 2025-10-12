@@ -1,3 +1,5 @@
+const { logger, performanceLogger } = require('../utils/logger');
+
 const requestLogger = (req, res, next) => {
   const startTime = Date.now();
   
@@ -8,7 +10,7 @@ const requestLogger = (req, res, next) => {
   const headers = req.headers || {};
   const userAgent = headers['user-agent'] || 'Unknown';
   
-  console.log(`[${new Date().toISOString()}] ${method} ${originalUrl} - ${ip} - ${userAgent}`);
+  logger.http(`${method} ${originalUrl} - ${ip} - ${userAgent}`);
   
   // Override res.end to log response details
   const originalEnd = res.end;
@@ -17,11 +19,12 @@ const requestLogger = (req, res, next) => {
     const statusCode = res.statusCode || 'UNKNOWN';
     
     // Log response details
-    console.log(`[${new Date().toISOString()}] Response: ${statusCode} - ${responseTime}ms`);
+    logger.http(`Response: ${statusCode} - ${responseTime}ms`);
     
     // Log slow requests (over 500ms)
     if (responseTime > 500) {
-      console.warn(`[${new Date().toISOString()}] SLOW REQUEST: ${method} ${originalUrl} took ${responseTime}ms`);
+      performanceLogger.logApiCall(`${method} ${originalUrl}`, responseTime, statusCode >= 400);
+      logger.warn(`SLOW REQUEST: ${method} ${originalUrl} took ${responseTime}ms`);
     }
     
     // Call the original end function

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/db');
+const logger = require('../utils/logger');
 
 const optionalAuth = async (req, res, next) => {
   // If no Authorization header, continue without user
@@ -35,7 +36,9 @@ const optionalAuth = async (req, res, next) => {
       .single();
 
     if (error || !user) {
-      console.log('User not found in database for optional auth');
+      if (process.env.NODE_ENV !== 'production') {
+        logger.debug('User not found in database for optional auth');
+      }
       req.user = null;
       return next();
     }
@@ -44,7 +47,9 @@ const optionalAuth = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.log('JWT verification failed in optional auth:', error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      logger.debug('JWT verification failed in optional auth:', error.message);
+    }
     req.user = null;
     next();
   }
