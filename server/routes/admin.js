@@ -5,6 +5,7 @@ const {
     getUsers,
     listUsers,
     updateUserStatus,
+    updateUserStatusValidation,
     deleteUser,
     getLogs,
     getAdminDashboard,
@@ -31,7 +32,7 @@ router.get('/users', listUsers);
 // @route   PATCH /api/admin/users/:id/status
 // @desc    Update user status
 // @access  Admin
-router.patch('/users/:id/status', updateUserStatus);
+router.patch('/users/:id/status', updateUserStatusValidation, updateUserStatus);
 
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete a user
