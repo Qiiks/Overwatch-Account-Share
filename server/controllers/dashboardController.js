@@ -9,7 +9,7 @@ const { logger } = require('../utils/logger');
 // @access  Private
 const getDashboard = async (req, res) => {
     const startTime = process.hrtime.bigint();
-    console.log('[PERF] Dashboard request started for user:', req.user.id);
+    logger.debug('[PERF] Dashboard request started', { userId: req.user.id });
 
     try {
         // Fetch user from Supabase
@@ -30,7 +30,7 @@ const getDashboard = async (req, res) => {
         let accounts = [], accountsOwned = 0, accountsShared = 0, queryDuration = 0;
 
         if (cachedData) {
-            console.log('[CACHE] Dashboard data served from cache for user:', req.user.id);
+            logger.debug('[CACHE] Dashboard data served from cache', { userId: req.user.id });
             accounts = cachedData.accounts;
             accountsOwned = cachedData.accountsOwned;
             accountsShared = cachedData.accountsShared;
@@ -89,7 +89,7 @@ const getDashboard = async (req, res) => {
                     .in('overwatch_account_id', accountIds);
                 
                 if (sharedUsersError) {
-                    console.error('Error fetching shared users:', sharedUsersError);
+                    logger.error('Error fetching shared users:', sharedUsersError);
                 } else if (sharedUsersData) {
                     // Group shared users by account ID
                     sharedUsersData.forEach(item => {
@@ -148,7 +148,7 @@ const getDashboard = async (req, res) => {
             }, CACHE_TTL.ACCOUNTS);
 
             queryDuration = 0; // Not measured here
-            console.log(`[PERF] Dashboard Supabase queries completed, cached for ${CACHE_TTL.ACCOUNTS}s`);
+            logger.debug(`[PERF] Dashboard queries completed, cached for ${CACHE_TTL.ACCOUNTS}s`);
         }
 
         // TODO: Implement recent activity and online users
@@ -156,7 +156,7 @@ const getDashboard = async (req, res) => {
         const onlineUsers = 0;
 
         const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-        console.log(`[PERF] Dashboard request completed in ${totalDuration.toFixed(2)}ms`);
+        logger.debug(`[PERF] Dashboard request completed in ${totalDuration.toFixed(2)}ms`);
 
         res.json({
             user: {
@@ -175,7 +175,11 @@ const getDashboard = async (req, res) => {
         });
     } catch (error) {
         const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-        console.error(`[PERF] Dashboard request failed after ${totalDuration.toFixed(2)}ms:`, { error: error.message, stack: error.stack });
+        logger.error(`[PERF] Dashboard request failed after ${totalDuration.toFixed(2)}ms`, {
+            error: error.message,
+            stack: error.stack,
+            userId: req.user.id
+        });
         res.status(500).json({ message: 'Server error' });
     }
 };

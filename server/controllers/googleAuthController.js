@@ -2,6 +2,7 @@ const { google } = require('googleapis');
 const crypto = require('crypto');
 const encryption = require('../utils/encryption');
 const UserGoogleAccount = require('../models/UserGoogleAccount');
+const { logger } = require('../utils/logger');
 
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-state-secret-for-dev';
 
@@ -9,7 +10,7 @@ const resolveRedirectUri = () => {
   const configured = process.env.GOOGLE_REDIRECT_URI;
   
   if (!configured || configured.trim() === '') {
-    console.error('CRITICAL: GOOGLE_REDIRECT_URI is not set in environment variables.');
+    logger.error('CRITICAL: GOOGLE_REDIRECT_URI is not set in environment variables');
     throw new Error('Google OAuth redirect URI is not configured on the server.');
   }
   
@@ -17,7 +18,7 @@ const resolveRedirectUri = () => {
     // Validate that it's a proper URL
     return new URL(configured).toString();
   } catch (err) {
-    console.error('CRITICAL: GOOGLE_REDIRECT_URI is not a valid URL.', { value: configured });
+    logger.error('CRITICAL: GOOGLE_REDIRECT_URI is not a valid URL', { value: configured });
     throw new Error('Google OAuth redirect URI is invalid on the server.');
   }
 };
@@ -77,7 +78,7 @@ exports.initGoogleOTPAuth = async (req, res) => {
 
     res.json({ authUrl });
   } catch (error) {
-    console.error('Error initiating Google OAuth:', error);
+    logger.error('Error initiating Google OAuth:', error);
     res.status(500).json({ message: 'Failed to initiate Google account linking.' });
   }
 };
@@ -92,7 +93,7 @@ exports.googleOTPCallback = async (req, res) => {
       throw new Error('OAuth state expired');
     }
   } catch (err) {
-    console.error('OAuth state error:', err.message);
+    logger.error('OAuth state error:', { error: err.message });
     return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard?oauth_error=invalid_state`);
   }
 
@@ -135,7 +136,7 @@ exports.googleOTPCallback = async (req, res) => {
 
     res.redirect(`${process.env.FRONTEND_URL}/accounts?oauth_success=true`);
   } catch (err) {
-    console.error('OAuth callback error:', err);
+    logger.error('OAuth callback error:', err);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}${stateData.redirectUrl}?oauth_error=authentication_failed`);
   }
 };
@@ -158,7 +159,7 @@ exports.listGoogleAccounts = async (req, res) => {
         
         res.json({ accounts: mappedAccounts });
     } catch (error) {
-        console.error('Error listing Google accounts:', error);
+        logger.error('Error listing Google accounts:', error);
         res.status(500).json({ message: 'Failed to retrieve linked accounts.' });
     }
 };
@@ -170,7 +171,7 @@ exports.deleteGoogleAccount = async (req, res) => {
         await UserGoogleAccount.deleteById(id, req.user.id);
         res.json({ success: true, message: 'Google account unlinked successfully.' });
     } catch (error) {
-        console.error('Error deleting Google account:', error);
+        logger.error('Error deleting Google account:', error);
         res.status(500).json({ message: 'Failed to unlink account.' });
     }
 };

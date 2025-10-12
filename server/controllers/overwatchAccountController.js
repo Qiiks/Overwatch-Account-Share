@@ -15,6 +15,7 @@ const { body, validationResult } = require('express-validator');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
 const { decrypt } = require('../utils/encryption');
 const { cache, cacheKeys } = require('../utils/cache');
+const { logger, performanceLogger, securityLogger } = require('../utils/logger');
 
 exports.addAccount = [
   // Validate and sanitize inputs - accept both frontend field names and backend field names
@@ -76,8 +77,10 @@ exports.addAccount = [
   async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
-      console.log('Request body:', req.body);
+      if (process.env.NODE_ENV !== 'production') {
+        logger.debug('Validation errors:', errors.array());
+        logger.debug('Request body:', req.body);
+      }
       return res.status(400).json({
         success: false,
         error: errors.array()
@@ -90,10 +93,10 @@ exports.addAccount = [
     const accountPassword = req.body.password || req.body.accountPassword;
     const googleAccountId = req.body.googleAccountId;
     
-    console.log('Processing account creation with:', {
+    logger.debug('Processing account creation', {
       accountTag,
-      accountEmail,
-      googleAccountId,
+      hasEmail: !!accountEmail,
+      hasGoogleAccount: !!googleAccountId,
       owner_id: req.user.id
     });
 
@@ -151,7 +154,7 @@ exports.addAccount = [
 
 exports.getAccounts = async (req, res, next) => {
   const startTime = process.hrtime.bigint();
-  console.log('[PERF] Get accounts request started for user:', req.user.id);
+  logger.debug('[PERF] Get accounts request started', { userId: req.user.id });
 
   try {
     const page = parseInt(req.query.page) || 1;
@@ -167,7 +170,7 @@ exports.getAccounts = async (req, res, next) => {
       filteredAccounts = allAccounts.filter(account =>
         account.accounttag && account.accounttag.toLowerCase().includes(req.query.search.toLowerCase())
       );
-      console.log('[PERF] Search query applied:', req.query.search);
+      logger.debug('[PERF] Search query applied', { query: req.query.search });
     }
 
     // Apply sorting
@@ -207,7 +210,7 @@ exports.getAccounts = async (req, res, next) => {
     });
 
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-    console.log(`[PERF] Get accounts request completed in ${totalDuration.toFixed(2)}ms`);
+    performanceLogger.logApiCall('GET', '/api/overwatch-accounts', 200, totalDuration, req.user.id);
 
     res.status(200).json({
       success: true,
@@ -223,7 +226,11 @@ exports.getAccounts = async (req, res, next) => {
     });
   } catch (error) {
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-    console.error(`[PERF] Get accounts request failed after ${totalDuration.toFixed(2)}ms:`, { error: error.message, stack: error.stack });
+    logger.error(`[PERF] Get accounts request failed after ${totalDuration.toFixed(2)}ms`, {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user.id
+    });
     // Pass error to centralized error handler
     next(error);
   }
@@ -381,9 +388,9 @@ exports.updateAccountAccess = async (req, res, next) => {
       .eq('overwatch_account_id', accountId);
     
     if (fetchOldError) {
-      console.error('Error fetching old allowed users:', fetchOldError);
-      throw fetchOldError;
-    }
+    logger.error('Error fetching old allowed users:', fetchOldError);
+    throw fetchOldError;
+  }
     
     const oldUserIds = oldAllowedUsers ? oldAllowedUsers.map(u => u.user_id) : [];
 
@@ -417,7 +424,7 @@ exports.updateAccountAccess = async (req, res, next) => {
       .eq('overwatch_account_id', accountId);
 
     if (deleteError) {
-      console.error('Error removing existing allowed users:', deleteError);
+      logger.error('Error removing existing allowed users:', deleteError);
       throw deleteError;
     }
 
@@ -433,7 +440,7 @@ exports.updateAccountAccess = async (req, res, next) => {
         .insert(allowedUsersData);
 
       if (insertError) {
-        console.error('Error adding new allowed users:', insertError);
+        logger.error('Error adding new allowed users:', insertError);
         throw insertError;
       }
     }
@@ -462,7 +469,11 @@ exports.updateAccountAccess = async (req, res, next) => {
     // Execute all cache invalidations in parallel
     await Promise.all(cacheInvalidationPromises);
     
-    console.log(`[Cache] Invalidated cache for owner ${account.owner_id} and ${allAffectedUserIds.size} affected users`);
+    performanceLogger.logCache('invalidate', `owner-${account.owner_id}`, false);
+    logger.debug(`[Cache] Invalidated cache for owner and affected users`, {
+      ownerId: account.owner_id,
+      affectedUsers: allAffectedUserIds.size
+    });
 
     // Get updated account with allowed users using LEFT JOIN
     // Using left join ensures we get the account even if there are no allowed users
@@ -476,7 +487,7 @@ exports.updateAccountAccess = async (req, res, next) => {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching updated account:', fetchError);
+      logger.error('Error fetching updated account:', fetchError);
       throw fetchError;
     }
 
@@ -505,7 +516,7 @@ exports.updateAccountAccess = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('Error in updateAccountAccess:', error);
+    logger.error('Error in updateAccountAccess:', error);
     // Pass error to centralized error handler
     next(error);
   }
@@ -573,7 +584,10 @@ exports.getAccountCredentials = async (req, res, next) => {
     const accountId = req.params.id;
     const userId = req.user?.id;
     
-    console.log(`[SECURITY] Credential access attempt for account ${accountId} by user ${userId}`);
+    securityLogger.logSuspiciousActivity(userId || 'anonymous', 'Credential access attempt', {
+      accountId,
+      timestamp: new Date().toISOString()
+    });
     
     // Fetch the account
     const account = await findOverwatchAccountById(accountId);
@@ -604,7 +618,13 @@ exports.getAccountCredentials = async (req, res, next) => {
     const hasAccess = isOwner || hasSharedAccess;
     
     // Log access attempt for security audit
-    console.log(`[SECURITY AUDIT] Account: ${accountId}, User: ${userId}, Owner: ${isOwner}, Shared: ${hasSharedAccess}, Access: ${hasAccess}`);
+    logger.info('[SECURITY AUDIT] Credential access', {
+      accountId,
+      userId,
+      isOwner,
+      hasSharedAccess,
+      hasAccess
+    });
     
     if (!hasAccess) {
       // Return cyberpunk cipher text for unauthorized users
@@ -637,7 +657,10 @@ exports.getAccountCredentials = async (req, res, next) => {
       try {
         decryptedPassword = decrypt(account.accountpassword);
       } catch (error) {
-        console.error('[SECURITY] Failed to decrypt AES password:', error);
+        logger.error('[SECURITY] Failed to decrypt AES password', {
+          error: error.message,
+          accountId
+        });
         decryptedPassword = '[Decryption Failed]';
       }
     } else {
@@ -668,7 +691,10 @@ exports.getAccountCredentials = async (req, res, next) => {
     });
     
   } catch (error) {
-    console.error('[SECURITY] Error in getAccountCredentials:', error);
+    logger.error('[SECURITY] Error in getAccountCredentials', {
+      error: error.message,
+      stack: error.stack
+    });
     next(error);
   }
 };
@@ -761,7 +787,7 @@ exports.shareAccountByEmail = async (req, res, next) => {
 
     if (checkError && checkError.code !== 'PGRST116') {
       // PGRST116 is the error code for "no rows found" which is expected
-      console.error('Error checking existing share:', checkError);
+      logger.error('Error checking existing share:', checkError);
       throw checkError;
     }
 
@@ -781,7 +807,7 @@ exports.shareAccountByEmail = async (req, res, next) => {
       });
 
     if (insertError) {
-      console.error('Error sharing account:', insertError);
+      logger.error('Error sharing account:', insertError);
       throw insertError;
     }
 
@@ -794,7 +820,11 @@ exports.shareAccountByEmail = async (req, res, next) => {
       cache.del(userCacheKey)
     ]);
 
-    console.log(`[Cache] Invalidated cache for owner ${account.owner_id} and shared user ${targetUser.id}`);
+    performanceLogger.logCache('invalidate', ownerCacheKey, false);
+    logger.debug('[Cache] Invalidated cache for share operation', {
+      ownerId: account.owner_id,
+      sharedUserId: targetUser.id
+    });
 
     // Return success message with user info
     res.status(200).json({
@@ -811,7 +841,7 @@ exports.shareAccountByEmail = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('Error in shareAccountByEmail:', error);
+    logger.error('Error in shareAccountByEmail:', error);
     next(error);
   }
 };

@@ -3,6 +3,7 @@ const { cache } = require('../utils/cache');
 const { findEmailServiceByEmail } = require('./EmailService');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
 const { encrypt, decrypt } = require('../utils/encryption');
+const logger = require('../utils/logger');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
@@ -26,13 +27,15 @@ const createOverwatchAccount = async (accountData) => {
     ...rest
   } = accountData;
 
-  // Log for debugging
-  console.log('Creating Overwatch account with:', {
-    accountTag,
-    accountEmail,
-    linked_google_account_id,
-    owner_id: rest.owner_id
-  });
+  // Log for debugging (only in non-production)
+  if (process.env.NODE_ENV !== 'production') {
+    logger.debug('Creating Overwatch account with:', {
+      accountTag,
+      accountEmail,
+      linked_google_account_id,
+      owner_id: rest.owner_id
+    });
+  }
 
   // Email service validation completely bypassed - table doesn't exist
   // const cacheKey = `email-service:${accountEmail}`;
@@ -92,11 +95,11 @@ const createOverwatchAccount = async (accountData) => {
     .select();
 
   if (error) {
-    console.error('Error creating Overwatch account:', error);
+    logger.error('Error creating Overwatch account:', error);
     throw new Error(error.message);
   }
   
-  console.log('Successfully created Overwatch account:', data[0]);
+  logger.info('Successfully created Overwatch account:', { id: data[0].id, accountTag: data[0].accounttag });
   return data[0];
 };
 
@@ -264,7 +267,7 @@ const matchAccountPassword = async (enteredPassword, storedPassword, encryptionT
       const decryptedPassword = decrypt(storedPassword);
       return decryptedPassword === enteredPassword;
     } catch (error) {
-      console.error('Error decrypting password:', error);
+      logger.error('Error decrypting password:', error);
       return false;
     }
   } else {
@@ -286,7 +289,7 @@ const getDecryptedPassword = async (accountId) => {
     try {
       return decrypt(account.accountpassword);
     } catch (error) {
-      console.error('Error decrypting password:', error);
+      logger.error('Error decrypting password:', error);
       return null;
     }
   }

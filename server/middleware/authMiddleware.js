@@ -1,10 +1,11 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/db');
+const { securityLogger } = require('../utils/logger');
 
 const authMiddleware = async (req, res, next) => {
   // Check if Authorization header exists
   if (!req.headers.authorization) {
-    console.log('No Authorization header in request');
+    securityLogger.logAuthAttempt(req.ip, null, false, 'No Authorization header');
     return res.status(401).json({
       success: false,
       message: 'No token, authorization denied'
@@ -13,7 +14,7 @@ const authMiddleware = async (req, res, next) => {
 
   // Check if Authorization header starts with "Bearer " (with space)
   if (!req.headers.authorization.startsWith('Bearer ')) {
-    console.log('Invalid Authorization header format');
+    securityLogger.logAuthAttempt(req.ip, null, false, 'Invalid token format');
     return res.status(401).json({
       success: false,
       message: 'Invalid token format, authorization denied'
@@ -25,7 +26,7 @@ const authMiddleware = async (req, res, next) => {
 
   // Check if token exists and is not empty after "Bearer "
   if (!token || token === '') {
-    console.log('No token provided after Bearer');
+    securityLogger.logAuthAttempt(req.ip, null, false, 'No token provided');
     return res.status(401).json({
       success: false,
       message: 'No token, authorization denied'
@@ -44,7 +45,7 @@ const authMiddleware = async (req, res, next) => {
       .single();
 
     if (error || !user) {
-      console.log('User not found in database');
+      securityLogger.logAuthAttempt(req.ip, decoded.id, false, 'User not found');
       return res.status(401).json({
         success: false,
         message: 'User not found, authorization denied'
@@ -55,7 +56,7 @@ const authMiddleware = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.log('JWT verification failed:', error.message);
+    securityLogger.logAuthAttempt(req.ip, null, false, `JWT verification failed: ${error.message}`);
     return res.status(401).json({
       success: false,
       message: 'Invalid token, authorization denied'

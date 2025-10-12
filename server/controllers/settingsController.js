@@ -1,4 +1,5 @@
 const Settings = require('../models/Settings');
+const logger = require('../utils/logger');
 
 // Get public settings (accessible to all users)
 const getPublicSettings = async (req, res) => {
@@ -14,7 +15,7 @@ const getPublicSettings = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching public settings:', error);
+    logger.error('Error fetching public settings:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch settings'
@@ -47,7 +48,7 @@ const updateRegistrationSetting = async (req, res) => {
       message: `Registration has been ${allow_registration ? 'enabled' : 'disabled'}`
     });
   } catch (error) {
-    console.error('Error updating registration setting:', error);
+    logger.error('Error updating registration setting:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update registration setting'
