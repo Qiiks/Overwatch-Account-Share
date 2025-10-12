@@ -132,7 +132,19 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     fetchAccounts();
 
     // Establish WebSocket connection with authentication
-    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+    // Ensure secure WebSocket (wss://) is used in production
+    const getSocketUrl = () => {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+      
+      // In production, enforce HTTPS which triggers secure WebSocket (wss://)
+      if (process.env.NODE_ENV === 'production') {
+        return apiBase.replace(/^http:/, 'https:');
+      }
+      
+      return apiBase;
+    };
+    
+    const socketUrl = getSocketUrl();
     const token = localStorage.getItem('auth_token');
     
     const newSocket = io(socketUrl, {

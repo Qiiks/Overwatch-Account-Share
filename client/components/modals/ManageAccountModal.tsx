@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { apiGet, apiPut, apiDelete } from "@/lib/api"
 
 interface GoogleAccount {
   id: string
@@ -80,25 +81,12 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
   const fetchGoogleAccounts = async () => {
     setIsLoadingAccounts(true)
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
+      const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts')
+      setGoogleAccounts(data.accounts || [])
       
-      const response = await fetch(`${apiBase}/api/google-auth/accounts`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setGoogleAccounts(data.accounts || [])
-        
-        // Auto-select the account that was associated with this credential
-        if (credential?.googleAccountId && !formData.googleAccountId) {
-          setFormData(prev => ({ ...prev, googleAccountId: credential.googleAccountId || "" }))
-        }
-      } else {
-        console.error("Failed to fetch Google accounts")
+      // Auto-select the account that was associated with this credential
+      if (credential?.googleAccountId && !formData.googleAccountId) {
+        setFormData(prev => ({ ...prev, googleAccountId: credential.googleAccountId || "" }))
       }
     } catch (error) {
       console.error("Error fetching Google accounts:", error)
@@ -118,31 +106,18 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          battletag: formData.battletag || undefined,
-          email: formData.email || undefined,
-          password: formData.password || undefined,
-          googleAccountId: formData.googleAccountId || undefined,
-          notes: formData.notes || undefined,
-        }),
+      await apiPut(`/api/overwatch-accounts/${credential.id}`, {
+        battletag: formData.battletag || undefined,
+        email: formData.email || undefined,
+        password: formData.password || undefined,
+        googleAccountId: formData.googleAccountId || undefined,
+        notes: formData.notes || undefined,
       })
-
-      if (response.ok) {
-        onClose()
-        // Trigger data refresh without page reload
-        if (onActionSuccess) {
-          await onActionSuccess()
-        }
-      } else {
-        alert("Failed to update Overwatch account")
+      
+      onClose()
+      // Trigger data refresh without page reload
+      if (onActionSuccess) {
+        await onActionSuccess()
       }
     } catch (error) {
       console.error("Update account error:", error)
@@ -156,24 +131,13 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
     if (!credential) return
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        setShowDeleteDialog(false)
-        onClose()
-        // Trigger data refresh without page reload
-        if (onActionSuccess) {
-          await onActionSuccess()
-        }
-      } else {
-        alert("Failed to delete Overwatch account")
+      await apiDelete(`/api/overwatch-accounts/${credential.id}`)
+      
+      setShowDeleteDialog(false)
+      onClose()
+      // Trigger data refresh without page reload
+      if (onActionSuccess) {
+        await onActionSuccess()
       }
     } catch (error) {
       console.error("Delete account error:", error)

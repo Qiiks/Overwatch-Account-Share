@@ -9,6 +9,7 @@ import { GlassInput } from "@/components/ui/GlassInput"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { apiGet, apiPost } from "@/lib/api"
 
 interface GoogleAccount {
   id: string
@@ -43,26 +44,13 @@ export function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
   const fetchGoogleAccounts = async () => {
     setIsLoadingAccounts(true)
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
+      const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts')
+      setGoogleAccounts(data.accounts || [])
       
-      const response = await fetch(`${apiBase}/api/google-auth/accounts`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setGoogleAccounts(data.accounts || [])
-        
-        // Auto-select primary account if available
-        const primaryAccount = data.accounts?.find((acc: GoogleAccount) => acc.is_primary)
-        if (primaryAccount && !formData.googleAccountId) {
-          setFormData(prev => ({ ...prev, googleAccountId: primaryAccount.id }))
-        }
-      } else {
-        console.error("Failed to fetch Google accounts")
+      // Auto-select primary account if available
+      const primaryAccount = data.accounts?.find((acc: GoogleAccount) => acc.is_primary)
+      if (primaryAccount && !formData.googleAccountId) {
+        setFormData(prev => ({ ...prev, googleAccountId: primaryAccount.id }))
       }
     } catch (error) {
       console.error("Error fetching Google accounts:", error)
@@ -80,9 +68,6 @@ export function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      
       const payload = {
         battletag: formData.battletag,
         email: formData.email,
@@ -93,26 +78,14 @@ export function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
       
       console.log("Sending payload to /api/overwatch-accounts:", payload)
       
-      const response = await fetch(`${apiBase}/api/overwatch-accounts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (response.ok) {
-        onClose()
-        // Refresh the dashboard
-        window.location.reload()
-      } else {
-        const errorData = await response.json()
-        alert(errorData.message || "Failed to add Overwatch account")
-      }
-    } catch (error) {
+      await apiPost('/api/overwatch-accounts', payload)
+      
+      onClose()
+      // Refresh the dashboard
+      window.location.reload()
+    } catch (error: any) {
       console.error("Add account error:", error)
-      alert("Failed to add Overwatch account")
+      alert(error.message || "Failed to add Overwatch account")
     } finally {
       setIsLoading(false)
     }

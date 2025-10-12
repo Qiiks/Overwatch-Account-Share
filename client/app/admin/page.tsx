@@ -8,6 +8,7 @@ import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
 import { RegistrationToggle } from "@/components/admin/RegistrationToggle"
 import { UserManagement } from "@/components/admin/UserManagement"
+import { apiGet } from "@/lib/api"
 
 interface AdminStats {
   totalUsers: number
@@ -37,23 +38,12 @@ export default function AdminPage() {
 
   const fetchAdminData = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      const response = await fetch(`${apiBase}/api/admin/dashboard`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setStats(data.stats)
-      } else {
-        // No mock data; leave empty on failure
-        setStats(null)
-      }
+      const data = await apiGet<{ stats: AdminStats }>('/api/admin/dashboard')
+      setStats(data.stats)
     } catch (error) {
       console.error("Failed to fetch admin data:", error)
+      // No mock data; leave empty on failure
+      setStats(null)
     } finally {
       setIsLoading(false)
     }
@@ -61,34 +51,19 @@ export default function AdminPage() {
 
   const handleQuickAction = async (action: string) => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      let url = ""
-      let method: "GET" | "POST" = "GET"
+      let endpoint = ""
 
       if (action === "security-audit") {
-        url = `${apiBase}/api/admin/logs`
-        method = "GET"
+        endpoint = "/api/admin/logs"
       } else if (action === "database-backup") {
-        url = `${apiBase}/api/admin/stats`
-        method = "GET"
+        endpoint = "/api/admin/stats"
       } else {
         alert(`Action '${action}' is not supported`)
         return
       }
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        alert(`${action} completed successfully`)
-      } else {
-        alert(`Failed to execute ${action}`)
-      }
+      await apiGet(endpoint)
+      alert(`${action} completed successfully`)
     } catch (error) {
       console.error(`${action} error:`, error)
       alert(`Failed to execute ${action}`)

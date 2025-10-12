@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { apiGet, apiPatch } from "@/lib/api"
 
 export function RegistrationToggle() {
   const [allowRegistration, setAllowRegistration] = useState(false)
@@ -16,20 +17,8 @@ export function RegistrationToggle() {
 
   const fetchRegistrationStatus = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
+      const data = await apiGet<{ data: { allow_registration: boolean }; allow_registration?: boolean }>('/api/settings')
       
-      const response = await fetch(`${apiBase}/api/settings`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch settings: ${response.status}`)
-      }
-
-      const data = await response.json()
       // Backend returns data.data.allow_registration for public settings
       const registrationStatus = data.data?.allow_registration ?? data.allow_registration ?? false
       setAllowRegistration(registrationStatus)
@@ -45,28 +34,15 @@ export function RegistrationToggle() {
     setIsUpdating(true)
     
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      
-      const response = await fetch(`${apiBase}/api/settings/registration`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ allow_registration: checked }),
+      const data = await apiPatch<{ data: { value: boolean } }>('/api/settings/registration', {
+        allow_registration: checked
       })
-
-      if (!response.ok) {
-        throw new Error(`Failed to update registration setting: ${response.status}`)
-      }
-
-      const data = await response.json()
+      
       // Backend returns data.data.value for the updated setting
       setAllowRegistration(data.data?.value ?? checked)
       
       toast.success(
-        checked 
+        checked
           ? "Registration has been enabled. New users can now sign up."
           : "Registration has been disabled. New users cannot sign up."
       )
