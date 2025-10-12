@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult, matchedData } = require('express-validator');
 const bcrypt = require('bcrypt');
 const { validatePassword } = require('../utils/passwordValidator');
+const { logger } = require('../utils/logger');
 
 exports.register = [
   // Validate and sanitize inputs
@@ -55,7 +56,7 @@ exports.register = [
       }
       // If setting is true or doesn't exist (null), allow registration to proceed
     } catch (error) {
-      console.error('Error checking registration settings:', error);
+      logger.error('Error checking registration settings:', error);
       // If there's an error checking settings, we'll allow registration to proceed
       // to avoid blocking legitimate users due to system errors
     }
@@ -163,6 +164,39 @@ exports.login = [
         });
       }
 
+      // SECURITY ENHANCEMENT: Check for legacy bcrypt Overwatch account passwords
+      // These need to be manually updated to AES encryption for credential viewing
+      let hasLegacyPasswords = false;
+      let legacyPasswordCount = 0;
+      
+      try {
+        const { data: userAccounts, error: accountsError } = await require('../config/db').supabase
+          .from('overwatch_accounts')
+          .select('id, password_encryption_type')
+          .eq('owner_id', user._id);
+        
+        if (!accountsError && userAccounts) {
+          const legacyAccounts = userAccounts.filter(
+            account => account.password_encryption_type === 'bcrypt'
+          );
+          hasLegacyPasswords = legacyAccounts.length > 0;
+          legacyPasswordCount = legacyAccounts.length;
+          
+          if (hasLegacyPasswords) {
+            logger.logger.info('[SECURITY] User has legacy bcrypt passwords', {
+              userId: user._id,
+              legacyCount: legacyPasswordCount
+            });
+          }
+        }
+      } catch (accountCheckError) {
+        // Non-critical error - don't block login
+        logger.logger.warn('[SECURITY] Failed to check for legacy passwords', {
+          error: accountCheckError.message,
+          userId: user._id
+        });
+      }
+
       res.status(200).json({
         success: true,
         token,
@@ -171,7 +205,10 @@ exports.login = [
         isAdmin: !!user.isAdmin,
         username: user.username,
         email: user.email,  // Also include email for completeness
-        isApproved: user.isApproved
+        isApproved: user.isApproved,
+        // Security notification flags
+        hasLegacyPasswords: hasLegacyPasswords,
+        legacyPasswordCount: legacyPasswordCount
       });
     } catch (error) {
       // Pass error to centralized error handler
