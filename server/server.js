@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
+const cookieParser = require('cookie-parser');
 const listEndpoints = require('express-list-endpoints');
 const debugLog = require('./middleware/debugLog');
 const authRoutes = require('./routes/auth');
@@ -20,6 +21,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const googleAuthRoutes = require('./routes/googleAuth');
 const settingsRoutes = require('./routes/settings');
+const csrfProtection = require('./middleware/csrfProtection');
 const { supabase } = require('./config/db');
 const { startOtpFetching } = require('./services/otpService');
 const jwt = require('jsonwebtoken');
@@ -47,10 +49,10 @@ try {
   const key = fs.readFileSync(process.env.SSL_KEY_PATH || 'server.key');
   const cert = fs.readFileSync(process.env.SSL_CERT_PATH || 'server.cert');
   server = https.createServer({ key, cert }, app);
-  console.log('HTTPS server enabled');
+  logger.info('HTTPS server enabled');
 } catch (err) {
   server = http.createServer(app);
-  console.warn('HTTPS certs not found, falling back to HTTP');
+  logger.warn('HTTPS certs not found, falling back to HTTP');
 }
 
 // SIMPLIFIED CORS CONFIGURATION - PRODUCTION FIX
@@ -75,8 +77,7 @@ if (process.env.ALLOWED_ORIGINS) {
 // Remove duplicates and empty strings
 const uniqueOrigins = [...new Set(allowedOrigins.filter(Boolean))];
 
-console.log('[CORS] Configured allowed origins:');
-uniqueOrigins.forEach(origin => console.log(`  - ${origin}`));
+logger.info('[CORS] Configured allowed origins:', { origins: uniqueOrigins });
 
 // CRITICAL FIX: Simplified CORS middleware with explicit origin handling
 const corsOptions = {
@@ -88,12 +89,14 @@ const corsOptions = {
     
     // Check if origin is in our allowed list
     if (uniqueOrigins.includes(origin)) {
-      console.log(`[CORS] ✅ Origin allowed: ${origin}`);
+      logger.debug(`[CORS] Origin allowed: ${origin}`);
       return callback(null, origin); // Return the specific origin, not just true
     }
     
-    console.error(`[CORS] ❌ Origin blocked: ${origin}`);
-    console.error(`[CORS] Expected one of: ${uniqueOrigins.join(', ')}`);
+    securityLogger.logSuspiciousActivity(origin, 'CORS violation', {
+      attemptedOrigin: origin,
+      allowedOrigins: uniqueOrigins
+    });
     return callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
@@ -123,10 +126,9 @@ const io = new Server(server, {
   pingInterval: 25000
 });
 
-// Log Socket.IO configuration
-console.log('[Socket.IO] Configured with origins:', uniqueOrigins);
+logger.info('[Socket.IO] Configured with CORS origins', { origins: uniqueOrigins });
 
-// Security middleware
+// Security middleware - Enhanced configuration with comprehensive security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -138,16 +140,43 @@ app.use(helmet({
       connectSrc: [
         "'self'",
         ...uniqueOrigins,
-        ...uniqueOrigins.map(origin => origin.replace('http://', 'ws://').replace('https://', 'wss://'))
+        // In production, enforce secure WebSocket connections (wss://)
+        // In development, allow both ws:// and wss://
+        ...(process.env.NODE_ENV === 'production'
+          ? uniqueOrigins.map(origin => origin.replace('http://', 'wss://').replace('https://', 'wss://'))
+          : uniqueOrigins.map(origin => origin.replace('http://', 'ws://').replace('https://', 'wss://'))
+        )
       ],
       frameSrc: ["'none'"],
+      frameAncestors: ["'none'"], // Prevents clickjacking attacks
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
   },
+  // Enforce HTTPS and prevent downgrade attacks
+  strictTransportSecurity: {
+    maxAge: 31536000, // 1 year in seconds
+    includeSubDomains: true,
+  },
+  // Prevent MIME type sniffing
+  noSniff: true,
+  // Prevent framing (clickjacking protection)
+  frameguard: { action: 'deny' },
+  // Enable XSS filter
+  xssFilter: true,
+  // Control referrer information
+  referrerPolicy: { policy: 'no-referrer' },
   crossOriginEmbedderPolicy: false
 }));
 app.disable('x-powered-by');
+
+// Cookie parser middleware (required for CSRF protection)
+app.use(cookieParser());
+
+// CSRF Protection using double-submit cookie pattern
+// Applied globally to protect against Cross-Site Request Forgery attacks
+app.use(csrfProtection);
+logger.info('CSRF protection enabled using double-submit cookie pattern');
 
 // Response compression middleware
 app.use(compression());
@@ -180,23 +209,6 @@ app.use('/api/admin', adminLimiter); // Admin endpoints rate limiting
 
 // Apply speed limiting for gradual slowdown
 // app.use(speedLimiter);
-
-/* CSRF protection middleware removed for API routes.
-   CSRF is not required for RESTful APIs using JWT authentication.
-   If needed, apply CSRF only to legacy browser form routes. */
-// Temporarily disable mongoSanitize due to Node.js compatibility issues
-// TODO: Fix mongo-sanitize compatibility with newer Node.js versions
-/*
-if (process.env.NODE_ENV !== 'test') {
-  app.use(mongoSanitize({
-    onSanitize: ({ req, key }) => {
-      // Log sanitization attempts for debugging
-      console.warn(`MongoDB injection attempt detected: ${key}`);
-    },
-    allowDots: true,
-    replaceWith: '_'
-  }));
-*/
 
 // Main health check endpoint with detailed status
 app.get('/health', async (req, res) => {
@@ -279,13 +291,12 @@ app.use(errorHandler);
 // Socket.IO authentication - FIXED to be more lenient for initial connection
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
+  const origin = socket.handshake.headers.origin;
   
-  // Log connection attempt
-  console.log('[Socket.IO Auth] Connection attempt from:', socket.handshake.headers.origin);
+  logger.debug('[Socket.IO Auth] Connection attempt', { origin });
   
   if (!token) {
-    console.log('[Socket.IO Auth] No token provided, allowing anonymous connection');
-    // Allow connection without auth for public features
+    logger.debug('[Socket.IO Auth] Anonymous connection allowed');
     socket.user = null;
     return next();
   }
@@ -299,16 +310,16 @@ io.use(async (socket, next) => {
       .single();
       
     if (error || !user) {
-      console.log('[Socket.IO Auth] User not found for token');
+      logger.debug('[Socket.IO Auth] User not found for provided token');
       socket.user = null;
       return next();
     }
     
     socket.user = user;
-    console.log('[Socket.IO Auth] Authenticated user:', user.username);
+    logger.debug('[Socket.IO Auth] User authenticated', { username: user.username });
     next();
   } catch (error) {
-    console.log('[Socket.IO Auth] Token verification failed:', error.message);
+    logger.debug('[Socket.IO Auth] Token verification failed', { error: error.message });
     socket.user = null;
     next(); // Allow connection even with invalid token
   }
@@ -322,8 +333,8 @@ app.set('io', io);
 app.set('onlineUsers', onlineUsers);
 
 io.on('connection', (socket) => {
-  console.log('[Socket.IO] Client connected:', {
-    id: socket.id,
+  logger.debug('[Socket.IO] Client connected', {
+    socketId: socket.id,
     user: socket.user?.username || 'anonymous',
     origin: socket.handshake.headers.origin
   });
@@ -354,7 +365,7 @@ io.on('connection', (socket) => {
     });
   } else {
     // Anonymous connection - still emit basic events
-    console.log('[Socket.IO] Anonymous connection established');
+    logger.debug('[Socket.IO] Anonymous connection established');
     socket.emit('connectionSuccess', {
       userId: null,
       onlineUsers: onlineUsers.size
@@ -366,8 +377,8 @@ io.on('connection', (socket) => {
   io.emit('onlineUsers', onlineCount);
   
   socket.on('disconnect', () => {
-    console.log('[Socket.IO] Client disconnected:', {
-      id: socket.id,
+    logger.debug('[Socket.IO] Client disconnected', {
+      socketId: socket.id,
       user: socket.user?.username || 'anonymous'
     });
     
@@ -393,7 +404,7 @@ io.on('connection', (socket) => {
   
   // Handle OTP-related events (no auth required for listening)
   socket.on('subscribeToOTP', () => {
-    console.log('[Socket.IO] Client subscribed to OTP updates');
+    logger.debug('[Socket.IO] Client subscribed to OTP updates');
     socket.join('otp-updates');
   });
 });
@@ -415,8 +426,10 @@ async function startServer() {
     if (require.main === module) {
       server.listen(PORT, '0.0.0.0', () => {
         logger.info(`Server is now listening on port ${PORT}`);
-        console.log(`[Server] Running on http://0.0.0.0:${PORT}`);
-        console.log(`[Server] CORS enabled for: ${uniqueOrigins.join(', ')}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[Server] Running on http://0.0.0.0:${PORT}`);
+          console.log(`[Server] CORS enabled for: ${uniqueOrigins.join(', ')}`);
+        }
       });
     
       server.on('error', (err) => {
@@ -451,9 +464,11 @@ process.on('unhandledRejection', (err, promise) => {
 // Start the server
 startServer();
 
-// Log all registered endpoints for debugging
-console.log('--- Registered Server Endpoints ---');
-console.table(listEndpoints(app));
+// Log all registered endpoints for debugging (development only)
+if (process.env.NODE_ENV !== 'production') {
+  console.log('--- Registered Server Endpoints ---');
+  console.table(listEndpoints(app));
+}
 
 // For testing, export the server
 module.exports = server;
