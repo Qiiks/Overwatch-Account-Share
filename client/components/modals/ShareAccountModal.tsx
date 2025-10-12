@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
 import { Label } from "@/components/ui/label"
+import { apiPost, apiPut } from "@/lib/api"
 
 interface Credential {
   id: string
@@ -36,27 +37,15 @@ export function ShareAccountModal({ isOpen, onClose, credential, onActionSuccess
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-
-      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}/share-by-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ email: email }),
+      await apiPost(`/api/overwatch-accounts/${credential.id}/share-by-email`, {
+        email: email
       })
-
-      if (response.ok) {
-        setEmail("")
-        onClose()
-        // Trigger data refresh without page reload
-        if (onActionSuccess) {
-          await onActionSuccess()
-        }
-      } else {
-        alert("Failed to share credential")
+      
+      setEmail("")
+      onClose()
+      // Trigger data refresh without page reload
+      if (onActionSuccess) {
+        await onActionSuccess()
       }
     } catch (error) {
       console.error("Share credential error:", error)
@@ -70,30 +59,18 @@ export function ShareAccountModal({ isOpen, onClose, credential, onActionSuccess
     if (!credential) return
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-
       // Calculate the remainingIds by filtering the credential.sharedWith array directly
       const remainingIds = credential.sharedWith
         .filter(user => user.email.toLowerCase() !== userEmail.toLowerCase())
         .map(user => user.id)
 
-      const response = await fetch(`${apiBase}/api/overwatch-accounts/${credential.id}/access`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userIds: remainingIds }),
+      await apiPut(`/api/overwatch-accounts/${credential.id}/access`, {
+        userIds: remainingIds
       })
-
-      if (response.ok) {
-        // Trigger data refresh without page reload
-        if (onActionSuccess) {
-          await onActionSuccess()
-        }
-      } else {
-        alert("Failed to revoke access")
+      
+      // Trigger data refresh without page reload
+      if (onActionSuccess) {
+        await onActionSuccess()
       }
     } catch (error) {
       console.error("Revoke access error:", error)

@@ -5,6 +5,7 @@ import { GlassCard } from './ui/GlassCard';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
+import { apiGet, apiPost, apiDelete } from '@/lib/api';
 
 interface GoogleAccount {
   id: string;
@@ -20,14 +21,7 @@ export function GoogleAccountsManager() {
 
   const fetchAccounts = async () => {
     try {
-      // Note: Replace with actual token management
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-      const res = await fetch(`${apiUrl}/api/google-auth/accounts`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch accounts.');
-      const data = await res.json();
+      const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts');
       setAccounts(data.accounts || []);
     } catch (error: any) {
       toast.error(error.message);
@@ -42,19 +36,10 @@ export function GoogleAccountsManager() {
   
   const handleLinkAccount = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-      const res = await fetch(`${apiUrl}/api/google-auth/otp/init`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ redirectUrl: window.location.pathname }),
+      const data = await apiPost<{ authUrl: string }>('/api/google-auth/otp/init', {
+        redirectUrl: window.location.pathname
       });
-      if (!res.ok) throw new Error('Failed to initiate linking.');
-      const { authUrl } = await res.json();
-      window.location.href = authUrl;
+      window.location.href = data.authUrl;
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -62,13 +47,7 @@ export function GoogleAccountsManager() {
 
   const handleUnlinkAccount = async (id: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-      const res = await fetch(`${apiUrl}/api/google-auth/accounts/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to unlink account.');
+      await apiDelete(`/api/google-auth/accounts/${id}`);
       toast.success('Account unlinked successfully.');
       fetchAccounts(); // Refresh the list
     } catch (error: any) {

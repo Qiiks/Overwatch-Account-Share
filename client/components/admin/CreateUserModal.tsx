@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
+import { apiPost } from "@/lib/api"
 
 interface User {
   id: string
@@ -79,63 +80,43 @@ export function CreateUserModal({ open, onClose, onUserCreated }: CreateUserModa
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-
-      const response = await fetch(`${apiBase}/api/admin/users`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        
-        // Create a user object that matches the expected format
-        const newUser: User = {
-          id: data.user?.id || data.user?._id || "",
-          username: data.user?.username || formData.username,
-          email: data.user?.email || formData.email,
-          role: data.user?.role === "admin" ? "admin" : "user",
-          status: data.user?.status || "active",
-          lastLogin: data.user?.lastLogin || "Never",
-          accountsOwned: data.user?.accountsOwned || 0,
-          joinDate: data.user?.joinDate || new Date().toLocaleDateString(),
-        }
-
-        onUserCreated(newUser)
-        toast.success(data.message || "User created successfully")
-        
-        // Reset form
-        setFormData({
-          username: "",
-          email: "",
-          password: "",
-          role: "user",
-        })
-        setErrors({})
-        onClose()
-      } else {
-        const error = await response.json()
-        if (error.message) {
-          toast.error(error.message)
-          
-          // Handle specific field errors
-          if (error.message.includes("email")) {
-            setErrors({ email: error.message })
-          } else if (error.message.includes("username")) {
-            setErrors({ username: error.message })
-          }
-        } else {
-          toast.error("Failed to create user")
-        }
+      const data = await apiPost<{ user: any; message: string }>('/api/admin/users', formData)
+      
+      // Create a user object that matches the expected format
+      const newUser: User = {
+        id: data.user?.id || data.user?._id || "",
+        username: data.user?.username || formData.username,
+        email: data.user?.email || formData.email,
+        role: data.user?.role === "admin" ? "admin" : "user",
+        status: data.user?.status || "active",
+        lastLogin: data.user?.lastLogin || "Never",
+        accountsOwned: data.user?.accountsOwned || 0,
+        joinDate: data.user?.joinDate || new Date().toLocaleDateString(),
       }
-    } catch (error) {
+
+      onUserCreated(newUser)
+      toast.success(data.message || "User created successfully")
+      
+      // Reset form
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        role: "user",
+      })
+      setErrors({})
+      onClose()
+    } catch (error: any) {
       console.error("Failed to create user:", error)
-      toast.error("Failed to create user")
+      const errorMessage = error.message || "Failed to create user"
+      toast.error(errorMessage)
+      
+      // Handle specific field errors
+      if (errorMessage.includes("email")) {
+        setErrors({ email: errorMessage })
+      } else if (errorMessage.includes("username")) {
+        setErrors({ username: errorMessage })
+      }
     } finally {
       setIsLoading(false)
     }

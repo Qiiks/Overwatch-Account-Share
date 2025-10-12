@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/GlassCard"
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
+import { apiPost } from "@/lib/api"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -28,24 +29,15 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const response = await fetch(`${apiBase}/api/auth/reset-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password: "TempPass1!" }),
+      await apiPost('/api/auth/reset-password', {
+        email,
+        password: "TempPass1!"
       })
-
-      if (response.ok) {
-        setIsSubmitted(true)
-      } else {
-        const error = await response.json()
-        alert(error.message || "Failed to send reset email")
-      }
-    } catch (error) {
+      
+      setIsSubmitted(true)
+    } catch (error: any) {
       console.error("Forgot password error:", error)
-      alert("Failed to send reset email. Please try again.")
+      alert(error.message || "Failed to send reset email. Please try again.")
     } finally {
       setIsLoading(false)
     }

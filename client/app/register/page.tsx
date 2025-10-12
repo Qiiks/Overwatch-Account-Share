@@ -18,6 +18,7 @@ import {
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
 import { useSettings } from "@/context/SettingsContext"
+import { apiPost } from "@/lib/api"
 
 function validatePassword(password: string): string | null {
   // Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special @$!%*?&
@@ -89,31 +90,18 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const response = await fetch(`${apiBase}/api/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-        }),
+      const data = await apiPost<{ token: string; role: string }>('/api/auth/register', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        localStorage.setItem("auth_token", data.token)
-        localStorage.setItem("user_role", data.role || "user")
-        router.push("/dashboard")
-      } else {
-        const error = await response.json()
-        setPasswordError(error.message || "Registration failed")
-      }
-    } catch (error) {
+      localStorage.setItem("auth_token", data.token)
+      localStorage.setItem("user_role", data.role || "user")
+      router.push("/dashboard")
+    } catch (error: any) {
       console.error("Registration error:", error)
-      setPasswordError("Registration failed. Please try again.")
+      setPasswordError(error.message || "Registration failed. Please try again.")
     } finally {
       setIsLoading(false)
     }

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/GlassCard"
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
+import { apiPost } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -32,48 +33,39 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const response = await fetch(`${apiBase}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password, rememberMe }),
+      const data = await apiPost<{
+        token: string
+        role: string
+        isAdmin: boolean
+        username: string
+        id: string
+        email: string
+      }>('/api/auth/login', {
+        email,
+        password,
+        rememberMe
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        localStorage.setItem("auth_token", data.token)
-        localStorage.setItem("user_role", data.role || "user")
-        localStorage.setItem("is_admin", data.isAdmin ? "true" : "false")
-        if (data.username) {
-          localStorage.setItem("username", data.username)
-        } else {
-          localStorage.removeItem("username")
-        }
-        // Store the complete user object for authorization checks
-        const userObject = {
-          id: data.id,
-          username: data.username,
-          email: data.email,
-          role: data.role || "user",
-          isAdmin: data.isAdmin || false
-        }
-        localStorage.setItem("user", JSON.stringify(userObject))
-        router.push("/dashboard")
+      localStorage.setItem("auth_token", data.token)
+      localStorage.setItem("user_role", data.role || "user")
+      localStorage.setItem("is_admin", data.isAdmin ? "true" : "false")
+      if (data.username) {
+        localStorage.setItem("username", data.username)
       } else {
-        // Parse error response to get specific message
-        const errorData = await response.json()
-        setError(errorData.message || "Login failed")
-        console.error("Login failed:", errorData)
+        localStorage.removeItem("username")
       }
+      // Store the complete user object for authorization checks
+      const userObject = {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        role: data.role || "user",
+        isAdmin: data.isAdmin || false
+      }
+      localStorage.setItem("user", JSON.stringify(userObject))
+      router.push("/dashboard")
     } catch (error: any) {
-      // Handle network errors or parsing errors
-      if (error.response?.data?.message) {
-        setError(error.response.data.message)
-      } else {
-        setError("An error occurred. Please try again.")
-      }
+      setError(error.message || "An error occurred. Please try again.")
       console.error("Login error:", error)
     } finally {
       setIsLoading(false)

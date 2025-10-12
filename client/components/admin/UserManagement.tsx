@@ -10,6 +10,7 @@ import { UserActions } from "./UserActions"
 import { CreateUserModal } from "./CreateUserModal"
 import { Plus, Search, Filter } from "lucide-react"
 import { toast } from "sonner"
+import { apiGet, apiPatch, apiDelete } from "@/lib/api"
 
 interface User {
   id: string
@@ -71,47 +72,35 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
 
   const fetchUsers = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
+      const data = await apiGet<any[]>('/api/admin/users')
       
-      const response = await fetch(`${apiBase}/api/admin/users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      // Debug: Log raw API response
+      console.log('[DEBUG] Raw API response for users:', data)
+      
+      // Map the data to ensure consistent structure
+      const mappedUsers = data.map((user: any) => {
+        // Debug: Log individual user data
+        if (user.username === 'Qiikzx') {
+          console.log('[DEBUG] Qiikzx user data from API:', user)
+          console.log('[DEBUG] Qiikzx accountsOwned value:', user.accountsOwned)
+        }
+        
+        return {
+          id: user.id || user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role || (user.isAdmin ? "admin" : "user"),
+          status: user.status || (user.isApproved ? "active" : "suspended"),
+          lastLogin: user.lastLogin || "Never",
+          credentialCount: user.credentialCount || user.accountsOwned || 0,
+          accountsOwned: user.accountsOwned || 0,
+          flaggedCount: user.flaggedCount || 0,
+          joinDate: user.joinDate || "N/A"
+        }
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        // Debug: Log raw API response
-        console.log('[DEBUG] Raw API response for users:', data)
-        
-        // Map the data to ensure consistent structure
-        const mappedUsers = data.map((user: any) => {
-          // Debug: Log individual user data
-          if (user.username === 'Qiikzx') {
-            console.log('[DEBUG] Qiikzx user data from API:', user)
-            console.log('[DEBUG] Qiikzx accountsOwned value:', user.accountsOwned)
-          }
-          
-          return {
-            id: user.id || user._id,
-            username: user.username,
-            email: user.email,
-            role: user.role || (user.isAdmin ? "admin" : "user"),
-            status: user.status || (user.isApproved ? "active" : "suspended"),
-            lastLogin: user.lastLogin || "Never",
-            credentialCount: user.credentialCount || user.accountsOwned || 0,
-            accountsOwned: user.accountsOwned || 0,
-            flaggedCount: user.flaggedCount || 0,
-            joinDate: user.joinDate || "N/A"
-          }
-        })
-        
-        console.log('[DEBUG] Mapped users:', mappedUsers)
-        setUsers(mappedUsers)
-      } else {
-        toast.error("Failed to fetch users")
-      }
+      
+      console.log('[DEBUG] Mapped users:', mappedUsers)
+      setUsers(mappedUsers)
     } catch (error) {
       console.error("Failed to fetch users:", error)
       toast.error("Failed to fetch users")
@@ -122,55 +111,29 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
 
   const handleUserStatusChange = useCallback(async (userId: string, newStatus: "active" | "suspended") => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      
-      const response = await fetch(`${apiBase}/api/admin/users/${userId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
+      await apiPatch(`/api/admin/users/${userId}/status`, {
+        status: newStatus
       })
-
-      if (response.ok) {
-        toast.success(`User ${newStatus === "active" ? "activated" : "suspended"} successfully`)
-        fetchUsers() // Refresh the list
-        onUsersChange?.() // Trigger parent data refresh
-      } else {
-        const error = await response.json()
-        toast.error(error.message || `Failed to update user status`)
-      }
-    } catch (error) {
+      
+      toast.success(`User ${newStatus === "active" ? "activated" : "suspended"} successfully`)
+      fetchUsers() // Refresh the list
+      onUsersChange?.() // Trigger parent data refresh
+    } catch (error: any) {
       console.error("Failed to update user status:", error)
-      toast.error("Failed to update user status")
+      toast.error(error.message || "Failed to update user status")
     }
   }, [onUsersChange])
 
   const handleUserDelete = useCallback(async (userId: string) => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
+      await apiDelete(`/api/admin/users/${userId}`)
       
-      const response = await fetch(`${apiBase}/api/admin/users/${userId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        toast.success("User deleted successfully")
-        fetchUsers() // Refresh the list
-        onUsersChange?.() // Trigger parent data refresh
-      } else {
-        const error = await response.json()
-        toast.error(error.message || "Failed to delete user")
-      }
-    } catch (error) {
+      toast.success("User deleted successfully")
+      fetchUsers() // Refresh the list
+      onUsersChange?.() // Trigger parent data refresh
+    } catch (error: any) {
       console.error("Failed to delete user:", error)
-      toast.error("Failed to delete user")
+      toast.error(error.message || "Failed to delete user")
     }
   }, [onUsersChange])
 
