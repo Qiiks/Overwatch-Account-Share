@@ -1,15 +1,16 @@
 const User = require('../models/User');
 const OverwatchAccount = require('../models/OverwatchAccount');
 const Settings = require('../models/Settings');
-const { body, validationResult } = require('express-validator');
+const { body, check, validationResult } = require('express-validator');
 const { cache, CACHE_TTL } = require('../utils/cache');
+const { logger, performanceLogger } = require('../utils/logger');
 
 // @desc    Get high-level statistics
 // @route   GET /api/admin/stats
 // @access  Admin
 const getStats = async (req, res) => {
     const startTime = process.hrtime.bigint();
-    console.log(`[PERF] Admin stats request started`);
+    logger.debug('[PERF] Admin stats request started');
 
     try {
         // Check cache first for admin stats
@@ -19,7 +20,7 @@ const getStats = async (req, res) => {
         let totalUsersRaw, totalAccountsRaw, queryDuration;
 
         if (cachedStats) {
-            console.log(`[CACHE] Admin stats served from cache`);
+            performanceLogger.logCache('get', cacheKey, true);
             totalUsersRaw = cachedStats.totalUsers;
             totalAccountsRaw = cachedStats.totalAccounts;
             queryDuration = 0;
@@ -36,11 +37,11 @@ const getStats = async (req, res) => {
             queryDuration = Number(process.hrtime.bigint() - statsQueryStart) / 1000000;
 
             if (usersResult.error) {
-                console.error('Error counting users:', usersResult.error);
+                logger.error('Error counting users:', usersResult.error);
                 throw usersResult.error;
             }
             if (accountsResult.error) {
-                console.error('Error counting accounts:', accountsResult.error);
+                logger.error('Error counting accounts:', accountsResult.error);
                 throw accountsResult.error;
             }
 
@@ -53,7 +54,7 @@ const getStats = async (req, res) => {
                 totalAccounts: totalAccountsRaw
             }, CACHE_TTL.USERS);
 
-            console.log(`[PERF] Admin stats aggregation queries took ${queryDuration.toFixed(2)}ms, cached for ${CACHE_TTL.USERS}s`);
+            performanceLogger.logQuery('admin_stats', 'stats_aggregation', queryDuration);
         }
 
         // Convert to numbers and validate
@@ -61,7 +62,7 @@ const getStats = async (req, res) => {
         const totalAccounts = Number(totalAccountsRaw);
 
         if (isNaN(totalUsers) || isNaN(totalAccounts)) {
-            console.error('Invalid count values: totalUsers =', totalUsersRaw, 'totalAccounts =', totalAccountsRaw);
+            logger.error('Invalid count values:', { totalUsers: totalUsersRaw, totalAccounts: totalAccountsRaw });
             return res.status(500).json({ message: 'Invalid data from database' });
         }
 
@@ -70,7 +71,7 @@ const getStats = async (req, res) => {
         const flaggedActivities = 0;
 
         const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-        console.log(`[PERF] Admin stats request completed in ${totalDuration.toFixed(2)}ms`);
+        logger.debug(`[PERF] Admin stats request completed in ${totalDuration.toFixed(2)}ms`);
 
         const responseData = {
             totalUsers,
@@ -82,7 +83,7 @@ const getStats = async (req, res) => {
         res.json(responseData);
     } catch (error) {
         const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-        console.error(`[PERF] Admin stats request failed after ${totalDuration.toFixed(2)}ms:`, error);
+        logger.error(`[PERF] Admin stats request failed after ${totalDuration.toFixed(2)}ms:`, error);
         res.status(500).json({ message: 'Server error retrieving stats' });
     }
 };
@@ -100,19 +101,16 @@ const listUsers = async (req, res) => {
             .select('id, username, email, isadmin, isapproved, createdat, updatedat, overwatch_accounts(count)');
 
         if (usersError) {
-            console.error('Error fetching users:', usersError);
+            logger.error('Error fetching users:', usersError);
             throw usersError;
         }
 
-        // Debug: Log the raw user data to see what Supabase returns
-        console.log('[DEBUG] Raw users data from Supabase:', JSON.stringify(users.slice(0, 2), null, 2));
+        if (process.env.NODE_ENV !== 'production') {
+            logger.debug('[DEBUG] Raw users data from Supabase:', JSON.stringify(users.slice(0, 2), null, 2));
+        }
         
         // Format users for frontend
         const formattedUsers = users.map(user => {
-            // Debug: Log the overwatch_accounts structure for first user
-            if (user.username === 'Qiikzx') {
-                console.log('[DEBUG] Qiikzx overwatch_accounts data:', user.overwatch_accounts);
-            }
             
             return {
                 _id: user.id,
@@ -130,7 +128,7 @@ const listUsers = async (req, res) => {
 
         res.json(formattedUsers);
     } catch (error) {
-        console.error('Error in listUsers:', error);
+        logger.error('Error in listUsers:', error);
         res.status(500).json({ message: 'Server error fetching users' });
     }
 };
@@ -138,20 +136,29 @@ const listUsers = async (req, res) => {
 // Keep the old function name for backward compatibility
 const getUsers = listUsers;
 
+// Validation chain for updateUserStatus
+const updateUserStatusValidation = [
+    check('status')
+        .notEmpty().withMessage('Status field is required')
+        .isString().withMessage('Status must be a string')
+        .isIn(['active', 'suspended', 'pending']).withMessage('Status must be one of: active, suspended, pending')
+];
+
 // @desc    Update a user's status
 // @route   PATCH /api/admin/users/:id/status
 // @access  Admin
 const updateUserStatus = async (req, res) => {
     try {
-        const { status } = req.body;
-        const validStatuses = ['active', 'suspended', 'pending'];
-        
-        // Validate status
-        if (!validStatuses.includes(status)) {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
             return res.status(400).json({
-                message: 'Invalid status. Must be one of: active, suspended, pending'
+                message: 'Validation failed',
+                errors: errors.array()
             });
         }
+
+        const { status } = req.body;
         
         const user = await User.findById(req.params.id);
 
@@ -177,7 +184,7 @@ const updateUserStatus = async (req, res) => {
             .single();
 
         if (updateError) {
-            console.error('Error updating user status:', updateError);
+            logger.error('Error updating user status:', updateError);
             throw updateError;
         }
 
@@ -191,7 +198,7 @@ const updateUserStatus = async (req, res) => {
             .eq('owner_id', user.id || user._id);
 
         if (countError) {
-            console.error('Error counting user accounts:', countError);
+            logger.error('Error counting user accounts:', countError);
         }
 
         const formattedUser = {
@@ -211,7 +218,7 @@ const updateUserStatus = async (req, res) => {
             user: formattedUser
         });
     } catch (error) {
-        console.error('Error in updateUserStatus:', error);
+        logger.error('Error in updateUserStatus:', error);
         res.status(500).json({ message: 'Server error updating user status' });
     }
 };
@@ -244,7 +251,7 @@ const deleteUser = async (req, res) => {
                 .eq('isadmin', true);
 
             if (countError) {
-                console.error('Error counting admins:', countError);
+                logger.error('Error counting admins:', countError);
                 throw countError;
             }
 
@@ -264,7 +271,7 @@ const deleteUser = async (req, res) => {
             .eq('owner_id', req.params.id);
 
         if (fetchError) {
-            console.error('Error fetching accounts to delete:', fetchError);
+            logger.error('Error fetching accounts to delete:', fetchError);
             throw fetchError;
         }
 
@@ -277,12 +284,12 @@ const deleteUser = async (req, res) => {
                 .eq('owner_id', req.params.id);
 
             if (deleteAccountsError) {
-                console.error('Error deleting accounts:', deleteAccountsError);
+                logger.error('Error deleting accounts:', deleteAccountsError);
                 throw deleteAccountsError;
             }
         }
         
-        console.log(`Deleted ${accountsDeleted} Overwatch accounts for user ${userToDelete.username}`);
+        logger.info(`Deleted ${accountsDeleted} Overwatch accounts for user ${userToDelete.username}`);
         
         // Delete the user
         const { error: deleteUserError } = await supabase
@@ -291,7 +298,7 @@ const deleteUser = async (req, res) => {
             .eq('id', req.params.id);
 
         if (deleteUserError) {
-            console.error('Error deleting user:', deleteUserError);
+            logger.error('Error deleting user:', deleteUserError);
             throw deleteUserError;
         }
         
@@ -304,7 +311,7 @@ const deleteUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error in deleteUser:', error);
+        logger.error('Error in deleteUser:', error);
         res.status(500).json({ message: 'Error deleting user' });
     }
 };
@@ -318,7 +325,7 @@ const getLogs = async (req, res) => {
         const logs = [];
         res.json(logs);
     } catch (error) {
-        console.error(error);
+        logger.error('Error in getLogs:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -333,7 +340,7 @@ const getAdminDashboard = async (req, res) => {
             .select('*', { count: 'exact', head: true });
 
         if (usersCountError) {
-            console.error('Error counting users:', usersCountError);
+            logger.error('Error counting users:', usersCountError);
             throw usersCountError;
         }
 
@@ -343,7 +350,7 @@ const getAdminDashboard = async (req, res) => {
             .select('*', { count: 'exact', head: true });
 
         if (accountsCountError) {
-            console.error('Error counting accounts:', accountsCountError);
+            logger.error('Error counting accounts:', accountsCountError);
             throw accountsCountError;
         }
 
@@ -353,7 +360,7 @@ const getAdminDashboard = async (req, res) => {
             .select('id, username, email, isadmin, isapproved, createdat, updatedat');
 
         if (usersError) {
-            console.error('Error fetching users:', usersError);
+            logger.error('Error fetching users:', usersError);
             throw usersError;
         }
 
@@ -376,7 +383,7 @@ const getAdminDashboard = async (req, res) => {
             logs,
         });
     } catch (error) {
-        console.error('Error in getAdminDashboard:', error);
+        logger.error('Error in getAdminDashboard:', error);
         res.status(500).json({ message: 'Server error retrieving dashboard data' });
     }
 };
@@ -390,7 +397,7 @@ const getRegistrationStatus = async (req, res) => {
         const enabled = setting ? setting.value : true; // Default to true if not set
         res.json(enabled);
     } catch (error) {
-        console.error(error);
+        logger.error('Error in getRegistrationStatus:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -415,7 +422,7 @@ const toggleRegistrations = async (req, res) => {
 
         res.json({ message: `User registrations ${enabled ? 'enabled' : 'disabled'} successfully`, enabled });
     } catch (error) {
-        console.error(error);
+        logger.error('Error in toggleRegistrations:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -451,7 +458,7 @@ const createUser = async (req, res) => {
             .or(`email.eq.${email.toLowerCase()},username.eq.${username.toLowerCase()}`);
 
         if (searchError) {
-            console.error('Error checking existing users:', searchError);
+            logger.error('Error checking existing users:', searchError);
             throw searchError;
         }
         
@@ -494,7 +501,7 @@ const createUser = async (req, res) => {
             user: formattedUser
         });
     } catch (error) {
-        console.error('Error in createUser:', error);
+        logger.error('Error in createUser:', error);
         if (error.code === 11000) {
             return res.status(400).json({
                 message: 'User with this email or username already exists'
@@ -509,6 +516,7 @@ module.exports = {
     getUsers,
     listUsers,
     updateUserStatus,
+    updateUserStatusValidation,
     deleteUser,
     getLogs,
     getAdminDashboard,
