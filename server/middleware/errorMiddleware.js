@@ -43,10 +43,21 @@ const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 401 };
   }
 
-  res.status(error.statusCode).json({
+  // Prepare response based on environment
+  const response = {
     success: false,
-    error: error.message || 'Server Error'
-  });
+    message: error.message || 'Server Error'
+  };
+
+  // In production, sanitize error responses to avoid leaking internal details
+  if (process.env.NODE_ENV === 'production') {
+    response.stack = '🥞';
+  } else {
+    // In development, include full stack trace for debugging
+    response.stack = err.stack;
+  }
+
+  res.status(error.statusCode).json(response);
 };
 
 module.exports = errorHandler;
