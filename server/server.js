@@ -26,8 +26,7 @@ const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const errorHandler = require('./middleware/errorMiddleware');
 const requestLogger = require('./middleware/requestLogger');
-// Temporarily using development rate limiter for testing
-const { apiLimiter, authLimiter, speedLimiter, passwordResetLimiter, adminLimiter } = require('./middleware/rateLimiter-dev');
+const { apiLimiter, authLimiter, speedLimiter, passwordResetLimiter, adminLimiter } = require('./middleware/rateLimiter');
 const { httpLogger, logger, performanceLogger, securityLogger } = require('./utils/logger');
 const { performanceMonitor, memoryMonitor } = require('./middleware/performanceMonitor');
 const { sanitizeInput, sqlInjectionProtection, requestSizeLimiter } = require('./middleware/inputSanitizer');
@@ -173,16 +172,14 @@ app.use(requestLogger);
 
 // Apply rate limiting
 app.use('/api/auth/login', debugLog);
-// TEMPORARILY DISABLED FOR TESTING - DO NOT COMMIT
-// app.use('/api/', apiLimiter); // General API rate limiting
-// app.use('/api/auth/login', authLimiter); // Stricter auth rate limiting
-// app.use('/api/auth/register', authLimiter); // Stricter auth rate limiting
-// app.use('/api/auth/forgot-password', passwordResetLimiter); // Password reset rate limiting
-// app.use('/api/admin', adminLimiter); // Admin endpoints rate limiting
+app.use('/api/', apiLimiter); // General API rate limiting
+app.use('/api/auth/login', authLimiter); // Stricter auth rate limiting
+app.use('/api/auth/register', authLimiter); // Stricter auth rate limiting
+app.use('/api/auth/forgot-password', passwordResetLimiter); // Password reset rate limiting
+app.use('/api/admin', adminLimiter); // Admin endpoints rate limiting
 
 // Apply speed limiting for gradual slowdown
 // app.use(speedLimiter);
-console.log('⚠️  RATE LIMITING DISABLED FOR TESTING - RE-ENABLE BEFORE PRODUCTION!');
 
 /* CSRF protection middleware removed for API routes.
    CSRF is not required for RESTful APIs using JWT authentication.

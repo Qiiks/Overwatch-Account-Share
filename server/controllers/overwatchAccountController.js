@@ -126,11 +126,20 @@ exports.addAccount = [
         linked_google_account_id: googleAccountId || null // Map to correct column name
       });
 
+      // Decrypt accountTag for response
+      let decryptedAccountTag = newAccount.accounttag;
+      try {
+        decryptedAccountTag = decrypt(newAccount.accounttag);
+      } catch (error) {
+        // If decryption fails, assume it's already plaintext
+        decryptedAccountTag = newAccount.accounttag;
+      }
+
       res.status(201).json({
         success: true,
         data: {
           ...newAccount,
-          accountTag: newAccount.accounttag,
+          accountTag: decryptedAccountTag,
         }
       });
     } catch (error) {
@@ -177,12 +186,22 @@ exports.getAccounts = async (req, res, next) => {
     // Apply pagination
     const paginatedAccounts = filteredAccounts.slice(skip, skip + limit);
 
-    // Add isOwner field to each account and map accounttag to accountTag
+    // Add isOwner field to each account and map accounttag to accountTag with decryption
     const accountsWithOwnership = paginatedAccounts.map(account => {
       const isOwner = account.owner_id === req.user.id;
+      
+      // Decrypt accountTag if it's encrypted
+      let decryptedAccountTag = account.accounttag;
+      try {
+        decryptedAccountTag = decrypt(account.accounttag);
+      } catch (error) {
+        // If decryption fails, assume it's already plaintext (old data)
+        decryptedAccountTag = account.accounttag;
+      }
+      
       return {
         ...account,
-        accountTag: account.accounttag,
+        accountTag: decryptedAccountTag,
         isOwner
       };
     });
@@ -309,11 +328,21 @@ exports.updateAccount = [
       }
 
       const updatedAccount = await updateOverwatchAccount(accountId, updateData);
+      
+      // Decrypt accountTag for response
+      let decryptedAccountTag = updatedAccount.accounttag;
+      try {
+        decryptedAccountTag = decrypt(updatedAccount.accounttag);
+      } catch (error) {
+        // If decryption fails, assume it's already plaintext
+        decryptedAccountTag = updatedAccount.accounttag;
+      }
+      
       return res.status(200).json({
         success: true,
         data: {
           ...updatedAccount,
-          accountTag: updatedAccount.accounttag,
+          accountTag: decryptedAccountTag,
         }
       });
     } catch (error) {
@@ -456,11 +485,20 @@ exports.updateAccountAccess = async (req, res, next) => {
       ? updatedAccount.overwatch_account_allowed_users.map(u => u.user_id)
       : [];
 
+    // Decrypt accountTag for response
+    let decryptedAccountTag = updatedAccount.accounttag;
+    try {
+      decryptedAccountTag = decrypt(updatedAccount.accounttag);
+    } catch (error) {
+      // If decryption fails, assume it's already plaintext
+      decryptedAccountTag = updatedAccount.accounttag;
+    }
+
     res.status(200).json({
       success: true,
       data: {
         ...updatedAccount,
-        accountTag: updatedAccount.accounttag,
+        accountTag: decryptedAccountTag,
         sharedUsers: sharedUserIds,
         // Remove the raw overwatch_account_allowed_users from response
         overwatch_account_allowed_users: undefined
@@ -570,10 +608,19 @@ exports.getAccountCredentials = async (req, res, next) => {
     
     if (!hasAccess) {
       // Return cyberpunk cipher text for unauthorized users
+      // Decrypt accountTag for unauthorized users too (it's not sensitive data)
+      let decryptedAccountTag = account.accounttag;
+      try {
+        decryptedAccountTag = decrypt(account.accounttag);
+      } catch (error) {
+        // If decryption fails, assume it's already plaintext
+        decryptedAccountTag = account.accounttag;
+      }
+      
       return res.status(200).json({
         success: true,
         data: {
-          accountTag: account.accounttag,
+          accountTag: decryptedAccountTag,
           accountEmail: generateCipherText('email'),
           accountPassword: generateCipherText('password'),
           otp: generateCipherText('otp'),
@@ -598,11 +645,20 @@ exports.getAccountCredentials = async (req, res, next) => {
       decryptedPassword = '[Legacy Password - Update Required]';
     }
     
+    // Decrypt accountTag for authorized users
+    let decryptedAccountTag = account.accounttag;
+    try {
+      decryptedAccountTag = decrypt(account.accounttag);
+    } catch (error) {
+      // If decryption fails, assume it's already plaintext
+      decryptedAccountTag = account.accounttag;
+    }
+    
     // Return real credentials for authorized users
     res.status(200).json({
       success: true,
       data: {
-        accountTag: account.accounttag,
+        accountTag: decryptedAccountTag,
         accountEmail: account.accountemail,
         accountPassword: decryptedPassword,
         otp: account.otp || '--:--:--',
@@ -797,10 +853,19 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
       
       const hasAccess = isOwner || hasSharedAccess;
       
+      // Decrypt accountTag
+      let decryptedAccountTag = account.accounttag;
+      try {
+        decryptedAccountTag = decrypt(account.accounttag);
+      } catch (error) {
+        // If decryption fails, assume it's already plaintext
+        decryptedAccountTag = account.accounttag;
+      }
+      
       // Prepare response based on access level
       const responseData = {
         id: account.id,
-        accountTag: account.accounttag,
+        accountTag: decryptedAccountTag,
         rank: account.rank,
         mainHeroes: account.mainheroes,
         owner: account.owner,
