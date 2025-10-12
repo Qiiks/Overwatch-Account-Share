@@ -1,6 +1,8 @@
 const dbClient = require('../config/db');
 const supabase = dbClient.supabase;
 const { cache, cacheKeys, CACHE_TTL } = require('../utils/cache');
+const { decrypt } = require('../utils/encryption');
+const { logger } = require('../utils/logger');
 
 // @desc    Get all data for the main dashboard
 // @route   GET /api/dashboard
@@ -41,8 +43,9 @@ const getDashboard = async (req, res) => {
                 .eq('owner_id', req.user.id);
 
             if (ownedError) throw ownedError;
-
-            accountsOwned = ownedAccounts.length;
+            
+            const ownedAccountsSafe = ownedAccounts || [];
+            accountsOwned = ownedAccountsSafe.length;
 
             // Fetch shared account IDs
             const { data: sharedAccountIds, error: sharedIdsError } = await supabase
@@ -61,13 +64,15 @@ const getDashboard = async (req, res) => {
                     .in('id', accountIds);
 
                 if (sharedError) throw sharedError;
-                sharedAccounts = sharedAccountsData;
+                
+                const sharedAccountsSafe = sharedAccountsData || [];
+                sharedAccounts = sharedAccountsSafe;
             }
 
             accountsShared = sharedAccounts.length;
             
             // Combine all accounts
-            const allAccounts = [...ownedAccounts, ...sharedAccounts];
+            const allAccounts = [...ownedAccountsSafe, ...sharedAccounts];
             
             // Fetch shared users for all accounts
             const accountSharedUsers = {};
@@ -102,21 +107,38 @@ const getDashboard = async (req, res) => {
             }
             
             // Map account fields to frontend expectations
-            accounts = allAccounts.map(account => ({
-                id: account.id,
-                _id: account.id,
-                gamertag: account.accounttag,
-                accountTag: account.accounttag,
-                rank: account.rank,
-                heroes: account.heroes,
-                lastUsed: account.lastused,
-                sharedWith: accountSharedUsers[account.id] || [], // Array of objects with {id, email}
-                status: account.status,
-                owner_id: account.owner_id,  // CRITICAL: Include owner_id for proper categorization
-                createdAt: account.createdat,
-                updatedAt: account.updatedat,
-                // include any other fields as needed
-            }));
+            accounts = allAccounts.map(account => {
+                // Decrypt accounttag with fallback for legacy unencrypted data
+                let decryptedAccountTag = account.accounttag;
+                try {
+                    decryptedAccountTag = decrypt(account.accounttag);
+                    logger.info(`[DECRYPT] Successfully decrypted account tag for account ${account.id}`);
+                } catch (error) {
+                    // If decryption fails (legacy unencrypted data), use original value
+                    logger.error(`[DECRYPT] Failed to decrypt account tag for account ${account.id}:`, {
+                        error: error.message,
+                        accountTagPreview: account.accounttag?.substring(0, 50),
+                        accountId: account.id
+                    });
+                    decryptedAccountTag = account.accounttag;
+                }
+                
+                return {
+                    id: account.id,
+                    _id: account.id,
+                    gamertag: decryptedAccountTag,
+                    accountTag: decryptedAccountTag,
+                    rank: account.rank,
+                    heroes: account.heroes,
+                    lastUsed: account.lastused,
+                    sharedWith: accountSharedUsers[account.id] || [], // Array of objects with {id, email}
+                    status: account.status,
+                    owner_id: account.owner_id,  // CRITICAL: Include owner_id for proper categorization
+                    createdAt: account.createdat,
+                    updatedAt: account.updatedat,
+                    // include any other fields as needed
+                };
+            });
 
             // Cache the results
             await cache.set(cacheKey, {

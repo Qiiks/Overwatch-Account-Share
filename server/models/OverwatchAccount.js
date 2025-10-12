@@ -53,6 +53,9 @@ const createOverwatchAccount = async (accountData) => {
   // Use AES encryption for new passwords (reversible for credential viewing)
   // SECURITY: This allows the "View Credentials" feature to work
   const encryptedPassword = encrypt(accountPassword);
+  
+  // Encrypt accountTag for security
+  const encryptedAccountTag = encrypt(accountTag);
 
   // Generate normalized email for OTP matching
   const normalizedEmail = getNormalizedEmail(accountEmail);
@@ -62,7 +65,7 @@ const createOverwatchAccount = async (accountData) => {
     ...rest,
     accountemail: accountEmail,  // Map to lowercase column name
     accountpassword: encryptedPassword,  // Now using AES encryption
-    accounttag: accountTag,  // Already lowercase in DB
+    accounttag: encryptedAccountTag,  // Encrypted for security
     normalized_account_email: normalizedEmail,  // New field for OTP matching
     password_encryption_type: 'aes'  // Mark as AES encrypted
   };
@@ -191,7 +194,8 @@ const updateOverwatchAccount = async (id, updateData) => {
     mappedUpdateData.normalized_account_email = getNormalizedEmail(updateData.accountEmail);
   }
   if (updateData.accountTag !== undefined) {
-    mappedUpdateData.accounttag = updateData.accountTag;
+    // Encrypt accountTag for security
+    mappedUpdateData.accounttag = encrypt(updateData.accountTag);
   }
   if (updateData.accounttag !== undefined) {
     mappedUpdateData.accounttag = updateData.accounttag;
