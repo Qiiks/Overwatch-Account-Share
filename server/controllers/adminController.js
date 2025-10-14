@@ -144,6 +144,14 @@ const updateUserStatusValidation = [
         .isIn(['active', 'suspended', 'pending']).withMessage('Status must be one of: active, suspended, pending')
 ];
 
+// Validation chain for updateUserRole
+const updateUserRoleValidation = [
+    check('role')
+        .notEmpty().withMessage('Role field is required')
+        .isString().withMessage('Role must be a string')
+        .isIn(['user', 'admin']).withMessage('Role must be either "user" or "admin"')
+];
+
 // @desc    Update a user's status
 // @route   PATCH /api/admin/users/:id/status
 // @access  Admin
@@ -220,6 +228,85 @@ const updateUserStatus = async (req, res) => {
     } catch (error) {
         logger.error('Error in updateUserStatus:', error);
         res.status(500).json({ message: 'Server error updating user status' });
+    }
+};
+
+// @desc    Update a user's role
+// @route   PATCH /api/admin/users/:id/role
+// @access  Admin
+const updateUserRole = async (req, res) => {
+    try {
+        // Check for validation errors
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+        }
+
+        const { role } = req.body;
+        
+        const user = await User.findById(req.params.id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Prevent admin from changing their own role
+        if ((user.id || user._id).toString() === req.user.id) {
+            return res.status(400).json({
+                message: 'Cannot change your own role',
+                code: 'SELF_ACTION_PREVENTED'
+            });
+        }
+
+        // Map role string to isAdmin boolean and update in database
+        const supabase = global.supabase;
+        const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({ isadmin: (role === 'admin') })
+            .eq('id', req.params.id)
+            .select()
+            .single();
+
+        if (updateError) {
+            logger.error('Error updating user role:', updateError);
+            throw updateError;
+        }
+
+        // Update the user object with the new data
+        Object.assign(user, updatedUser);
+
+        // Return formatted user data
+        const { count: accountCount, error: countError } = await supabase
+            .from('overwatch_accounts')
+            .select('*', { count: 'exact', head: true })
+            .eq('owner_id', user.id || user._id);
+
+        if (countError) {
+            logger.error('Error counting user accounts:', countError);
+        }
+
+        const formattedUser = {
+            _id: user.id || user._id,
+            id: user.id || user._id,
+            username: user.username,
+            email: user.email,
+            role: (user.isadmin || user.isAdmin) ? 'admin' : 'user',
+            status: (user.isapproved !== undefined ? user.isapproved : user.isApproved) ? 'active' : 'suspended',
+            joinDate: (user.createdat || user.createdAt) ? new Date(user.createdat || user.createdAt).toLocaleDateString() : 'N/A',
+            accountsOwned: accountCount || 0,
+            lastLogin: (user.updatedat || user.updatedAt) ? new Date(user.updatedat || user.updatedAt).toLocaleDateString() : 'Never'
+        };
+
+        res.json({
+            message: `User role updated to ${role}`,
+            user: formattedUser
+        });
+    } catch (error) {
+        logger.error('Error in updateUserRole:', error);
+        res.status(500).json({ message: 'Server error updating user role' });
     }
 };
 
@@ -517,6 +604,8 @@ module.exports = {
     listUsers,
     updateUserStatus,
     updateUserStatusValidation,
+    updateUserRole,
+    updateUserRoleValidation,
     deleteUser,
     getLogs,
     getAdminDashboard,

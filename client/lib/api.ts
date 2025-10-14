@@ -69,10 +69,10 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // Build full URL
+  // Build full URL - use Next.js proxy route for all API requests
   const url = endpoint.startsWith('http') 
     ? endpoint 
-    : `${API_BASE_URL}${endpoint}`;
+    : buildProxyUrl(endpoint);
 
   // Default to GET method
   const method = options.method?.toUpperCase() || 'GET';
@@ -103,8 +103,8 @@ export async function apiRequest<T = any>(
       console.log('[API] CSRF token not found, fetching via /api/health...');
       
       try {
-        // Make a GET request to fetch the CSRF token
-        await fetch(`${API_BASE_URL}/api/health`, {
+        // Make a GET request to fetch the CSRF token via proxy
+        await fetch(buildProxyUrl('/api/health'), {
           credentials: 'include', // Ensure cookies are sent/received
         });
         
@@ -139,9 +139,10 @@ export async function apiRequest<T = any>(
     if (!response.ok) {
       // Try to parse error message from response
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      let errorData = null;
       
       try {
-        const errorData = await response.json();
+        errorData = await response.json();
         if (errorData.error) {
           errorMessage = errorData.error;
         } else if (errorData.message) {
@@ -151,7 +152,13 @@ export async function apiRequest<T = any>(
         // If response is not JSON, use status text
       }
 
-      throw new Error(errorMessage);
+      // Create an error object that preserves the response data
+      const error = new Error(errorMessage);
+      (error as any).response = {
+        status: response.status,
+        data: errorData
+      };
+      throw error;
     }
 
     // Parse response
@@ -230,4 +237,12 @@ export async function apiDelete<T = any>(
   options: RequestInit = {}
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'DELETE' });
+}
+
+function buildProxyUrl(endpoint: string): string {
+  const trimmed = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (trimmed.startsWith('/api/')) {
+    return trimmed;
+  }
+  return `/api${trimmed}`;
 }

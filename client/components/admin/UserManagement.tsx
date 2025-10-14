@@ -124,6 +124,21 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
     }
   }, [onUsersChange])
 
+  const handleUserRoleChange = useCallback(async (userId: string, newRole: "user" | "admin") => {
+    try {
+      await apiPatch(`/api/admin/users/${userId}/role`, {
+        role: newRole
+      })
+      
+      toast.success(`User role updated to ${newRole} successfully`)
+      fetchUsers() // Refresh the list
+      onUsersChange?.() // Trigger parent data refresh
+    } catch (error: any) {
+      console.error("Failed to update user role:", error)
+      toast.error(error.message || "Failed to update user role")
+    }
+  }, [onUsersChange])
+
   const handleUserDelete = useCallback(async (userId: string) => {
     try {
       await apiDelete(`/api/admin/users/${userId}`)
@@ -272,6 +287,7 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
                         user={user}
                         currentUserId={currentUserId}
                         onStatusChange={handleUserStatusChange}
+                        onRoleChange={handleUserRoleChange}
                         onDelete={handleUserDelete}
                       />
                     </td>

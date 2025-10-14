@@ -2,6 +2,19 @@
 - Updated the CSRF middleware to emit a client-readable token cookie so the frontend can mirror it in request headers.
 - Validated the login flow end-to-end via Playwright MCP using the provided credentials to confirm CSRF initialization succeeds and the dashboard loads without errors.
 
+### Admin Role Management Fix (2025-10-14)
+- Added backend endpoint `/api/admin/users/:id/role` to handle user role updates (make admin/remove admin)
+- Implemented validation chain for role updates with proper error handling
+- Updated UserActions component to properly call the backend API for role changes
+- Added proper success notifications and user interface updates
+- Verified functionality end-to-end via Playwright MCP testing
+
+### Accounts Page Button Cleanup (2025-10-14)
+- Removed "Manage Account" and "Request Access" buttons from Accounts page as requested
+- Kept "Share Access" button for functional sharing capability
+- Cleaned up unused `requestAccess` function from AccountsList component
+- Verified UI updates via Playwright MCP testing
+
 ### Frontend-Backend Integration and DotGrid Optimization (2025-09-20)
 - Connected the new-client frontend to the backend API, removing all mock data.
 - Updated all API endpoints in new-client to use backend port 5001.

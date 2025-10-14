@@ -24,10 +24,11 @@ interface UserActionsProps {
   user: User
   currentUserId: string | null
   onStatusChange: (userId: string, status: "active" | "suspended") => void
+  onRoleChange: (userId: string, role: "user" | "admin") => void
   onDelete: (userId: string) => void
 }
 
-export function UserActions({ user, currentUserId, onStatusChange, onDelete }: UserActionsProps) {
+export function UserActions({ user, currentUserId, onStatusChange, onRoleChange, onDelete }: UserActionsProps) {
   const [showSuspendDialog, setShowSuspendDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   
@@ -48,6 +49,14 @@ export function UserActions({ user, currentUserId, onStatusChange, onDelete }: U
   const handleDelete = () => {
     setShowDeleteDialog(false)
     onDelete(user.id)
+  }
+
+  const handleMakeAdmin = () => {
+    onRoleChange(user.id, "admin")
+  }
+
+  const handleRemoveAdmin = () => {
+    onRoleChange(user.id, "user")
   }
 
   return (
@@ -89,10 +98,7 @@ export function UserActions({ user, currentUserId, onStatusChange, onDelete }: U
               <DropdownMenuSeparator className="bg-white/10" />
               {user.role === "admin" ? (
                 <DropdownMenuItem
-                  onClick={() => {
-                    // Note: This would need backend implementation
-                    console.log("Remove admin privileges")
-                  }}
+                  onClick={handleRemoveAdmin}
                   className="text-[#DA70D6] focus:text-[#DA70D6] focus:bg-[#DA70D6]/10"
                 >
                   <ShieldOff className="mr-2 h-4 w-4" />
@@ -100,10 +106,7 @@ export function UserActions({ user, currentUserId, onStatusChange, onDelete }: U
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem
-                  onClick={() => {
-                    // Note: This would need backend implementation
-                    console.log("Make admin")
-                  }}
+                  onClick={handleMakeAdmin}
                   className="text-[#DA70D6] focus:text-[#DA70D6] focus:bg-[#DA70D6]/10"
                 >
                   <Shield className="mr-2 h-4 w-4" />

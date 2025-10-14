@@ -12,6 +12,7 @@ import { ShareAccountModal } from "@/components/modals/ShareAccountModal"
 import { ManageAccountModal } from "@/components/modals/ManageAccountModal"
 import { AccountSettingsModal } from "@/components/modals/AccountSettingsModal"
 import { GoogleAccountsManager } from "@/components/GoogleAccountsManager"
+import { apiGet } from "@/lib/api"
 
 interface Credential {
   id: string
@@ -53,17 +54,18 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData()
-    
+
     // Initialize WebSocket connection when socket.io-client is available
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-    
+  let pollOnlineUsers: ReturnType<typeof setInterval> | null = null
+
     // Try to load socket.io-client dynamically
     const initializeSocket = async () => {
       try {
         const io = (await import("socket.io-client")).io
-        
+
         console.log("[WebSocket] Attempting to connect to:", apiBase)
-        
+
         socketRef.current = io(apiBase, {
           auth: {
             token: token
@@ -105,31 +107,25 @@ export default function DashboardPage() {
       } catch (error) {
         console.warn("[WebSocket] socket.io-client not available yet, falling back to polling")
         // Fallback: Poll for online users count every 5 seconds
-        const pollOnlineUsers = setInterval(async () => {
+        pollOnlineUsers = setInterval(async () => {
           try {
-            const response = await fetch(`${apiBase}/api/dashboard/online-users`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            })
-            if (response.ok) {
-              const data = await response.json()
-              setOnlineUsersCount(data.count || 0)
-            }
-          } catch (error) {
-            console.error("[Polling] Failed to fetch online users:", error)
+            const data = await apiGet('/api/dashboard/online-users')
+            setOnlineUsersCount(data.count || 0)
+          } catch (pollError) {
+            console.error("[Polling] Failed to fetch online users:", pollError)
           }
         }, 5000)
-        
-        return () => clearInterval(pollOnlineUsers)
       }
     }
-    
+
     initializeSocket()
 
     // Cleanup function
     return () => {
       console.log('[WebSocket] Cleaning up socket connection')
+      if (pollOnlineUsers) {
+        clearInterval(pollOnlineUsers)
+      }
       if (socketRef.current?.disconnect) {
         socketRef.current.disconnect()
         socketRef.current = null
@@ -139,50 +135,39 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
-      const token = localStorage.getItem("auth_token")
-      const response = await fetch(`${apiBase}/api/dashboard`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const data = await apiGet('/api/dashboard')
+      const userId = data?.user?.id
+      const isAdmin = !!data?.user?.isAdmin
+      const username = data?.user?.username
 
-      if (response.ok) {
-        const data = await response.json()
-        const userId = data?.user?.id
-        const isAdmin = !!data?.user?.isAdmin
-        const username = data?.user?.username
-
-        if (typeof window !== "undefined") {
-          localStorage.setItem("is_admin", isAdmin ? "true" : "false")
-          if (username) {
-            localStorage.setItem("username", username)
-          }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("is_admin", isAdmin ? "true" : "false")
+        if (username) {
+          localStorage.setItem("username", username)
         }
-        const accounts = Array.isArray(data?.accounts) ? data.accounts : []
-
-        // Map backend accounts to UI Credential shape
-        const mapped = accounts.map((acc: any, index: number) => ({
-          id: acc.id || `credential-${index}-${Date.now()}`,
-          name: acc.accountTag || acc.name || "",
-          type: (acc.type as any) || "password",
-          lastUsed: acc.updatedAt || acc.createdAt || "-",
-          isShared: userId ? acc.owner_id !== userId : false,
-          sharedWith: acc.sharedWith || [],
-          owner: userId && acc.owner_id === userId ? "me" : acc.owner_id || "",
-        })) as Credential[]
-
-        setCredentials(mapped.filter(c => !c.isShared))
-        setSharedCredentials(mapped.filter(c => c.isShared))
-        setOnlineUsers([])
-      } else {
-        // Do not use mock data; leave lists empty on failure
-        setCredentials([])
-        setSharedCredentials([])
-        setOnlineUsers([])
       }
+      const accounts = Array.isArray(data?.accounts) ? data.accounts : []
+
+      // Map backend accounts to UI Credential shape
+      const mapped = accounts.map((acc: any, index: number) => ({
+        id: acc.id || `credential-${index}-${Date.now()}`,
+        name: acc.accountTag || acc.name || "",
+        type: (acc.type as any) || "password",
+        lastUsed: acc.updatedAt || acc.createdAt || "-",
+        isShared: userId ? acc.owner_id !== userId : false,
+        sharedWith: acc.sharedWith || [],
+        owner: userId && acc.owner_id === userId ? "me" : acc.owner_id || "",
+      })) as Credential[]
+
+      setCredentials(mapped.filter(c => !c.isShared))
+      setSharedCredentials(mapped.filter(c => c.isShared))
+      setOnlineUsers([])
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error)
+      // Do not use mock data; leave lists empty on failure
+      setCredentials([])
+      setSharedCredentials([])
+      setOnlineUsers([])
     } finally {
       setIsLoading(false)
     }
