@@ -5,11 +5,13 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { apiGet, apiPatch } from "@/lib/api"
+import { useSettings } from "@/context/SettingsContext"
 
 export function RegistrationToggle() {
   const [allowRegistration, setAllowRegistration] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
+  const { refetchSettings } = useSettings()
 
   useEffect(() => {
     fetchRegistrationStatus()
@@ -40,6 +42,9 @@ export function RegistrationToggle() {
       
       // Backend returns data.data.value for the updated setting
       setAllowRegistration(data.data?.value ?? checked)
+      
+      // Refresh global settings context so other components get the updated value
+      await refetchSettings()
       
       toast.success(
         checked
