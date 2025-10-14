@@ -30,8 +30,33 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       setError(null);
       
-      const data = await apiGet('/api/settings');
-      setSettings(data);
+      const response = await apiGet<
+        | Settings
+        | { data: Settings }
+        | { success?: boolean; data?: Settings }
+      >('/api/settings');
+
+      const parsedSettings = (() => {
+        if (!response) {
+          return null;
+        }
+
+        if (typeof (response as Settings).allow_registration === 'boolean') {
+          return response as Settings;
+        }
+
+        if (response && typeof (response as { data?: Settings }).data?.allow_registration === 'boolean') {
+          return (response as { data: Settings }).data;
+        }
+
+        return null;
+      })();
+
+      if (!parsedSettings) {
+        throw new Error('Received unexpected settings payload');
+      }
+
+      setSettings(parsedSettings);
     } catch (err) {
       console.error('Error fetching settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch settings');
