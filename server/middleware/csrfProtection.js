@@ -47,9 +47,10 @@ function csrfProtection(req, res, next) {
     
     // Set the token as an httpOnly cookie
     res.cookie(CSRF_COOKIE_NAME, token, {
-      httpOnly: true,
+      // Double-submit pattern needs the client to read the cookie value for the header copy.
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      sameSite: 'strict', // Prevent CSRF by restricting cross-site requests
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Strict in production, lax in development
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/'
     });

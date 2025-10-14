@@ -1,3 +1,7 @@
+### CSRF Cookie Accessibility Fix (2025-10-14)
+- Updated the CSRF middleware to emit a client-readable token cookie so the frontend can mirror it in request headers.
+- Validated the login flow end-to-end via Playwright MCP using the provided credentials to confirm CSRF initialization succeeds and the dashboard loads without errors.
+
 ### Frontend-Backend Integration and DotGrid Optimization (2025-09-20)
 - Connected the new-client frontend to the backend API, removing all mock data.
 - Updated all API endpoints in new-client to use backend port 5001.
