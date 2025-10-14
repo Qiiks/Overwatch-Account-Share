@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+const resolveBackendUrl = () =>
+  process.env.INTERNAL_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  'http://localhost:5001';
 
 /**
  * Proxy handler for all API requests
@@ -20,7 +23,8 @@ async function proxyRequest(
     const url = new URL(request.url);
     const queryString = url.search;
     
-    const backendUrl = `${BACKEND_URL}${path}${queryString}`;
+  const backendBase = resolveBackendUrl();
+  const backendUrl = `${backendBase}${path}${queryString}`;
 
     // Prepare headers to forward
     const headers = new Headers();
@@ -63,12 +67,13 @@ async function proxyRequest(
       statusText: backendResponse.statusText,
     });
 
-    // Forward all headers from backend response
+    // Forward headers except ones that would be invalidated by reserialization
     backendResponse.headers.forEach((value, key) => {
-      // Don't copy set-cookie here, we'll handle it separately
-      if (key.toLowerCase() !== 'set-cookie') {
-        response.headers.set(key, value);
+      const lowerKey = key.toLowerCase();
+      if (['set-cookie', 'content-encoding', 'content-length', 'transfer-encoding'].includes(lowerKey)) {
+        return;
       }
+      response.headers.set(key, value);
     });
 
     // Handle Set-Cookie headers - forward them directly to the client

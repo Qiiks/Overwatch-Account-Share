@@ -53,6 +53,7 @@ services:
       # but kept for reference and potential server-side usage
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://bwgg4wow8kggc48kko0g080c.qiikzx.dev}
       - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-https://overwatch.qiikzx.dev}
+      - INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL:-http://server:5001}
     depends_on:
       - server
     restart: unless-stopped
