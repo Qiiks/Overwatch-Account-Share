@@ -1,3 +1,7 @@
+### OTP Refresh Interval & Live Updates (2025-10-14)
+- Reduced the OTP polling interval to 10s with overlap guards so new codes propagate quickly without saturating the service.
+- Broadcast OTP socket events to the shared `otp-updates` channel and auto-subscribe the accounts view for real-time UI refreshes.
+
 ### Registration Toggle Settings Sync Fix (2025-10-14)
 - Taught the settings context to parse the backend payload format so `allow_registration` reflects server state.
 - Triggered a context refresh after toggling registration in the admin UI to keep the registration page in sync.
