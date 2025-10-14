@@ -15,6 +15,8 @@ In Coolify, you MUST set these as **BUILD VARIABLES** (not just runtime environm
 # BUILD VARIABLES (CRITICAL - Must be set in Coolify's Build Variables section)
 NEXT_PUBLIC_API_BASE_URL=https://bwgg4wow8kggc48kko0g080c.qiikzx.dev
 NEXT_PUBLIC_FRONTEND_URL=https://overwatch.qiikzx.dev
+# Optional but recommended runtime variable for server-to-server calls inside the Docker network
+INTERNAL_API_BASE_URL=http://server:5001
 ```
 
 ### For the Backend Service (server)

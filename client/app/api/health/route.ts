@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
+const resolveBackendUrl = () =>
+  process.env.INTERNAL_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://localhost:5001";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const backendResponse = await fetch(`${BACKEND_URL}/api/health`, {
+  const backendResponse = await fetch(`${resolveBackendUrl()}/api/health`, {
       method: "GET",
       headers: buildForwardHeaders(request),
       credentials: "include",
@@ -45,9 +48,11 @@ function buildForwardHeaders(request: NextRequest): HeadersInit {
 
 function copyHeaders(from: Response, to: NextResponse) {
   from.headers.forEach((value, key) => {
-    if (key.toLowerCase() !== "set-cookie") {
-      to.headers.set(key, value);
+    const lowerKey = key.toLowerCase();
+    if (["set-cookie", "content-encoding", "content-length", "transfer-encoding"].includes(lowerKey)) {
+      return;
     }
+    to.headers.set(key, value);
   });
 }
 

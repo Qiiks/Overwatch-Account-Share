@@ -2,6 +2,11 @@
 - Reduced the OTP polling interval to 10s with overlap guards so new codes propagate quickly without saturating the service.
 - Broadcast OTP socket events to the shared `otp-updates` channel and auto-subscribe the accounts view for real-time UI refreshes.
 
+### Coolify Production Proxy Fix (2025-10-14)
+- Added `INTERNAL_API_BASE_URL` support so the Next.js proxy can hit the backend over the internal Docker network (fixes Coolify 504s and socket failures).
+- Updated health and general API proxy routes plus deployment docs/docker-compose to honor the new variable while keeping public clients on the existing URL.
+- Stripped compression-related headers when proxying API responses so browsers don't error on already-decoded payloads in production.
+
 ### Registration Toggle Settings Sync Fix (2025-10-14)
 - Taught the settings context to parse the backend payload format so `allow_registration` reflects server state.
 - Triggered a context refresh after toggling registration in the admin UI to keep the registration page in sync.
