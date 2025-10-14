@@ -22,7 +22,7 @@
  *   });
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const CSRF_COOKIE_NAME = 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 
@@ -96,19 +96,34 @@ export async function apiRequest<T = any>(
 
   // Handle CSRF token for state-changing requests
   if (requiresCsrfProtection(method)) {
-    const csrfToken = getCookie(CSRF_COOKIE_NAME);
+    let csrfToken = getCookie(CSRF_COOKIE_NAME);
     
+    // Lazy initialization: if no token exists, fetch it first
     if (!csrfToken) {
-      console.warn(
-        `[API] CSRF token not found for ${method} request to ${endpoint}. ` +
-        'The server may reject this request. Try refreshing the page.'
-      );
+      console.log('[API] CSRF token not found, fetching via /api/health...');
       
-      // Optionally, you could make a GET request first to obtain the token
-      // For now, we'll let the request proceed and let the server handle it
-    } else {
-      headers.set(CSRF_HEADER_NAME, csrfToken);
+      try {
+        // Make a GET request to fetch the CSRF token
+        await fetch(`${API_BASE_URL}/api/health`, {
+          credentials: 'include', // Ensure cookies are sent/received
+        });
+        
+        // Try to get the token again after the health check
+        csrfToken = getCookie(CSRF_COOKIE_NAME);
+        
+        if (!csrfToken) {
+          console.error('[API] Failed to obtain CSRF token after health check');
+          throw new Error('CSRF token could not be obtained. Please refresh the page.');
+        }
+        
+        console.log('[API] CSRF token successfully obtained');
+      } catch (error) {
+        console.error('[API] Error fetching CSRF token:', error);
+        throw new Error('Failed to initialize CSRF protection');
+      }
     }
+    
+    headers.set(CSRF_HEADER_NAME, csrfToken);
   }
 
   // Make the request
@@ -215,17 +230,4 @@ export async function apiDelete<T = any>(
   options: RequestInit = {}
 ): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'DELETE' });
-}
-
-/**
- * Initialize CSRF token by making a GET request to a safe endpoint
- * This can be called on app initialization to ensure the CSRF token cookie is set
- */
-export async function initializeCsrfToken(): Promise<void> {
-  try {
-    await apiGet('/health');
-    console.log('[API] CSRF token initialized');
-  } catch (error) {
-    console.warn('[API] Failed to initialize CSRF token:', error);
-  }
 }

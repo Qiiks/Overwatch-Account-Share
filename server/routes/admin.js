@@ -34,6 +34,11 @@ router.get('/users', listUsers);
 // @access  Admin
 router.patch('/users/:id/status', updateUserStatusValidation, updateUserStatus);
 
+// @route   PATCH /api/admin/users/:id/role
+// @desc    Update user role (make admin/remove admin)
+// @access  Admin
+router.patch('/users/:id/role', updateUserRoleValidation, updateUserRole);
+
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete a user
 // @access  Admin

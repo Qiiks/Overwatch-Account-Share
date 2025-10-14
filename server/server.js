@@ -38,11 +38,6 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-// Simple health check endpoint (before middleware for quick response)
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy' });
-});
-
 // HTTPS setup
 let server;
 try {
@@ -101,7 +96,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-csrf-token'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400,
   optionsSuccessStatus: 200
@@ -274,6 +269,14 @@ app.get('/ready', async (req, res) => {
   } catch (error) {
     res.status(503).json({ status: 'not ready' });
   }
+});
+
+// API health check endpoint (sets CSRF token)
+app.get('/api/health', csrfProtection, (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use('/api/auth', authRoutes);
