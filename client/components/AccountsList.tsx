@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { io, Socket } from 'socket.io-client';
+import { apiGet, apiPost } from '@/lib/api';
 import { CyberpunkCredentialDisplay } from './CyberpunkCredentialDisplay';
 import { Shield, Users, User, Lock, Unlock } from 'lucide-react';
 
@@ -46,81 +47,26 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   // Fetch credentials for a specific account
   const fetchCredentials = async (accountId: string) => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
-      const token = localStorage.getItem("auth_token");
-      
-      const response = await fetch(
-        `${apiBase}/api/overwatch-accounts/${accountId}/credentials`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` })
-          }
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCredentials(prev => ({
-          ...prev,
-          [accountId]: data.data
-        }));
-        toast.success('Credentials fetched successfully');
-      } else {
-        toast.error('Failed to fetch credentials');
-      }
-    } catch (error) {
+      const response = await apiGet(`/api/overwatch-accounts/${accountId}/credentials`);
+      setCredentials(prev => ({
+        ...prev,
+        [accountId]: response.data
+      }));
+      toast.success('Credentials fetched successfully');
+    } catch (error: any) {
       console.error("Error fetching credentials:", error);
-      toast.error('Failed to fetch credentials');
+      toast.error(error.message || 'Failed to fetch credentials');
     }
   };
 
-  // Request access to an account
-  const requestAccess = async (accountId: string) => {
-    toast.info('Access request feature coming soon!');
-    // TODO: Implement access request functionality
-  };
+
 
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-        
-        // Use the new endpoint that returns all accounts with conditional credentials
-        const res = await fetch(`${apiBase}/api/overwatch-accounts/all-public`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        });
-        
-        if (!res.ok) {
-          // Fallback to the regular endpoint if the new one doesn't exist yet
-          const fallbackRes = await fetch(`${apiBase}/api/overwatch-accounts`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          
-          if (!fallbackRes.ok) throw new Error('Failed to fetch accounts.');
-          
-          const fallbackData = await fallbackRes.json();
-          const accountsData = fallbackData.data || [];
-          
-          // Map old format to new format
-          const mappedAccounts = accountsData.map((acc: any) => ({
-            id: acc.id,
-            accountTag: acc.accountTag || acc.accounttag,
-            accountEmail: acc.accountEmail || acc.accountemail || 'ENCRYPTED',
-            accountPassword: 'ENCRYPTED',
-            rank: acc.rank,
-            mainHeroes: acc.mainHeroes || acc.mainheroes,
-            owner: acc.owner || { id: acc.owner_id, username: 'Unknown' },
-            hasAccess: acc.isOwner || false,
-            accessType: acc.isOwner ? 'owner' : 'none',
-            otp: acc.otp,
-          }));
-          
-          setAccounts(mappedAccounts);
-        } else {
-          const response = await res.json();
-          setAccounts(response.data || []);
-        }
+        // Use the apiGet utility which now goes through the proxy
+        const response = await apiGet('/api/overwatch-accounts/all-public');
+        setAccounts(response.data || []);
       } catch (error: any) {
         console.error('Error fetching accounts:', error);
         toast.error(error.message);
@@ -132,19 +78,8 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     fetchAccounts();
 
     // Establish WebSocket connection with authentication
-    // Ensure secure WebSocket (wss://) is used in production
-    const getSocketUrl = () => {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-      
-      // In production, enforce HTTPS which triggers secure WebSocket (wss://)
-      if (process.env.NODE_ENV === 'production') {
-        return apiBase.replace(/^http:/, 'https:');
-      }
-      
-      return apiBase;
-    };
-    
-    const socketUrl = getSocketUrl();
+    // Use the proxy route for WebSocket connections
+    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
     const token = localStorage.getItem('auth_token');
     
     const newSocket = io(socketUrl, {
@@ -201,6 +136,55 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
       }
     };
   }, []);
+
+  // Share account access with another user
+  const shareAccountAccess = async (accountId: string) => {
+    const email = prompt('Enter the email address of the user you want to share with:');
+    
+    if (!email) {
+      return; // User cancelled
+    }
+
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      const data = await apiPost(`/api/overwatch-accounts/${accountId}/share-by-email`, { email });
+      toast.success(data.message || 'Account shared successfully');
+      
+      // Refresh the accounts list to show updated shared status
+      const accountsData = await apiGet('/api/overwatch-accounts/all-public');
+      setAccounts(accountsData.data || []);
+      
+      // Trigger parent data refresh if provided
+      onDataChange?.();
+    } catch (error: any) {
+      console.error('Error sharing account:', error);
+      
+      // Provide more specific error messages based on the error response
+      let errorMessage = 'Failed to share account';
+      
+      if (error.response?.data?.error) {
+        // Handle error array from backend (like validation errors)
+        if (Array.isArray(error.response.data.error)) {
+          const errorMsgs = error.response.data.error.map((e: any) => e.msg || String(e)).filter(Boolean);
+          if (errorMsgs.length > 0) {
+            errorMessage = errorMsgs.join(', ');
+          }
+        } else {
+          errorMessage = String(error.response.data.error);
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = String(error.response.data.message);
+      } else if (error.message) {
+        errorMessage = String(error.message);
+      }
+      
+      toast.error(errorMessage);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -308,31 +292,12 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
 
               {/* Action Buttons */}
               <div className="mt-6 flex gap-3">
-                {account.hasAccess ? (
-                  <>
-                    {account.accessType === 'owner' && (
-                      <button className="flex-1 px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded text-sm text-cyan-300 hover:bg-cyan-500/30 transition-all">
-                        Manage Account
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        // If ShareAccountModal integration is added later, pass onDataChange as onActionSuccess
-                        // For now, just log or handle the share action
-                        console.log('Share access clicked for account:', account.id);
-                      }}
-                      className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all"
-                    >
-                      Share Access
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={() => requestAccess(account.id)}
-                    className="flex-1 px-4 py-2 bg-yellow-500/20 border border-yellow-500/50 rounded text-sm text-yellow-300 hover:bg-yellow-500/30 transition-all flex items-center justify-center gap-2"
+                {account.hasAccess && account.accessType === 'owner' && (
+                  <button
+                    onClick={() => shareAccountAccess(account.id)}
+                    className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all"
                   >
-                    <Lock size={14} />
-                    Request Access
+                    Share Access
                   </button>
                 )}
               </div>

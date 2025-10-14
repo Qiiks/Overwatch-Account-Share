@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { apiGet } from '@/lib/api';
 
 interface Settings {
   allow_registration: boolean;
@@ -29,19 +30,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       setError(null);
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-      const response = await fetch(`${apiUrl}/api/settings`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch settings: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await apiGet('/api/settings');
       setSettings(data);
     } catch (err) {
       console.error('Error fetching settings:', err);

@@ -6,6 +6,8 @@ const {
     listUsers,
     updateUserStatus,
     updateUserStatusValidation,
+    updateUserRole,
+    updateUserRoleValidation,
     deleteUser,
     getLogs,
     getAdminDashboard,
