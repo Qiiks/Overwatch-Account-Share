@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { apiGet, apiPost } from '@/lib/api';
 import { CyberpunkCredentialDisplay } from './CyberpunkCredentialDisplay';
 import { Shield, Users, User, Lock, Unlock } from 'lucide-react';
@@ -42,7 +42,6 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   const [accounts, setAccounts] = useState<OverwatchAccount[]>([]);
   const [credentials, setCredentials] = useState<Record<string, Credentials>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Fetch credentials for a specific account
   const fetchCredentials = async (accountId: string) => {
@@ -95,6 +94,7 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     // Connection event handlers
     newSocket.on('connect', () => {
       console.log('WebSocket connected for OTP updates');
+      newSocket.emit('subscribeToOTP');
     });
 
     newSocket.on('connect_error', (error) => {
@@ -102,18 +102,16 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     });
 
     // Listen for OTP events
-    newSocket.on('otp', (data: { accountTag: string; otp: string }) => {
+    const handleOtpUpdate = (data: { accountTag: string; otp: string }) => {
       console.log('Received OTP update:', data);
-      
+
       // Update the accounts state with the new OTP
       setAccounts(prevAccounts =>
         prevAccounts.map(account =>
-          account.accountTag === data.accountTag
-            ? { ...account, otp: data.otp }
-            : account
+          account.accountTag === data.accountTag ? { ...account, otp: data.otp } : account
         )
       );
-      
+
       // Update credentials if we have them cached
       setCredentials(prev => {
         const updatedCreds = { ...prev };
@@ -124,14 +122,17 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
         });
         return updatedCreds;
       });
-    });
+    };
 
-    setSocket(newSocket);
+    newSocket.on('otp', handleOtpUpdate);
+    newSocket.on('otp_update', handleOtpUpdate);
 
     // Cleanup function to disconnect socket when component unmounts
     return () => {
       if (newSocket) {
         console.log('Disconnecting WebSocket');
+        newSocket.off('otp', handleOtpUpdate);
+        newSocket.off('otp_update', handleOtpUpdate);
         newSocket.disconnect();
       }
     };

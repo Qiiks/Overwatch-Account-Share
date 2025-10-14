@@ -4,9 +4,12 @@ const OverwatchAccount = require('../models/OverwatchAccount');
 const encryption = require('../utils/encryption');
 const { logger } = require('../utils/logger');
 
+const FETCH_INTERVAL_MS = parseInt(process.env.OTP_FETCH_INTERVAL_MS || '10000', 10);
+
 class OTPService {
     constructor() {
         this.oauth2Clients = new Map();
+        this.isFetching = false;
     }
 
     /**
@@ -137,6 +140,12 @@ class OTPService {
      * @param {Object} io - Socket.io instance for real-time updates
      */
     async fetchOTPsForAllAccounts(io) {
+        if (this.isFetching) {
+            logger.debug('[OTP Service] Fetch cycle already in progress, skipping new run');
+            return;
+        }
+
+        this.isFetching = true;
         try {
             logger.info('[OTP Service] Starting OTP fetch cycle...');
             
@@ -167,6 +176,8 @@ class OTPService {
             logger.info('[OTP Service] OTP fetch cycle completed');
         } catch (error) {
             logger.error('[OTP Service] Critical error in fetch cycle:', error);
+        } finally {
+            this.isFetching = false;
         }
     }
 
@@ -319,6 +330,8 @@ class OTPService {
         
         // Also emit to global 'otp' event for backward compatibility
         io.to(account.owner_id.toString()).emit('otp', payload);
+        io.to('otp-updates').emit('otp_update', payload);
+        io.to('otp-updates').emit('otp', payload);
         
         if (process.env.NODE_ENV !== 'production') {
             logger.debug(`[OTP Service] Emitted OTP update to user ${account.owner_id}`);
@@ -346,10 +359,10 @@ class OTPService {
     startScheduler(io) {
         logger.info('[OTP Service] Starting OTP scheduler...');
         
-        // Fetch OTPs every 30 seconds
+        // Fetch OTPs on a tight interval but guard against overlapping runs
         setInterval(() => {
             this.fetchOTPsForAllAccounts(io);
-        }, 30000);
+        }, FETCH_INTERVAL_MS);
         
         // Clean up expired OTPs every 5 minutes
         setInterval(() => {
