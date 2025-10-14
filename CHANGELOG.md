@@ -2,6 +2,10 @@
 - Taught the settings context to parse the backend payload format so `allow_registration` reflects server state.
 - Triggered a context refresh after toggling registration in the admin UI to keep the registration page in sync.
 
+### CSRF Health Check Endpoint Fix (2025-10-14)
+- Added a concrete App Router handler at `/api/health` to return a 200 JSON payload for CSRF initialization.
+- Verified the endpoint manually via `curl` to ensure the CSRF helper no longer receives 503 responses.
+
 ### CSRF Cookie Accessibility Fix (2025-10-14)
 - Updated the CSRF middleware to emit a client-readable token cookie so the frontend can mirror it in request headers.
 - Validated the login flow end-to-end via Playwright MCP using the provided credentials to confirm CSRF initialization succeeds and the dashboard loads without errors.
