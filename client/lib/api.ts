@@ -25,6 +25,21 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const CSRF_COOKIE_NAME = 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
+const TOKEN_STORAGE_KEY = 'auth_token';
+const TOKEN_EXPIRY_STORAGE_KEY = 'auth_token_expires_at';
+const SESSION_STORAGE_KEYS = [
+  TOKEN_STORAGE_KEY,
+  TOKEN_EXPIRY_STORAGE_KEY,
+  'user_role',
+  'is_admin',
+  'username',
+  'user'
+] as const;
+
+export interface AuthSession {
+  token: string | null;
+  expired: boolean;
+}
 
 /**
  * Get a cookie value by name
@@ -86,10 +101,12 @@ export async function apiRequest<T = any>(
   }
 
   // Add Authorization header if token exists
-  const authToken = typeof localStorage !== 'undefined' 
-    ? localStorage.getItem('auth_token') 
-    : null;
-  
+  const { token: authToken, expired } = getStoredAuthSession();
+
+  if (expired) {
+    throw new Error('Your session has expired. Please sign in again.');
+  }
+
   if (authToken) {
     headers.set('Authorization', `Bearer ${authToken}`);
   }
@@ -245,4 +262,66 @@ function buildProxyUrl(endpoint: string): string {
     return trimmed;
   }
   return `/api${trimmed}`;
+}
+
+function parseExpiry(raw: string | null): number | null {
+  if (!raw) {
+    return null;
+  }
+
+  const numericValue = Number(raw);
+  if (Number.isFinite(numericValue) && numericValue > 0) {
+    return numericValue;
+  }
+
+  const parsedDate = Date.parse(raw);
+  return Number.isNaN(parsedDate) ? null : parsedDate;
+}
+
+export function clearStoredAuthSession(): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  SESSION_STORAGE_KEYS.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore storage removal errors (e.g., private mode)
+    }
+  });
+}
+
+export function getStoredAuthSession(): AuthSession {
+  if (typeof localStorage === 'undefined') {
+    return { token: null, expired: false };
+  }
+
+  let token: string | null = null;
+  let expired = false;
+
+  try {
+    token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!token) {
+      return { token: null, expired: false };
+    }
+
+    const expiry = parseExpiry(localStorage.getItem(TOKEN_EXPIRY_STORAGE_KEY));
+
+    if (!expiry) {
+      return { token, expired: false };
+    }
+
+    if (Date.now() >= expiry) {
+      expired = true;
+      clearStoredAuthSession();
+      token = null;
+    }
+  } catch {
+    clearStoredAuthSession();
+    token = null;
+    expired = true;
+  }
+
+  return { token, expired };
 }

@@ -1,3 +1,8 @@
+### Extended Auth Session Handling (2025-10-14)
+- Honored the login "remember me" flag by issuing 7-day JWTs and returning their expiration metadata to clients.
+- Added shared helpers so the frontend stores token expiry timestamps, clears stale sessions, and surfaces session-expired errors before making API calls.
+- Updated navigation, dashboard, accounts list, and admin flows to rely on the centralized session helpers, preventing surprise 401s after overnight token expiry.
+
 ### OTP Refresh Interval & Live Updates (2025-10-14)
 - Reduced the OTP polling interval to 10s with overlap guards so new codes propagate quickly without saturating the service.
 - Broadcast OTP socket events to the shared `otp-updates` channel and auto-subscribe the accounts view for real-time UI refreshes.

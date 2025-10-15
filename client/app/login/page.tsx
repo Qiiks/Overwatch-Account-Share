@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/GlassCard"
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
-import { apiPost } from "@/lib/api"
+import { apiPost, clearStoredAuthSession } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -35,6 +35,7 @@ export default function LoginPage() {
     try {
       const data = await apiPost<{
         token: string
+        tokenExpiresAt?: string
         role: string
         isAdmin: boolean
         username: string
@@ -46,7 +47,13 @@ export default function LoginPage() {
         rememberMe
       })
 
+      // Clear any previous session data before storing new values
+      clearStoredAuthSession()
+
       localStorage.setItem("auth_token", data.token)
+      if (data.tokenExpiresAt) {
+        localStorage.setItem("auth_token_expires_at", String(new Date(data.tokenExpiresAt).getTime()))
+      }
       localStorage.setItem("user_role", data.role || "user")
       localStorage.setItem("is_admin", data.isAdmin ? "true" : "false")
       if (data.username) {

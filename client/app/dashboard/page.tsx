@@ -12,7 +12,7 @@ import { ShareAccountModal } from "@/components/modals/ShareAccountModal"
 import { ManageAccountModal } from "@/components/modals/ManageAccountModal"
 import { AccountSettingsModal } from "@/components/modals/AccountSettingsModal"
 import { GoogleAccountsManager } from "@/components/GoogleAccountsManager"
-import { apiGet } from "@/lib/api"
+import { apiGet, clearStoredAuthSession, getStoredAuthSession } from "@/lib/api"
 
 interface Credential {
   id: string
@@ -47,8 +47,11 @@ export default function DashboardPage() {
   const [selectedCredential, setSelectedCredential] = useState<Credential | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token")
-    if (!token) {
+    const { token, expired } = getStoredAuthSession()
+    if (!token || expired) {
+      if (expired) {
+        clearStoredAuthSession()
+      }
       router.push("/login")
       return
     }
@@ -56,7 +59,7 @@ export default function DashboardPage() {
     fetchDashboardData()
 
     // Initialize WebSocket connection when socket.io-client is available
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
   let pollOnlineUsers: ReturnType<typeof setInterval> | null = null
 
     // Try to load socket.io-client dynamically

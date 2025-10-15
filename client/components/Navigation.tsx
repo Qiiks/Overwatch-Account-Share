@@ -6,6 +6,7 @@ import { GlassButton } from "@/components/ui/GlassButton"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { useSettings } from "@/context/SettingsContext"
+import { clearStoredAuthSession, getStoredAuthSession } from "@/lib/api"
 
 export function Navigation() {
   const router = useRouter()
@@ -18,9 +19,17 @@ export function Navigation() {
   const { settings } = useSettings()
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token")
-    const adminStatus = localStorage.getItem("is_admin")
-    const storedUsername = localStorage.getItem("username")
+    const { token, expired } = getStoredAuthSession()
+
+    if (expired) {
+      setIsLoggedIn(false)
+      setIsAdmin(false)
+      setUsername("")
+      return
+    }
+
+    const adminStatus = typeof window !== "undefined" ? localStorage.getItem("is_admin") : null
+    const storedUsername = typeof window !== "undefined" ? localStorage.getItem("username") : null
 
     setIsLoggedIn(!!token)
     setIsAdmin(adminStatus === "true")
@@ -50,12 +59,8 @@ export function Navigation() {
   }, [pathname])
 
   const handleLogout = () => {
-    // Clear all session-related data from localStorage
-    localStorage.removeItem("auth_token")
-    localStorage.removeItem("user")  // Clear the complete user object
-    localStorage.removeItem("user_role")
-    localStorage.removeItem("is_admin")
-    localStorage.removeItem("username")
+    // Clear all session-related data
+    clearStoredAuthSession()
     
     // Reset local state
     setIsLoggedIn(false)

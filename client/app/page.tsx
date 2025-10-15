@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DotGrid } from "@/components/DotGrid"
 import { Navigation } from "@/components/Navigation"
+import { getStoredAuthSession } from "@/lib/api"
 
 export default function IndexPage() {
   const router = useRouter()
@@ -14,8 +15,14 @@ export default function IndexPage() {
 
   useEffect(() => {
     // Check authentication status
-    const token = localStorage.getItem("auth_token")
-    const userRole = localStorage.getItem("user_role")
+    const { token, expired } = getStoredAuthSession()
+    if (expired) {
+      setIsLoggedIn(false)
+      setIsAdmin(false)
+      return
+    }
+
+    const userRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null
     setIsLoggedIn(!!token)
     setIsAdmin(userRole === "admin")
   }, [])
