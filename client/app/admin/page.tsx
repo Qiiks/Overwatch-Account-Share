@@ -8,7 +8,7 @@ import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
 import { RegistrationToggle } from "@/components/admin/RegistrationToggle"
 import { UserManagement } from "@/components/admin/UserManagement"
-import { apiGet } from "@/lib/api"
+import { apiGet, clearStoredAuthSession, getStoredAuthSession } from "@/lib/api"
 
 interface AdminStats {
   totalUsers: number
@@ -25,10 +25,18 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token")
-    const isAdmin = localStorage.getItem("is_admin") === "true"
+    const { token, expired } = getStoredAuthSession()
+    const adminFlag = typeof window !== "undefined" ? localStorage.getItem("is_admin") === "true" : false
 
-    if (!token || !isAdmin) {
+    if (!token || expired) {
+      if (expired) {
+        clearStoredAuthSession()
+      }
+      router.push("/login")
+      return
+    }
+
+    if (!adminFlag) {
       router.push("/dashboard")
       return
     }

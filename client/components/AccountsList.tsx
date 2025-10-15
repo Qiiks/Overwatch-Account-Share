@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { io } from 'socket.io-client';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, getStoredAuthSession } from '@/lib/api';
 import { CyberpunkCredentialDisplay } from './CyberpunkCredentialDisplay';
 import { Shield, Users, User, Lock, Unlock } from 'lucide-react';
 
@@ -79,7 +79,12 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     // Establish WebSocket connection with authentication
     // Use the proxy route for WebSocket connections
     const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-    const token = localStorage.getItem('auth_token');
+    const { token, expired } = getStoredAuthSession();
+
+    if (expired) {
+      toast.error('Your session has expired. Please sign in again.');
+      return;
+    }
     
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'], // Allow both transports

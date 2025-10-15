@@ -18,7 +18,7 @@ import {
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
 import { useSettings } from "@/context/SettingsContext"
-import { apiPost } from "@/lib/api"
+import { apiPost, clearStoredAuthSession } from "@/lib/api"
 
 function validatePassword(password: string): string | null {
   // Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special @$!%*?&
@@ -90,13 +90,20 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const data = await apiPost<{ token: string; role: string }>('/api/auth/register', {
+      const data = await apiPost<{ token?: string; role?: string; tokenExpiresAt?: string }>('/api/auth/register', {
         username: formData.username,
         email: formData.email,
         password: formData.password,
       })
 
-      localStorage.setItem("auth_token", data.token)
+      clearStoredAuthSession()
+
+      if (data.token) {
+        localStorage.setItem("auth_token", data.token)
+      }
+      if (data.tokenExpiresAt) {
+        localStorage.setItem("auth_token_expires_at", String(new Date(data.tokenExpiresAt).getTime()))
+      }
       localStorage.setItem("user_role", data.role || "user")
       router.push("/dashboard")
     } catch (error: any) {

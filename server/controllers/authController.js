@@ -103,6 +103,11 @@ exports.login = [
     .trim()
     .notEmpty().withMessage('Password is required'),
 
+  body('rememberMe')
+    .optional()
+    .isBoolean().withMessage('Remember me flag must be a boolean')
+    .toBoolean(),
+
   // Process request after validation
   async (req, res, next) => {
     const errors = validationResult(req);
@@ -116,7 +121,7 @@ exports.login = [
     const { email, password } = req.body;
     
     // Get the matched/sanitized data from validator
-    const { email: sanitizedEmail } = matchedData(req);
+    const { email: sanitizedEmail, rememberMe = false } = matchedData(req);
 
     try {
       const user = await User.findOne({ email: sanitizedEmail });
@@ -154,8 +159,9 @@ exports.login = [
       
       let token;
       try {
+        const tokenExpiry = rememberMe ? '7d' : '1h';
         token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-          expiresIn: '1h'
+          expiresIn: tokenExpiry
         });
       } catch (jwtError) {
         return res.status(500).json({
@@ -163,6 +169,9 @@ exports.login = [
           error: 'Error generating authentication token'
         });
       }
+
+      const expiryMs = rememberMe ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+      const tokenExpiresAt = new Date(Date.now() + expiryMs).toISOString();
 
       // SECURITY ENHANCEMENT: Check for legacy bcrypt Overwatch account passwords
       // These need to be manually updated to AES encryption for credential viewing
@@ -200,6 +209,7 @@ exports.login = [
       res.status(200).json({
         success: true,
         token,
+        tokenExpiresAt,
         id: user._id,  // Add user ID to response
         role: user.role || 'user',
         isAdmin: !!user.isAdmin,
