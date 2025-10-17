@@ -89,20 +89,20 @@ export function CyberpunkCredentialDisplay({
         {isEncrypted && !hasAccess ? (
           <div className="space-y-2">
             {/* Main cipher display */}
-            <div className="font-mono text-red-400 glitch-text text-sm">
+            <div className="font-mono text-red-400 glitch-text text-xs sm:text-sm break-all overflow-hidden">
               {glitchText}
             </div>
             
             {/* Authorization warning */}
-            <div className="flex items-center gap-2 text-xs text-red-300">
-              <AlertTriangle size={12} className="animate-pulse" />
-              <span className="uppercase tracking-widest animated-text">
+            <div className="flex items-center gap-2 text-xs text-red-300 flex-wrap">
+              <AlertTriangle size={12} className="animate-pulse flex-shrink-0" />
+              <span className="uppercase tracking-widest animated-text break-words">
                 ◄ AUTHORIZATION REQUIRED ►
               </span>
             </div>
             
             {/* Encrypted signature */}
-            <div className="text-xs text-gray-500 font-mono opacity-70">
+            <div className="text-xs text-gray-500 font-mono opacity-70 break-all">
               {`[CIPHER::${Date.now().toString(16).toUpperCase().slice(-8)}::LOCKED]`}
             </div>
             
@@ -110,34 +110,36 @@ export function CyberpunkCredentialDisplay({
             <div className="matrix-rain-overlay"></div>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {hasAccess ? (
               <>
                 <input
                   type={showValue ? 'text' : 'password'}
                   value={value}
                   readOnly
-                  className="flex-1 bg-transparent text-cyan-300 font-mono outline-none text-sm"
+                  className="flex-1 bg-transparent text-cyan-300 font-mono outline-none text-xs sm:text-sm overflow-hidden text-ellipsis min-w-0"
                   style={{ 
-                    fontFamily: 'Consolas, Monaco, "Courier New", monospace'
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                    maxWidth: '100%'
                   }}
                 />
                 <button
                   onClick={handleCopy}
                   className={`
-                    transition-all duration-200 hover:scale-110
+                    transition-all duration-200 hover:scale-110 flex-shrink-0 p-1
                     ${copied 
                       ? 'text-green-400 hover:text-green-300' 
                       : 'text-cyan-400 hover:text-cyan-300'
                     }
                   `}
                   title="Copy to clipboard"
+                  aria-label="Copy to clipboard"
                 >
                   {copied ? <Shield size={16} /> : <Copy size={16} />}
                 </button>
               </>
             ) : (
-              <span className="text-gray-400 font-mono text-sm">
+              <span className="text-gray-400 font-mono text-xs sm:text-sm">
                 ••••••••••••
               </span>
             )}

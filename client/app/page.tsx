@@ -88,26 +88,26 @@ export default function IndexPage() {
       <DotGrid />
 
       {/* Hero Section */}
-      <div className="relative z-10 container mx-auto px-4 py-16 pt-24">
-        <div className="text-center mb-16">
-          <h1 className="platform-title text-6xl md:text-8xl font-bold mb-6 font-mono tracking-wider animate-neon-flicker">
+      <div className="relative z-10 container mx-auto px-4 py-12 sm:py-16 pt-20 sm:pt-24">
+        <div className="text-center mb-12 sm:mb-16">
+          <h1 className="platform-title text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold mb-4 sm:mb-6 font-mono tracking-wider animate-neon-flicker">
             SECUREVAULT
           </h1>
-          <div className="terminal-text text-lg mb-2 opacity-60">&gt; INITIALIZING SECURE CONNECTION...</div>
-          <p className="text-xl md:text-2xl text-cyan-400/80 mb-8 max-w-3xl mx-auto font-mono">
+          <div className="terminal-text text-sm sm:text-base md:text-lg mb-2 opacity-60">&gt; INITIALIZING SECURE CONNECTION...</div>
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-cyan-400/80 mb-6 sm:mb-8 max-w-3xl mx-auto font-mono px-2">
             QUANTUM-ENCRYPTED CREDENTIAL SHARING PROTOCOL
           </p>
-          <div className="terminal-text text-sm mb-8 opacity-40">
+          <div className="terminal-text text-xs sm:text-sm mb-6 sm:mb-8 opacity-40">
             [SYSTEM STATUS: ONLINE] [ENCRYPTION: AES-256] [UPTIME: 99.99%]
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center w-full sm:w-auto max-w-md sm:max-w-none mx-auto">
             {!isLoggedIn ? (
               <>
                 <Button
                   onClick={() => router.push("/login")}
-                  className="btn-glass px-8 py-3 text-lg font-mono"
+                  className="btn-glass px-6 sm:px-8 py-3 text-base sm:text-lg font-mono w-full sm:w-auto"
                   size="lg"
                 >
                   &gt; ACCESS_TERMINAL
@@ -115,7 +115,7 @@ export default function IndexPage() {
                 <Button
                   onClick={() => router.push("/register")}
                   variant="outline"
-                  className="btn-glass px-8 py-3 text-lg border-cyan-400/50 text-cyan-400 hover:bg-cyan-400/10 font-mono"
+                  className="btn-glass px-6 sm:px-8 py-3 text-base sm:text-lg border-cyan-400/50 text-cyan-400 hover:bg-cyan-400/10 font-mono w-full sm:w-auto"
                   size="lg"
                 >
                   &gt; NEW_USER_INIT
@@ -125,7 +125,7 @@ export default function IndexPage() {
               <>
                 <Button
                   onClick={() => router.push("/dashboard")}
-                  className="btn-glass px-8 py-3 text-lg font-mono"
+                  className="btn-glass px-6 sm:px-8 py-3 text-base sm:text-lg font-mono w-full sm:w-auto"
                   size="lg"
                 >
                   &gt; ENTER_MAINFRAME
@@ -134,7 +134,7 @@ export default function IndexPage() {
                   <Button
                     onClick={() => router.push("/admin")}
                     variant="outline"
-                    className="btn-glass px-8 py-3 text-lg border-green-400/50 text-green-400 hover:bg-green-400/10 font-mono"
+                    className="btn-glass px-6 sm:px-8 py-3 text-base sm:text-lg border-green-400/50 text-green-400 hover:bg-green-400/10 font-mono w-full sm:w-auto"
                     size="lg"
                   >
                     &gt; ADMIN_CONSOLE
@@ -146,7 +146,7 @@ export default function IndexPage() {
         </div>
 
         {/* Platform Features */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16">
           <Card className="glass-card holographic">
             <CardHeader>
               <CardTitle className="text-cyan-400 text-xl font-mono">[SECURE_STORAGE]</CardTitle>

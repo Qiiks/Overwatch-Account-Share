@@ -230,45 +230,46 @@ export default function DashboardPage() {
 
       <div className="relative z-10 container mx-auto px-4 py-8 pt-24">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-[#8A2BE2] mb-2">Dashboard</h1>
-            <p className="text-[#EAEAEA]/70">Manage your credentials and OTPs securely</p>
+        <div className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between items-start md:items-center mb-8">
+          <div className="w-full md:w-auto">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#8A2BE2] mb-2">Dashboard</h1>
+            <p className="text-sm sm:text-base text-[#EAEAEA]/70">Manage your credentials and OTPs securely</p>
           </div>
-          <div className="flex gap-3 mt-4 md:mt-0">
-            <GlassButton onClick={() => setShowAddModal(true)} variant="primary">
-              Add Credential
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full md:w-auto mt-4 md:mt-0">
+            <GlassButton onClick={() => setShowAddModal(true)} variant="primary" className="w-full sm:w-auto">
+              <span className="sm:hidden">Add</span>
+              <span className="hidden sm:inline">Add Credential</span>
             </GlassButton>
-            <GlassButton onClick={() => setShowSettingsModal(true)} variant="ghost">
+            <GlassButton onClick={() => setShowSettingsModal(true)} variant="ghost" className="w-full sm:w-auto">
               Settings
             </GlassButton>
           </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <GlassCard>
-            <GlassCardContent className="p-4">
-              <div className="text-2xl font-bold text-[#8A2BE2]">{credentials.length}</div>
-              <div className="text-sm text-[#EAEAEA]/70">Owned Credentials</div>
+            <GlassCardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-[#8A2BE2]">{credentials.length}</div>
+              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Owned Credentials</div>
             </GlassCardContent>
           </GlassCard>
           <GlassCard>
-            <GlassCardContent className="p-4">
-              <div className="text-2xl font-bold text-[#DA70D6]">{sharedCredentials.length}</div>
-              <div className="text-sm text-[#EAEAEA]/70">Shared Access</div>
+            <GlassCardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{sharedCredentials.length}</div>
+              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Shared Access</div>
             </GlassCardContent>
           </GlassCard>
           <GlassCard>
-            <GlassCardContent className="p-4">
-              <div className="text-2xl font-bold text-[#8A2BE2]">{credentials.filter((c) => c.isShared).length}</div>
-              <div className="text-sm text-[#EAEAEA]/70">Shared by You</div>
+            <GlassCardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-[#8A2BE2]">{credentials.filter((c) => c.isShared).length}</div>
+              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Shared by You</div>
             </GlassCardContent>
           </GlassCard>
           <GlassCard>
-            <GlassCardContent className="p-4">
-              <div className="text-2xl font-bold text-[#DA70D6]">{onlineUsersCount}</div>
-              <div className="text-sm text-[#EAEAEA]/70">Online Users</div>
+            <GlassCardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{onlineUsersCount}</div>
+              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Online Users</div>
             </GlassCardContent>
           </GlassCard>
         </div>

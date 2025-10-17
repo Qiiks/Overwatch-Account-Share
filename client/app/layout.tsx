@@ -11,6 +11,7 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "SecureVault - Credential & OTP Sharing Platform",
   description: "Secure credential and OTP sharing platform for teams and individuals",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
   generator: "v0.app",
 }
 
