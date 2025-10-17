@@ -605,4 +605,32 @@
     width: 15px;
     height: 15px;
   }
+  
+  /* Reduce background grid density on mobile for better performance */
+  body {
+    background-size: 100px 100px;
+  }
+}
+
+/* Accessibility: Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .animate-glitch,
+  .animate-pulse-glow,
+  .animate-neon-flicker,
+  .animate-spin {
+    animation: none !important;
+  }
+  
+  .scan-line,
+  .matrix-rain-overlay::before {
+    display: none;
+  }
 }

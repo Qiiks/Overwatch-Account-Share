@@ -109,60 +109,62 @@ export default function AdminPage() {
 
       <div className="relative z-10 container mx-auto px-4 py-8 pt-24">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-[#DA70D6] mb-2">Admin Panel</h1>
-            <p className="text-[#EAEAEA]/70">System administration and user management</p>
+        <div className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between items-start md:items-center mb-8">
+          <div className="w-full md:w-auto">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#DA70D6] mb-2">Admin Panel</h1>
+            <p className="text-sm sm:text-base text-[#EAEAEA]/70">System administration and user management</p>
           </div>
-          <div className="flex gap-3 mt-4 md:mt-0">
-            <GlassButton onClick={() => handleQuickAction("security-audit")} variant="warning">
-              Security Audit
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full md:w-auto mt-4 md:mt-0">
+            <GlassButton onClick={() => handleQuickAction("security-audit")} variant="warning" className="w-full sm:w-auto text-sm sm:text-base">
+              <span className="sm:hidden">Audit</span>
+              <span className="hidden sm:inline">Security Audit</span>
             </GlassButton>
-            <GlassButton onClick={() => handleQuickAction("database-backup")} variant="success">
-              Backup Database
+            <GlassButton onClick={() => handleQuickAction("database-backup")} variant="success" className="w-full sm:w-auto text-sm sm:text-base">
+              <span className="sm:hidden">Backup</span>
+              <span className="hidden sm:inline">Backup Database</span>
             </GlassButton>
           </div>
         </div>
 
         {/* Statistics */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
             <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className="text-2xl font-bold text-[#DA70D6]">{stats.totalUsers}</div>
-                <div className="text-sm text-[#EAEAEA]/70">Total Users</div>
+              <GlassCardContent className="p-3 sm:p-4">
+                <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{stats.totalUsers}</div>
+                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Total Users</div>
               </GlassCardContent>
             </GlassCard>
             <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className="text-2xl font-bold text-green-400">{stats.activeUsers}</div>
-                <div className="text-sm text-[#EAEAEA]/70">Active Users</div>
+              <GlassCardContent className="p-3 sm:p-4">
+                <div className="text-xl sm:text-2xl font-bold text-green-400">{stats.activeUsers}</div>
+                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Active Users</div>
               </GlassCardContent>
             </GlassCard>
             <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className="text-2xl font-bold text-red-400">{stats.flaggedActivities}</div>
-                <div className="text-sm text-[#EAEAEA]/70">Flagged Activities</div>
+              <GlassCardContent className="p-3 sm:p-4">
+                <div className="text-xl sm:text-2xl font-bold text-red-400">{stats.flaggedActivities}</div>
+                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Flagged Activities</div>
               </GlassCardContent>
             </GlassCard>
             <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className="text-2xl font-bold text-[#8A2BE2]">{stats.totalCredentials}</div>
-                <div className="text-sm text-[#EAEAEA]/70">Total Credentials</div>
+              <GlassCardContent className="p-3 sm:p-4">
+                <div className="text-xl sm:text-2xl font-bold text-[#8A2BE2]">{stats.totalCredentials}</div>
+                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Total Credentials</div>
               </GlassCardContent>
             </GlassCard>
             <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className="text-2xl font-bold text-[#DA70D6]">{stats.sharedCredentials}</div>
-                <div className="text-sm text-[#EAEAEA]/70">Shared Credentials</div>
+              <GlassCardContent className="p-3 sm:p-4">
+                <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{stats.sharedCredentials}</div>
+                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Shared Credentials</div>
               </GlassCardContent>
             </GlassCard>
             <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className={`text-2xl font-bold ${getHealthColor(stats.systemHealth)}`}>
+              <GlassCardContent className="p-3 sm:p-4">
+                <div className={`text-xl sm:text-2xl font-bold ${getHealthColor(stats.systemHealth)}`}>
                   {stats.systemHealth.toUpperCase()}
                 </div>
-                <div className="text-sm text-[#EAEAEA]/70">System Health</div>
+                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">System Health</div>
               </GlassCardContent>
             </GlassCard>
           </div>
@@ -174,30 +176,30 @@ export default function AdminPage() {
             <GlassCardTitle className="text-[#DA70D6]">Quick Actions</GlassCardTitle>
           </GlassCardHeader>
           <GlassCardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <GlassButton
                 onClick={() => handleQuickAction("system-settings")}
                 variant="ghost"
-                className="h-16 flex-col"
+                className="min-h-16 h-auto py-3 flex-col"
               >
-                <div className="text-2xl mb-1">⚙️</div>
-                <div>System Settings</div>
+                <div className="text-xl sm:text-2xl mb-1">⚙️</div>
+                <div className="text-sm sm:text-base">System Settings</div>
               </GlassButton>
               <GlassButton
                 onClick={() => handleQuickAction("security-audit")}
                 variant="ghost"
-                className="h-16 flex-col"
+                className="min-h-16 h-auto py-3 flex-col"
               >
-                <div className="text-2xl mb-1">🔍</div>
-                <div>Security Audit</div>
+                <div className="text-xl sm:text-2xl mb-1">🔍</div>
+                <div className="text-sm sm:text-base">Security Audit</div>
               </GlassButton>
               <GlassButton
                 onClick={() => handleQuickAction("database-backup")}
                 variant="ghost"
-                className="h-16 flex-col"
+                className="min-h-16 h-auto py-3 flex-col"
               >
-                <div className="text-2xl mb-1">💾</div>
-                <div>Database Backup</div>
+                <div className="text-xl sm:text-2xl mb-1">💾</div>
+                <div className="text-sm sm:text-base">Database Backup</div>
               </GlassButton>
             </div>
           </GlassCardContent>
