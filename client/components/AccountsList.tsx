@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { io } from 'socket.io-client';
 import { apiGet, apiPost, getStoredAuthSession } from '@/lib/api';
@@ -42,6 +42,8 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   const [accounts, setAccounts] = useState<OverwatchAccount[]>([]);
   const [credentials, setCredentials] = useState<Record<string, Credentials>>({});
   const [isLoading, setIsLoading] = useState(true);
+  // Create a map of accountTag to accountId for OTP updates
+  const accountTagToIdMapRef = useRef<Record<string, string>>({});
 
   // Fetch credentials for a specific account
   const fetchCredentials = async (accountId: string) => {
@@ -65,7 +67,14 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
       try {
         // Use the apiGet utility which now goes through the proxy
         const response = await apiGet('/api/overwatch-accounts/all-public');
-        setAccounts(response.data || []);
+        const accountsData = response.data || [];
+        setAccounts(accountsData);
+        
+        // Update the accountTag to accountId mapping
+        accountTagToIdMapRef.current = accountsData.reduce((map, account) => {
+          map[account.accountTag] = account.id;
+          return map;
+        }, {} as Record<string, string>);
       } catch (error: any) {
         console.error('Error fetching accounts:', error);
         toast.error(error.message);
@@ -100,10 +109,18 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     newSocket.on('connect', () => {
       console.log('WebSocket connected for OTP updates');
       newSocket.emit('subscribeToOTP');
+      console.log('Subscribed to OTP updates');
     });
 
     newSocket.on('connect_error', (error) => {
       console.error('WebSocket connection error:', error.message);
+    });
+
+    // Debug socket events
+    newSocket.onAny((event, ...args) => {
+      if (event.includes('otp')) {
+        console.log('Received OTP-related socket event:', event, args);
+      }
     });
 
     // Listen for OTP events
@@ -111,20 +128,26 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
       console.log('Received OTP update:', data);
 
       // Update the accounts state with the new OTP
-      setAccounts(prevAccounts =>
-        prevAccounts.map(account =>
+      setAccounts(prevAccounts => {
+        const updatedAccounts = prevAccounts.map(account =>
           account.accountTag === data.accountTag ? { ...account, otp: data.otp } : account
-        )
-      );
+        );
+        console.log('Updated accounts state:', updatedAccounts);
+        return updatedAccounts;
+      });
 
-      // Update credentials if we have them cached
+      // Update credentials if we have them cached - use the accountTag to accountId mapping
       setCredentials(prev => {
         const updatedCreds = { ...prev };
-        Object.keys(updatedCreds).forEach(key => {
-          if (updatedCreds[key].accountTag === data.accountTag) {
-            updatedCreds[key].otp = data.otp;
-          }
-        });
+        const accountId = accountTagToIdMapRef.current[data.accountTag];
+        console.log('Account ID for tag:', data.accountTag, 'is:', accountId);
+        console.log('Current credentials keys:', Object.keys(updatedCreds));
+        if (accountId && updatedCreds[accountId]) {
+          updatedCreds[accountId].otp = data.otp;
+          console.log('Updated credentials for account ID:', accountId);
+        } else {
+          console.log('No credentials cached for account ID:', accountId);
+        }
         return updatedCreds;
       });
     };
@@ -294,6 +317,11 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
                   onDecrypt={() => fetchCredentials(account.id)}
                   accountId={account.id}
                 />
+                {process.env.NODE_ENV !== 'production' && (
+                  <div className="text-xs text-gray-500">
+                    Debug: OTP from credentials: {credentials[account.id]?.otp || 'none'}, from account: {account.otp || 'none'}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

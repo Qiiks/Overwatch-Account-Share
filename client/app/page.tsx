@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,10 @@ export default function IndexPage() {
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  // Online users count state
+  const [onlineUsersCount, setOnlineUsersCount] = useState<number>(0)
+  const socketRef = useRef<any>(null)
 
   useEffect(() => {
     // Check authentication status
@@ -25,6 +29,57 @@ export default function IndexPage() {
     const userRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null
     setIsLoggedIn(!!token)
     setIsAdmin(userRole === "admin")
+  }, [])
+
+  // Online users real-time sync (socket.io or polling fallback)
+  useEffect(() => {
+    let pollInterval: ReturnType<typeof setInterval> | null = null
+    let isUnmounted = false
+
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
+    const setupSocket = async () => {
+      try {
+        const io = (await import("socket.io-client")).io
+        socketRef.current = io(apiBase, {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+        })
+        socketRef.current.on("connect", () => {
+          socketRef.current.emit("requestOnlineUsers")
+        })
+        socketRef.current.on("onlineUsers", (count: number) => {
+          if (!isUnmounted) setOnlineUsersCount(count)
+        })
+        socketRef.current.on("connectionSuccess", (data: { onlineUsers: number }) => {
+          if (!isUnmounted) setOnlineUsersCount(data.onlineUsers)
+        })
+        socketRef.current.on("disconnect", () => {
+          if (!isUnmounted) setOnlineUsersCount(0)
+        })
+      } catch (err) {
+        // Fallback: poll every 5s
+        pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch("/api/dashboard/online-users")
+            const data = await res.json()
+            if (!isUnmounted) setOnlineUsersCount(data.count || 0)
+          } catch {}
+        }, 5000)
+      }
+    }
+    setupSocket()
+    // Initial poll in case socket fails
+    fetch("/api/dashboard/online-users").then(async (res) => {
+      const data = await res.json()
+      if (!isUnmounted) setOnlineUsersCount(data.count || 0)
+    }).catch(() => {})
+    return () => {
+      isUnmounted = true
+      if (pollInterval) clearInterval(pollInterval)
+      if (socketRef.current?.disconnect) socketRef.current.disconnect()
+    }
   }, [])
 
   return (
@@ -157,7 +212,7 @@ export default function IndexPage() {
           <div className="inline-block bg-black/50 border border-cyan-400/30 rounded px-6 py-2 font-mono text-xs text-cyan-400/60">
             <span className="animate-pulse">●</span> SYSTEM_ONLINE |
             <span className="text-green-400"> SECURE_CONNECTION</span> | USERS_ACTIVE:{" "}
-            <span className="text-cyan-400">1,337</span> | UPTIME: <span className="text-green-400">99.99%</span>
+            <span className="text-cyan-400">{onlineUsersCount}</span> | UPTIME: <span className="text-green-400">99.99%</span>
           </div>
         </div>
       </div>
