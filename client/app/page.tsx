@@ -36,7 +36,11 @@ export default function IndexPage() {
     let pollInterval: ReturnType<typeof setInterval> | null = null
     let isUnmounted = false
 
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
+    // Validate NEXT_PUBLIC_API_BASE_URL is set
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+      throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is required but not set');
+    }
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
     const setupSocket = async () => {
       try {
         const io = (await import("socket.io-client")).io
@@ -95,7 +99,7 @@ export default function IndexPage() {
           </h1>
           <div className="terminal-text text-sm sm:text-base md:text-lg mb-2 opacity-60">&gt; INITIALIZING SECURE CONNECTION...</div>
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-cyan-400/80 mb-6 sm:mb-8 max-w-3xl mx-auto font-mono px-2">
-            QUANTUM-ENCRYPTED CREDENTIAL SHARING PROTOCOL
+            AES-256-GCM ENCRYPTED CREDENTIAL SHARING PROTOCOL
           </p>
           <div className="terminal-text text-xs sm:text-sm mb-6 sm:mb-8 opacity-40">
             [SYSTEM STATUS: ONLINE] [ENCRYPTION: AES-256] [UPTIME: 99.99%]

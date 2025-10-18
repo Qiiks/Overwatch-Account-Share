@@ -22,7 +22,12 @@
  *   });
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+// Validate NEXT_PUBLIC_API_BASE_URL is set
+if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+  throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is required but not set');
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const CSRF_COOKIE_NAME = 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const TOKEN_STORAGE_KEY = 'auth_token';

@@ -17,8 +17,8 @@
 
 ```
 overwatch-account-share/
-├── client/                    # Next.js frontend (submodule)
-│   ├── app/                 # Next.js App Router pages
+├── client/                    # Next.js frontend
+│   ├── app/                   # App Router pages
 │   │   ├── admin/           # Admin page
 │   │   ├── dashboard/       # Dashboard page
 │   │   ├── login/           # Login page
@@ -28,37 +28,33 @@ overwatch-account-share/
 │   │   ├── modals/          # Modal components
 │   │   ├── transitions/     # Page transition animations
 │   │   └── ui/              # shadcn/ui components
-│   ├── lib/                 # Utility functions
+│   ├── lib/                 # Utility functions and API client
 │   ├── public/              # Static assets
+│   ├── styles/              # Global styles
 │   ├── next.config.mjs      # Next.js configuration
 │   ├── tsconfig.json        # TypeScript configuration
 │   └── package.json         # Frontend dependencies
 │
-├── server/                  # Node.js/Express backend (submodule)
+├── server/                  # Node.js/Express backend
 │   ├── config/             # Database and app configuration
 │   ├── controllers/        # Business logic handlers
 │   ├── middleware/         # Express middleware
 │   ├── models/            # Database models
 │   ├── routes/            # API route definitions
+│   ├── services/          # Background services (OTP fetching)
+│   ├── utils/             # Utility functions
 │   ├── migrations/        # Database migrations
 │   └── server.js          # Main server entry point
 │
-├── .kilocode/             # Kilo Code configuration
-│   └── rules/
-│       └── memory-bank/   # Project memory bank files
-│
-├── testsprite_tests/      # Test files
-├── tools/                 # Development tools
-├── .gitmodules           # Git submodule configuration
-├── package.json          # Root package.json with scripts
-└── sync-submodules.sh    # Script to sync submodules
+├── docker-compose.yml     # Production deployment
+├── package.json           # Monorepo scripts
+└── verify-production-fix.sh # Deployment verification
 ```
 
 ## Key Files and Their Purposes
 
 ### Configuration Files
 - `package.json` (root): Manages monorepo scripts and shared dependencies
-- `.gitmodules`: Defines submodule repositories for client and server
 - `client/next.config.mjs`: Next.js configuration
 - `client/tsconfig.json`: TypeScript configuration
 - `server/.env`: Environment variables (DATABASE_URL, JWT_SECRET, etc.)
@@ -82,9 +78,6 @@ overwatch-account-share/
 
 ### Setup Instructions
 ```bash
-# Clone with submodules
-git clone --recursive [repository-url]
-
 # Install all dependencies
 npm run install-all
 
@@ -102,16 +95,12 @@ npm run lint-client       # Run ESLint on client
 # Backend commands
 npm run start-server      # Start Express server
 npm run install-server    # Install server dependencies
-
-# Submodule management
-npm run sync-submodules   # Sync changes to submodule repos
 ```
 
 ### Git Workflow
-- Main repository uses submodules for client and server
-- Changes to client push to: https://github.com/Qiiks/glass-hero-hub.git
-- Changes to server push to: https://github.com/Qiiks/Overwatch-Account-Share-Backend.git
-- Use `sync-submodules.sh` script to manage submodule updates
+- Standard monorepo workflow with all code in single repository
+- Frontend and backend changes can be made simultaneously
+- Use standard git commands for version control
 
 ## Architecture Decisions
 
@@ -306,11 +295,6 @@ type(scope): description
 - Check network connectivity to Supabase
 - Verify database migrations are applied
 
-#### Submodule Sync Problems
-- Use `git submodule update --init --recursive`
-- Check permissions for submodule repositories
-- Verify `.gitmodules` paths are correct
-
 ## Performance Optimization
 
 ### Frontend Optimizations
@@ -330,8 +314,6 @@ type(scope): description
 
 ### Repository Links
 - Main: [INFERRED - Confidence: Low] (Not specified in files)
-- Client Submodule: https://github.com/Qiiks/glass-hero-hub.git
-- Server Submodule: https://github.com/Qiiks/Overwatch-Account-Share-Backend.git
 
 ### Documentation
 - API Specification: `API_Specification.md`
@@ -343,7 +325,6 @@ type(scope): description
 - **Kilo Code**: AI-powered development environment
 - **Playwright MCP**: E2E testing server
 - **Supabase Dashboard**: Database management
-- **Git Submodules**: Code organization
 
 ## Notes for AI Agents
 
@@ -363,7 +344,6 @@ type(scope): description
 
 ### Known Technical Debt
 - No Redux/state management library (using React Context)
-- Manual submodule syncing required
 
 ### Best Practices for Modifications
 1. Always update both TypeScript types and backend responses
@@ -374,6 +354,6 @@ type(scope): description
 
 ---
 
-*Last Updated: 2025-10-05*  
+*Last Updated: 2025-10-18*  
 *Generated for: AI Agent Collaboration*  
 *Confidence Levels: High (verified in code), Medium (strong inference), Low (assumed)*

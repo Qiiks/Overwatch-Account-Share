@@ -40,7 +40,6 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync-submodules": "./sync-submodules.sh",
     "start": "concurrently \"npm run start-server\" \"npm run start-client\"",
     "start-client": "cd client && pnpm dev",
     "build-client": "cd client && pnpm build",

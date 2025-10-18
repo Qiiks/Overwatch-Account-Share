@@ -2,9 +2,13 @@ const crypto = require('crypto');
 
 // Encryption configuration
 const algorithm = 'aes-256-gcm';
-const secretKey = process.env.ENCRYPTION_SECRET ? 
-  crypto.createHash('sha256').update(String(process.env.ENCRYPTION_SECRET)).digest() :
-  crypto.createHash('sha256').update('default-secret-key').digest();
+
+// Validate ENCRYPTION_SECRET is set
+if (!process.env.ENCRYPTION_SECRET) {
+  throw new Error('ENCRYPTION_SECRET environment variable is required but not set');
+}
+
+const secretKey = crypto.createHash('sha256').update(String(process.env.ENCRYPTION_SECRET)).digest();
 
 /**
  * Encrypts text using AES-256-GCM

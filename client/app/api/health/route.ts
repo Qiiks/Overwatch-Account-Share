@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const resolveBackendUrl = () =>
-  process.env.INTERNAL_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:5001";
+const resolveBackendUrl = () => {
+  // Validate that at least one API base URL is set
+  if (!process.env.INTERNAL_API_BASE_URL && !process.env.NEXT_PUBLIC_API_BASE_URL) {
+    throw new Error('Either INTERNAL_API_BASE_URL or NEXT_PUBLIC_API_BASE_URL environment variable is required but not set');
+  }
+  
+  return process.env.INTERNAL_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+};
 
 export const dynamic = "force-dynamic";
 
