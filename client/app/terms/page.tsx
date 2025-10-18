@@ -232,7 +232,7 @@ export default function TermsPage() {
                   <strong>Email:</strong> gameslayer.inc@gmail.com
                 </p>
                 <p>
-                  <strong>Website:</strong> https://overwatchaccountshare.com
+                  <strong>Website:</strong> {process.env.NEXT_PUBLIC_WEBSITE_URL}
                 </p>
                 <p>
                   <strong>Response Time:</strong> We aim to respond to all inquiries within 48-72 hours

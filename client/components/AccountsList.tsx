@@ -86,8 +86,11 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     fetchAccounts();
 
     // Establish WebSocket connection with authentication
-    // Use the proxy route for WebSocket connections
-    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+    // Validate NEXT_PUBLIC_API_BASE_URL is set for WebSocket connections
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+      throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is required but not set');
+    }
+    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
     const { token, expired } = getStoredAuthSession();
 
     if (expired) {

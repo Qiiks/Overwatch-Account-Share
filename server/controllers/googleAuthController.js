@@ -4,7 +4,12 @@ const encryption = require('../utils/encryption');
 const UserGoogleAccount = require('../models/UserGoogleAccount');
 const { logger } = require('../utils/logger');
 
-const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-state-secret-for-dev';
+// Validate OAUTH_STATE_SECRET is set
+if (!process.env.OAUTH_STATE_SECRET) {
+  throw new Error('OAUTH_STATE_SECRET environment variable is required but not set');
+}
+
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET;
 
 const resolveRedirectUri = () => {
   const configured = process.env.GOOGLE_REDIRECT_URI;
@@ -94,11 +99,15 @@ exports.googleOTPCallback = async (req, res) => {
     }
   } catch (err) {
     logger.error('OAuth state error:', { error: err.message });
-    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard?oauth_error=invalid_state`);
+    // Validate CLIENT_URL is set
+    if (!process.env.CLIENT_URL) {
+      throw new Error('CLIENT_URL environment variable is required but not set');
+    }
+    return res.redirect(`${process.env.CLIENT_URL}/dashboard?oauth_error=invalid_state`);
   }
 
   if (error) {
-    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}${stateData.redirectUrl}?oauth_error=${error}`);
+    return res.redirect(`${process.env.CLIENT_URL}${stateData.redirectUrl}?oauth_error=${error}`);
   }
 
   try {
@@ -118,7 +127,7 @@ exports.googleOTPCallback = async (req, res) => {
     if (!tokens.refresh_token) {
         // This can happen if the user has already granted consent and is not re-prompted.
         // We need the refresh token for long-term access.
-        return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}${stateData.redirectUrl}?oauth_error=no_refresh_token`);
+        return res.redirect(`${process.env.CLIENT_URL}${stateData.redirectUrl}?oauth_error=no_refresh_token`);
     }
 
     const encryptedRefreshToken = encryption.encrypt(tokens.refresh_token);
@@ -134,10 +143,14 @@ exports.googleOTPCallback = async (req, res) => {
       scopes: tokens.scope.split(' ')
     });
 
+    // Validate FRONTEND_URL is set
+    if (!process.env.FRONTEND_URL) {
+      throw new Error('FRONTEND_URL environment variable is required but not set');
+    }
     res.redirect(`${process.env.FRONTEND_URL}/accounts?oauth_success=true`);
   } catch (err) {
     logger.error('OAuth callback error:', err);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}${stateData.redirectUrl}?oauth_error=authentication_failed`);
+    res.redirect(`${process.env.CLIENT_URL}${stateData.redirectUrl}?oauth_error=authentication_failed`);
   }
 };
 

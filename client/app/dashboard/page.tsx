@@ -58,8 +58,11 @@ export default function DashboardPage() {
 
     fetchDashboardData()
 
-    // Initialize WebSocket connection when socket.io-client is available
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001"
+    // Validate NEXT_PUBLIC_API_BASE_URL is set for WebSocket connections
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+      throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is required but not set');
+    }
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
   let pollOnlineUsers: ReturnType<typeof setInterval> | null = null
 
     // Try to load socket.io-client dynamically

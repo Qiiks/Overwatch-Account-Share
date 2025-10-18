@@ -51,26 +51,24 @@ try {
 }
 
 // SIMPLIFIED CORS CONFIGURATION - PRODUCTION FIX
-// Define allowed origins with clear priority
-const allowedOrigins = [
-  // Production URLs (highest priority)
-  'https://overwatch.qiikzx.dev',
-  'https://bwgg4wow8kggc48kko0g080c.qiikzx.dev',
-  // Development URLs
-  'http://localhost:3000',
-  'http://localhost:5001',
-  'http://localhost:5173',
-  'http://127.0.0.1:8080',
-];
+// Define allowed origins from environment variable only
+let allowedOrigins = [];
 
-// Add additional origins from environment if specified
+// Require ALLOWED_ORIGINS environment variable
 if (process.env.ALLOWED_ORIGINS) {
   const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-  allowedOrigins.push(...envOrigins);
+  allowedOrigins = [...new Set(envOrigins.filter(Boolean))];
+} else {
+  // If no ALLOWED_ORIGINS is set, use FRONTEND_URL as fallback if available
+  if (process.env.FRONTEND_URL) {
+    allowedOrigins = [process.env.FRONTEND_URL];
+  } else {
+    throw new Error('ALLOWED_ORIGINS or FRONTEND_URL environment variable is required but not set');
+  }
 }
 
 // Remove duplicates and empty strings
-const uniqueOrigins = [...new Set(allowedOrigins.filter(Boolean))];
+const uniqueOrigins = [...new Set(allowedOrigins)];
 
 logger.info('[CORS] Configured allowed origins:', { origins: uniqueOrigins });
 

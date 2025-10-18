@@ -15,11 +15,21 @@ const User = require('./models/User');
 // Import database connection
 const { connectDB } = require('./config/db');
 
-// Admin credentials
+// Validate environment variables
+if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+  console.error('ERROR: Missing required environment variables');
+  console.error('Please set ADMIN_EMAIL and ADMIN_PASSWORD in your .env file');
+  console.error('Example:');
+  console.error('  ADMIN_EMAIL=admin@example.com');
+  console.error('  ADMIN_PASSWORD=your-secure-password');
+  process.exit(1);
+}
+
+// Admin credentials from environment variables
 const adminCredentials = {
   username: 'Qiikzx',
-  email: 'gameslayer.inc@gmail.com',
-  password: '121212Sanveed'
+  email: process.env.ADMIN_EMAIL,
+  password: process.env.ADMIN_PASSWORD
 };
 
 // Function to create admin user

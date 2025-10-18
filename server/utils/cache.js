@@ -7,7 +7,14 @@ let memoryCache = new Map();
 
 const connectRedis = async () => {
   try {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    // Redis is optional - if no REDIS_URL is provided, use in-memory cache only
+    const redisUrl = process.env.REDIS_URL;
+    
+    if (!redisUrl) {
+      // No Redis URL provided, continue with in-memory cache only
+      redisClient = null;
+      return;
+    }
 
     redisClient = redis.createClient({
       url: redisUrl,

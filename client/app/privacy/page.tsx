@@ -355,7 +355,7 @@ export default function PrivacyPage() {
                   <strong>Support:</strong> gameslayer.inc@gmail.com
                 </p>
                 <p>
-                  <strong>Website:</strong> https://overwatchaccountshare.com
+                  <strong>Website:</strong> {process.env.NEXT_PUBLIC_WEBSITE_URL}
                 </p>
                 <p>
                   <strong>Data Protection Officer:</strong> gameslayer.inc@gmail.com
