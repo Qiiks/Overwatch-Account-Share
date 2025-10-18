@@ -1,22 +1,62 @@
 # Overwatch Account Share
 
-## Overview
+A secure MERN stack application for sharing Overwatch account credentials within a trusted community. Features a modern glassmorphism UI, robust authentication, and a clean RESTful API.
 
-Overwatch Account Share is a secure and modern MERN stack application designed to facilitate the sharing of Overwatch account credentials among community members. The project's main objective is to provide a trustworthy platform that eliminates the security risks associated with sharing account information through insecure channels.
+## Features
 
-## Key Features
+*   Secure account sharing with encrypted credentials
+*   Role-based access (admin/user)
+*   Modern UI with glassmorphism theme
+*   RESTful API endpoints for all core actions
+*   Admin dashboard for user and account management
 
-*   **Secure Credential Management**: User and account data are stored securely using modern encryption and authentication practices.
-*   **Modern User Interface**: A sleek, responsive frontend built with React and Vite, featuring a "glassmorphism" design for an intuitive user experience.
-*   **Robust Backend**: A powerful Node.js and Express server that provides a reliable RESTful API for all application functionalities.
-*   **User and Account Management**: Functionality for users to add, manage, and share their Overwatch accounts.
+## Tech Stack
 
-## Technology Stack
+*   **Frontend:** Next.js 14+ (App Router), Tailwind CSS, shadcn/ui
+*   **Backend:** Node.js, Express, Supabase (PostgreSQL)
+*   **Auth:** JWT, bcrypt
+*   **Database:** Supabase (PostgreSQL)
 
-*   **Frontend**: React, Vite, TypeScript, Tailwind CSS, shadcn/ui
-*   **Backend**: Node.js, Express, MongoDB (with Mongoose)
-*   **Authentication**: JSON Web Tokens (JWT), bcryptjs
+## Project Structure
 
-## Significance
+```
+overwatch-account-share/
+├── client/      # Next.js frontend
+├── server/      # Node.js/Express backend
+├── package.json # Monorepo scripts
+└── sync-submodules.sh # Submodule sync script
+```
 
-This project provides a much-needed solution for the Overwatch community, offering a secure and centralized platform for account sharing. By leveraging a modern and robust technology stack, it ensures a high-quality user experience and a secure environment for all users.
+## Setup & Usage
+
+```bash
+# Clone with submodules
+git clone --recursive [repository-url]
+
+# Install dependencies
+npm run install-all
+
+# Start development servers
+npm start
+```
+
+## API & Database
+
+*   See `API_Specification.md` for endpoint details
+*   See `supabase_schemas.md` for database schema
+
+## Security Highlights
+
+*   Passwords hashed with bcrypt
+*   JWT session management
+*   CORS and rate limiting
+*   Input sanitization
+
+## Contact
+
+*   Client: https://github.com/Qiiks/glass-hero-hub.git
+*   Server: https://github.com/Qiiks/Overwatch-Account-Share-Backend.git
+
+---
+
+_For technical details, see API_Specification.md and supabase_schemas.md._
