@@ -1,24 +1,39 @@
-
-# Playwright
+# Node dependencies
 node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
 
-.kilocode/
+# Build outputs
+build/
+dist/
+.out/
+.next/
+
+# Logs and temp files
 logs/
 *.log
-.env
-dist/
-build/
-.DS_Store
-.roo/
+*.txt
+*.tsbuildinfo
+
+# Test and debug artifacts
+test-results/
+playwright-report/
+blob-report/
 tests/
-.kilocodemodes
+testsprite_tests/
+
+# Environment/config files
+.env*
+*.env
+*.json
+
+# IDE/editor files
 .vscode/
+.DS_Store
 Thumbs.db
 
+# Submodule and AI config
+.kilocode/
+.kilocodemodes
+.roo/
 
-#Ignore vscode AI rules
-.github\instructions\codacy.instructions.md
+# Ignore AI instructions
+.github/instructions/codacy.instructions.md
