@@ -722,6 +722,127 @@ const createUser = async (req, res) => {
   }
 };
 
+// @desc    Export user data (GDPR compliance)
+// @route   GET /api/admin/users/:id/export
+// @access  Admin
+const exportUserData = async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    const supabase = global.supabase;
+
+    // Fetch user data
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select(
+        "id, username, email, role, isadmin, isapproved, createdat, updatedat"
+      )
+      .eq("id", targetUserId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch user's Overwatch accounts (owned)
+    const { data: ownedAccounts, error: accountsError } = await supabase
+      .from("overwatch_accounts")
+      .select(
+        "id, accounttag, accountemail, createdat, updatedat, otp_fetched_at, linked_google_account_id"
+      )
+      .eq("owner_id", targetUserId);
+
+    if (accountsError) {
+      logger.error("Error fetching user accounts for export:", accountsError);
+    }
+
+    // Fetch accounts shared with this user
+    const { data: sharedAccess, error: sharedError } = await supabase
+      .from("overwatch_account_allowed_users")
+      .select(
+        "overwatch_account_id, overwatch_accounts(id, accounttag, accountemail)"
+      )
+      .eq("user_id", targetUserId);
+
+    if (sharedError) {
+      logger.error("Error fetching shared accounts for export:", sharedError);
+    }
+
+    // Fetch user's linked Google accounts
+    const { data: googleAccounts, error: googleError } = await supabase
+      .from("user_google_accounts")
+      .select("id, email, is_active, createdat")
+      .eq("user_id", targetUserId);
+
+    if (googleError && googleError.code !== "42P01") {
+      // Table might not exist
+      logger.error("Error fetching Google accounts for export:", googleError);
+    }
+
+    // Build the export data
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      exportType: "GDPR Data Export",
+      requestedBy: {
+        adminId: req.user.id,
+        adminUsername: req.user.username,
+      },
+      userData: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.isadmin ? "admin" : "user",
+        isApproved: user.isapproved,
+        createdAt: user.createdat,
+        updatedAt: user.updatedat,
+      },
+      ownedAccounts: (ownedAccounts || []).map((account) => ({
+        id: account.id,
+        accountTag: account.accounttag,
+        accountEmail: account.accountemail,
+        createdAt: account.createdat,
+        updatedAt: account.updatedat,
+        hasLinkedGoogleAccount: !!account.linked_google_account_id,
+        lastOtpFetched: account.otp_fetched_at,
+      })),
+      sharedAccountAccess: (sharedAccess || []).map((access) => ({
+        accountId: access.overwatch_account_id,
+        accountTag: access.overwatch_accounts?.accounttag,
+        accountEmail: access.overwatch_accounts?.accountemail,
+      })),
+      linkedGoogleAccounts: (googleAccounts || []).map((ga) => ({
+        id: ga.id,
+        email: ga.email,
+        isActive: ga.is_active,
+        linkedAt: ga.createdat,
+      })),
+      dataRetentionNote:
+        "This export contains all personal data stored for this user as per GDPR Article 15.",
+    };
+
+    // Audit log the export
+    adminAuditLogger.logDataExport(
+      req.user.id,
+      req.user.username,
+      targetUserId,
+      user.username
+    );
+
+    // Set content type for download
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="user-data-export-${user.username}-${
+        new Date().toISOString().split("T")[0]
+      }.json"`
+    );
+
+    res.json(exportData);
+  } catch (error) {
+    logger.error("Error in exportUserData:", error);
+    res.status(500).json({ message: "Server error exporting user data" });
+  }
+};
+
 module.exports = {
   getStats,
   getUsers,
@@ -736,4 +857,5 @@ module.exports = {
   getRegistrationStatus,
   toggleRegistrations,
   createUser,
+  exportUserData,
 };
