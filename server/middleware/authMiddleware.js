@@ -1,35 +1,39 @@
-const jwt = require('jsonwebtoken');
-const { supabase } = require('../config/db');
-const { securityLogger } = require('../utils/logger');
+const jwt = require("jsonwebtoken");
+const { supabase } = require("../config/db");
+const { securityLogger } = require("../utils/logger");
 
 const authMiddleware = async (req, res, next) => {
-  // Check if Authorization header exists
-  if (!req.headers.authorization) {
-    securityLogger.logAuthAttempt(req.ip, null, false, 'No Authorization header');
-    return res.status(401).json({
-      success: false,
-      message: 'No token, authorization denied'
-    });
+  let token = null;
+
+  // Priority 1: Check httpOnly cookie (most secure)
+  if (req.cookies && req.cookies.auth_token) {
+    token = req.cookies.auth_token;
+  }
+  // Priority 2: Check Authorization header (backward compatibility)
+  else if (req.headers.authorization) {
+    // Check if Authorization header starts with "Bearer " (with space)
+    if (!req.headers.authorization.startsWith("Bearer ")) {
+      securityLogger.logAuthAttempt(
+        req.ip,
+        null,
+        false,
+        "Invalid token format"
+      );
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token format, authorization denied",
+      });
+    }
+    // Extract the token after "Bearer "
+    token = req.headers.authorization.split(" ")[1];
   }
 
-  // Check if Authorization header starts with "Bearer " (with space)
-  if (!req.headers.authorization.startsWith('Bearer ')) {
-    securityLogger.logAuthAttempt(req.ip, null, false, 'Invalid token format');
+  // No token found in either location
+  if (!token || token === "") {
+    securityLogger.logAuthAttempt(req.ip, null, false, "No token provided");
     return res.status(401).json({
       success: false,
-      message: 'Invalid token format, authorization denied'
-    });
-  }
-
-  // Extract the token after "Bearer "
-  const token = req.headers.authorization.split(' ')[1];
-
-  // Check if token exists and is not empty after "Bearer "
-  if (!token || token === '') {
-    securityLogger.logAuthAttempt(req.ip, null, false, 'No token provided');
-    return res.status(401).json({
-      success: false,
-      message: 'No token, authorization denied'
+      message: "No token, authorization denied",
     });
   }
 
@@ -39,16 +43,21 @@ const authMiddleware = async (req, res, next) => {
 
     // Fetch user from database
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', decoded.id)
+      .from("users")
+      .select("*")
+      .eq("id", decoded.id)
       .single();
 
     if (error || !user) {
-      securityLogger.logAuthAttempt(req.ip, decoded.id, false, 'User not found');
+      securityLogger.logAuthAttempt(
+        req.ip,
+        decoded.id,
+        false,
+        "User not found"
+      );
       return res.status(401).json({
         success: false,
-        message: 'User not found, authorization denied'
+        message: "User not found, authorization denied",
       });
     }
 
@@ -56,10 +65,15 @@ const authMiddleware = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    securityLogger.logAuthAttempt(req.ip, null, false, `JWT verification failed: ${error.message}`);
+    securityLogger.logAuthAttempt(
+      req.ip,
+      null,
+      false,
+      `JWT verification failed: ${error.message}`
+    );
     return res.status(401).json({
       success: false,
-      message: 'Invalid token, authorization denied'
+      message: "Invalid token, authorization denied",
     });
   }
 };
@@ -67,7 +81,9 @@ const authMiddleware = async (req, res, next) => {
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      const error = new Error(`User role ${req.user.role} is not authorized to access this route`);
+      const error = new Error(
+        `User role ${req.user.role} is not authorized to access this route`
+      );
       error.statusCode = 403;
       return next(error);
     }
@@ -77,5 +93,5 @@ const authorize = (...roles) => {
 
 module.exports = {
   protect: authMiddleware,
-  authorize
+  authorize,
 };
