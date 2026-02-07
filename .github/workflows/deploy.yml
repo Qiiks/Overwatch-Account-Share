@@ -122,8 +122,8 @@ jobs:
             NEXT_PUBLIC_FRONTEND_URL=${{ secrets.NEXT_PUBLIC_FRONTEND_URL }}
             NEXT_PUBLIC_WEBSITE_URL=${{ secrets.NEXT_PUBLIC_WEBSITE_URL }}
 
-  # JOB 4: Update Manifests (GitOps)
-  update-manifests:
+  # JOB 4: Trigger Deploy (GitOps)
+  trigger-deploy:
     needs: [build-server, build-client]
     if: always() && (needs.build-server.result == 'success' || needs.build-server.result == 'skipped') && (needs.build-client.result == 'success' || needs.build-client.result == 'skipped')
     runs-on: ubuntu-latest
@@ -134,33 +134,10 @@ jobs:
       - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # fetch all history for branches
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Install dependencies
-        run: pip install pyyaml
-
-      - name: Generate Deploy Compose
-        env:
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python .github/scripts/generate_compose.py
+          fetch-depth: 0
 
       - name: Push to Deploy Branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create and switch to orphan deploy branch (or just switch if exists)
-          git checkout --orphan deploy
-
-          # Add the generated file
-          git add docker-compose.yml
-
-          # Commit and Push
-          git commit -m "Deploy: Update images [skip ci]" || echo "No changes to commit"
-          git push -f origin deploy
+          git push -f origin main:deploy
