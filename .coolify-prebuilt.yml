@@ -1,0 +1,100 @@
+# Coolify Deployment - Using Pre-built Images from GHCR
+services:
+  client:
+    image: ghcr.io/qiiks/overwatch-account-share/client:latest
+    pull_policy: always
+    container_name: client-${COOLIFY_RESOURCE_UUID}-${UNIX_TIMESTAMP}
+    restart: unless-stopped
+    networks:
+      - coolify
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL}
+      - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL}
+      - INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL:-http://server:5001}
+    depends_on:
+      server:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "coolify.managed=true"
+      - "coolify.service=${SERVICE_NAME_CLIENT}"
+      - "coolify.applicationId=${COOLIFY_RESOURCE_UUID}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.rule=Host(`${SERVICE_FQDN_CLIENT}`)"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.entrypoints=websecure"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.tls=true"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.client-${COOLIFY_RESOURCE_UUID}.loadbalancer.server.port=3000"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.rule=Host(`${SERVICE_FQDN_CLIENT}`)"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.entrypoints=web"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.middlewares=redirect-to-https@docker"
+
+  server:
+    image: ghcr.io/qiiks/overwatch-account-share/server:latest
+    pull_policy: always
+    container_name: server-${COOLIFY_RESOURCE_UUID}-${UNIX_TIMESTAMP}
+    restart: unless-stopped
+    networks:
+      - coolify
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
+      - OAUTH_STATE_SECRET=${OAUTH_STATE_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - LOG_LEVEL=${LOG_LEVEL}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:5001/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "coolify.managed=true"
+      - "coolify.service=${SERVICE_NAME_SERVER}"
+      - "coolify.applicationId=${COOLIFY_RESOURCE_UUID}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.rule=Host(`${SERVICE_FQDN_SERVER}`)"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.entrypoints=websecure"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.tls=true"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.server-${COOLIFY_RESOURCE_UUID}.loadbalancer.server.port=5001"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.rule=Host(`${SERVICE_FQDN_SERVER}`)"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.entrypoints=web"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.middlewares=redirect-to-https@docker"
+
+networks:
+  coolify:
+    external: true
