@@ -982,18 +982,6 @@ const searchAccountsUsers = async (req, res) => {
   }
 };
 
-module.exports = {
-  getStats,
-  getUsers,
-  listUsers,
-  updateUserStatus,
-  updateUserStatusValidation,
-  updateUserRole,
-  updateUserRoleValidation,
-  deleteUser,
-  getLogs,
-  getAdminDashboard,
-  getRegistrationStatus,
 // @desc    Force logout all users (except current admin)
 // @route   POST /api/admin/force-logout
 // @access  Admin
@@ -1001,7 +989,7 @@ const forceLogoutAll = async (req, res) => {
   try {
     const timestamp = Date.now();
     await Settings.updateSetting("min_jwt_issued_at", timestamp);
-    
+
     // Audit log
     adminAuditLogger.log(
       "FORCE_LOGOUT_ALL",
@@ -1010,7 +998,7 @@ const forceLogoutAll = async (req, res) => {
         adminUsername: req.user.username,
         timestamp,
       },
-      req
+      req,
     );
 
     res.json({ message: "All users have been forced to log out." });
@@ -1026,7 +1014,7 @@ const forceLogoutAll = async (req, res) => {
 const performSystemMaintenance = async (req, res) => {
   try {
     await cache.clear();
-    
+
     // Audit log
     adminAuditLogger.log(
       "SYSTEM_CACHE_CLEARED",
@@ -1034,7 +1022,7 @@ const performSystemMaintenance = async (req, res) => {
       {
         adminUsername: req.user.username,
       },
-      req
+      req,
     );
 
     res.json({ message: "System cache cleared successfully" });
@@ -1052,20 +1040,34 @@ const exportAllUsers = async (req, res) => {
     const supabase = global.supabase;
     const { data: users, error } = await supabase
       .from("users")
-      .select("id, username, email, role, isadmin, isapproved, createdat, last_login");
+      .select(
+        "id, username, email, role, isadmin, isapproved, createdat, last_login",
+      );
 
     if (error) throw error;
 
     // Convert to CSV
-    const fields = ["id", "username", "email", "role", "status", "joined_at", "last_login"];
+    const fields = [
+      "id",
+      "username",
+      "email",
+      "role",
+      "status",
+      "joined_at",
+      "last_login",
+    ];
     const csvRows = [fields.join(",")];
 
     users.forEach((user) => {
       const status = user.isapproved ? "active" : "suspended";
       const role = user.isadmin ? "admin" : "user";
-      const joined = user.createdat ? new Date(user.createdat).toISOString() : "";
-      const lastLogin = user.last_login ? new Date(user.last_login).toISOString() : "";
-      
+      const joined = user.createdat
+        ? new Date(user.createdat).toISOString()
+        : "";
+      const lastLogin = user.last_login
+        ? new Date(user.last_login).toISOString()
+        : "";
+
       const row = [
         user.id,
         `"${user.username}"`,
@@ -1073,7 +1075,7 @@ const exportAllUsers = async (req, res) => {
         role,
         status,
         joined,
-        lastLogin
+        lastLogin,
       ];
       csvRows.push(row.join(","));
     });
