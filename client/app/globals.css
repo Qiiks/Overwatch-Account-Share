@@ -125,7 +125,8 @@
     @apply bg-background text-foreground font-mono;
     background: linear-gradient(135deg, #0a0a0a 0%, #111111 50%, #0f0f0f 100%);
     /* Added cyberpunk grid overlay */
-    background-image: linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+    background-image:
+      linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 50px 50px;
   }
@@ -137,11 +138,18 @@
   background: rgba(0, 255, 255, 0.03);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(0, 255, 255, 0.1), 0 0 20px rgba(0, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(0, 255, 255, 0.1),
+    0 0 20px rgba(0, 255, 255, 0.1);
 }
 
 .btn-glass {
-  background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(0, 255, 200, 0.05));
+  background: linear-gradient(
+    135deg,
+    rgba(0, 255, 255, 0.1),
+    rgba(0, 255, 200, 0.05)
+  );
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 255, 255, 0.3);
   color: #00ffff;
@@ -158,7 +166,12 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 255, 255, 0.2),
+    transparent
+  );
   transition: left 0.5s;
 }
 
@@ -167,8 +180,14 @@
 }
 
 .btn-glass:hover {
-  background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 255, 200, 0.1));
-  box-shadow: 0 8px 25px rgba(0, 255, 255, 0.3), 0 0 30px rgba(0, 255, 255, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(0, 255, 255, 0.2),
+    rgba(0, 255, 200, 0.1)
+  );
+  box-shadow:
+    0 8px 25px rgba(0, 255, 255, 0.3),
+    0 0 30px rgba(0, 255, 255, 0.2);
   transform: translateY(-2px);
   border-color: rgba(0, 255, 255, 0.5);
 }
@@ -183,7 +202,9 @@
 
 .input-glass:focus {
   border-color: #00ffff;
-  box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.2), 0 0 20px rgba(0, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 2px rgba(0, 255, 255, 0.2),
+    0 0 20px rgba(0, 255, 255, 0.1);
 }
 
 .input-glass::placeholder {
@@ -191,7 +212,10 @@
 }
 
 .platform-title {
-  text-shadow: 0 0 30px rgba(0, 255, 255, 0.8), 0 0 60px rgba(0, 255, 255, 0.4), 0 0 90px rgba(0, 255, 255, 0.2);
+  text-shadow:
+    0 0 30px rgba(0, 255, 255, 0.8),
+    0 0 60px rgba(0, 255, 255, 0.4),
+    0 0 90px rgba(0, 255, 255, 0.2);
   filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.5));
   color: #00ffff;
   font-family: "Courier New", monospace;
@@ -200,9 +224,22 @@
 
 /* Updated dot grid to cyberpunk cyan colors */
 .dot-grid {
-  background-image: radial-gradient(circle at 20% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(0, 255, 200, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(0, 255, 255, 0.06) 0%, transparent 50%);
+  background-image:
+    radial-gradient(
+      circle at 20% 80%,
+      rgba(0, 255, 255, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(0, 255, 200, 0.08) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 40% 40%,
+      rgba(0, 255, 255, 0.06) 0%,
+      transparent 50%
+    );
 }
 
 /* Enhanced cyberpunk animations */
@@ -244,10 +281,14 @@
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.1);
+    box-shadow:
+      0 0 20px rgba(0, 255, 255, 0.3),
+      0 0 40px rgba(0, 255, 255, 0.1);
   }
   50% {
-    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), 0 0 60px rgba(0, 255, 255, 0.2);
+    box-shadow:
+      0 0 30px rgba(0, 255, 255, 0.5),
+      0 0 60px rgba(0, 255, 255, 0.2);
   }
 }
 
@@ -308,6 +349,41 @@
   animation: neon-flicker 2s ease-in-out infinite;
 }
 
+@keyframes glitch-pulse {
+  0%,
+  100% {
+    border-color: rgba(0, 255, 255, 0.3);
+    box-shadow:
+      0 0 20px rgba(0, 255, 255, 0.3),
+      0 0 40px rgba(0, 255, 255, 0.1);
+  }
+  25% {
+    border-color: rgba(0, 255, 100, 0.6);
+    box-shadow:
+      0 0 30px rgba(0, 255, 100, 0.5),
+      0 0 60px rgba(0, 255, 100, 0.2);
+    transform: translateX(2px);
+  }
+  50% {
+    border-color: rgba(0, 255, 255, 0.8);
+    box-shadow:
+      0 0 40px rgba(0, 255, 255, 0.6),
+      0 0 80px rgba(0, 255, 255, 0.3);
+    transform: translateX(-2px);
+  }
+  75% {
+    border-color: rgba(0, 255, 100, 0.6);
+    box-shadow:
+      0 0 30px rgba(0, 255, 100, 0.5),
+      0 0 60px rgba(0, 255, 100, 0.2);
+    transform: translateX(1px);
+  }
+}
+
+.glitch-pulse {
+  animation: glitch-pulse 0.8s ease-in-out 6;
+}
+
 /* Added cyberpunk scan line effect */
 .scan-line {
   position: fixed;
@@ -365,18 +441,53 @@
 
 /* Glitch text animation */
 @keyframes glitch-text {
-  0% { text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), 0.025em 0.05em 0 rgba(0, 0, 255, 0.75); }
-  14% { text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), 0.025em 0.05em 0 rgba(0, 0, 255, 0.75); }
-  15% { text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75); }
-  49% { text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75); }
-  50% { text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75); }
-  99% { text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75); }
-  100% { text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75), -0.025em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em -0.05em 0 rgba(0, 0, 255, 0.75); }
+  0% {
+    text-shadow:
+      0.05em 0 0 rgba(255, 0, 0, 0.75),
+      -0.05em -0.025em 0 rgba(0, 255, 0, 0.75),
+      0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  14% {
+    text-shadow:
+      0.05em 0 0 rgba(255, 0, 0, 0.75),
+      -0.05em -0.025em 0 rgba(0, 255, 0, 0.75),
+      0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  15% {
+    text-shadow:
+      -0.05em -0.025em 0 rgba(255, 0, 0, 0.75),
+      0.025em 0.025em 0 rgba(0, 255, 0, 0.75),
+      -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  49% {
+    text-shadow:
+      -0.05em -0.025em 0 rgba(255, 0, 0, 0.75),
+      0.025em 0.025em 0 rgba(0, 255, 0, 0.75),
+      -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  50% {
+    text-shadow:
+      0.025em 0.05em 0 rgba(255, 0, 0, 0.75),
+      0.05em 0 0 rgba(0, 255, 0, 0.75),
+      0 -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  99% {
+    text-shadow:
+      0.025em 0.05em 0 rgba(255, 0, 0, 0.75),
+      0.05em 0 0 rgba(0, 255, 0, 0.75),
+      0 -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  100% {
+    text-shadow:
+      -0.025em 0 0 rgba(255, 0, 0, 0.75),
+      -0.025em -0.025em 0 rgba(0, 255, 0, 0.75),
+      -0.025em -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
 }
 
 .glitch-text {
   animation: glitch-text 0.5s infinite;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   letter-spacing: 0.1em;
 }
 
@@ -389,8 +500,17 @@
 }
 
 @keyframes pulse-red-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 20px rgba(255, 0, 0, 0.1); }
-  50% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.8), inset 0 0 30px rgba(255, 0, 0, 0.2); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(255, 0, 0, 0.5),
+      inset 0 0 20px rgba(255, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(255, 0, 0, 0.8),
+      inset 0 0 30px rgba(255, 0, 0, 0.2);
+  }
 }
 
 /* Animated border for encrypted content */
@@ -406,8 +526,13 @@
 }
 
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* Matrix rain effect overlay */
@@ -423,13 +548,18 @@
 }
 
 .matrix-rain-overlay::before {
-  content: '01010111 01100101 00100000 01100001 01110010 01100101';
+  content: "01010111 01100101 00100000 01100001 01110010 01100101";
   position: absolute;
   top: -100%;
   left: 0;
   width: 100%;
   height: 200%;
-  background: linear-gradient(0deg, transparent, rgba(0, 255, 0, 0.4), transparent);
+  background: linear-gradient(
+    0deg,
+    transparent,
+    rgba(0, 255, 0, 0.4),
+    transparent
+  );
   animation: matrix-fall 10s linear infinite;
   font-family: monospace;
   font-size: 10px;
@@ -439,7 +569,9 @@
 }
 
 @keyframes matrix-fall {
-  to { transform: translateY(100%); }
+  to {
+    transform: translateY(100%);
+  }
 }
 
 /* Corner accents for locked content */
@@ -480,8 +612,15 @@
 }
 
 @keyframes corner-pulse {
-  0%, 100% { opacity: 0.5; border-color: rgba(255, 0, 0, 0.5); }
-  50% { opacity: 1; border-color: rgba(255, 0, 0, 1); }
+  0%,
+  100% {
+    opacity: 0.5;
+    border-color: rgba(255, 0, 0, 0.5);
+  }
+  50% {
+    opacity: 1;
+    border-color: rgba(255, 0, 0, 1);
+  }
 }
 
 /* Scan lines effect for encrypted content */
@@ -503,8 +642,12 @@
 }
 
 @keyframes scan-lines-move {
-  0% { background-position: 0 0; }
-  100% { background-position: 0 10px; }
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 10px;
+  }
 }
 
 /* Animated text for authorization required */
@@ -518,8 +661,13 @@
 }
 
 @keyframes gradient-text {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* Credential container styles */
@@ -535,7 +683,7 @@
 }
 
 .account-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
@@ -546,14 +694,23 @@
 }
 
 @keyframes scan-horizontal {
-  0% { left: -100%; }
-  100% { left: 100%; }
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
 }
 
 /* Lock icon pulse animation */
 @keyframes lock-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 /* Copy button success state */
@@ -562,9 +719,15 @@
 }
 
 @keyframes copy-flash {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Enhanced neon text shadows */
@@ -600,12 +763,12 @@
   .glitch-text {
     font-size: 0.875rem;
   }
-  
+
   .corner-accent {
     width: 15px;
     height: 15px;
   }
-  
+
   /* Reduce background grid density on mobile for better performance */
   body {
     background-size: 100px 100px;
@@ -621,14 +784,14 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   .animate-glitch,
   .animate-pulse-glow,
   .animate-neon-flicker,
   .animate-spin {
     animation: none !important;
   }
-  
+
   .scan-line,
   .matrix-rain-overlay::before {
     display: none;
