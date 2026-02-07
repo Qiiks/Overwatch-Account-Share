@@ -39,6 +39,13 @@
   --sidebar-accent-foreground: oklch(0.9 0.15 180);
   --sidebar-border: oklch(0.2 0.1 180);
   --sidebar-ring: oklch(0.7 0.2 180);
+
+  /* Semantic color tokens for consistency */
+  --color-primary-glow: #00ffff;
+  --color-accent-purple: #8a2be2;
+  --color-success: #00ff88;
+  --color-danger: #ff0040;
+  --color-warning: #ffcc00;
 }
 
 .dark {
@@ -384,7 +391,7 @@
   animation: glitch-pulse 0.8s ease-in-out 6;
 }
 
-/* Added cyberpunk scan line effect */
+/* Cyberpunk scan line effect - optimized */
 .scan-line {
   position: fixed;
   top: 0;
@@ -392,9 +399,10 @@
   width: 100%;
   height: 2px;
   background: linear-gradient(90deg, transparent, #00ffff, transparent);
-  animation: scan-line 3s linear infinite;
+  animation: scan-line 4s linear infinite;
   z-index: 1000;
   pointer-events: none;
+  will-change: transform;
 }
 
 /* Added terminal-style text effects */

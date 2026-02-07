@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { io } from "socket.io-client";
 import { apiGet, apiPost, getStoredAuthSession } from "@/lib/api";
 import { CyberpunkCredentialDisplay } from "./CyberpunkCredentialDisplay";
+import { GlassCard } from "./ui/GlassCard";
 import { Shield, Users, User, Lock, Unlock } from "lucide-react";
 
 interface AccountOwner {
@@ -75,7 +76,7 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
 
         // Update the accountTag to accountId mapping
         accountTagToIdMapRef.current = accountsData.reduce(
-          (map, account) => {
+          (map: Record<string, string>, account: OverwatchAccount) => {
             map[account.accountTag] = account.id;
             return map;
           },
@@ -269,13 +270,15 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold neon-cyan mb-2">
-          OVERWATCH ACCOUNTS DATABASE
-        </h2>
-        <p className="text-gray-400 text-sm">
-          All accounts are visible • Credentials require authorization
-        </p>
+      <div className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">
+            Overwatch Accounts
+          </h1>
+          <p className="text-sm text-gray-400">
+            All accounts are visible • Credentials require authorization
+          </p>
+        </div>
       </div>
 
       {/* Accounts Grid */}
