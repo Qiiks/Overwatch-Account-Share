@@ -1,85 +1,85 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
-import { apiGet, apiPatch } from "@/lib/api"
-import { useSettings } from "@/context/SettingsContext"
+import { useState, useEffect } from "react";
+import { GlassSwitch } from "@/components/ui/GlassSwitch"; // Assuming we have or will treat Switch as GlassSwitch
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { apiGet, apiPost } from "@/lib/api";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export function RegistrationToggle() {
-  const [allowRegistration, setAllowRegistration] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isUpdating, setIsUpdating] = useState(false)
-  const { refetchSettings } = useSettings()
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
-    fetchRegistrationStatus()
-  }, [])
+    fetchStatus();
+  }, []);
 
-  const fetchRegistrationStatus = async () => {
+  const fetchStatus = async () => {
     try {
-      const data = await apiGet<{ data: { allow_registration: boolean }; allow_registration?: boolean }>('/api/settings')
-      
-      // Backend returns data.data.allow_registration for public settings
-      const registrationStatus = data.data?.allow_registration ?? data.allow_registration ?? false
-      setAllowRegistration(registrationStatus)
+      const data = await apiGet<{ allowed: boolean }>(
+        "/api/admin/registrations/status",
+      );
+      setEnabled(data.allowed);
     } catch (error) {
-      console.error("Failed to fetch registration status:", error)
-      toast.error("Failed to load registration settings")
+      console.error("Failed to fetch registration status", error);
     } finally {
-      setIsLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const handleToggleRegistration = async (checked: boolean) => {
-    setIsUpdating(true)
-    
+  const handleToggle = async (checked: boolean) => {
+    setToggling(true);
+    // Optimistic update
+    setEnabled(checked);
     try {
-      const data = await apiPatch<{ data: { value: boolean } }>('/api/settings/registration', {
-        allow_registration: checked
-      })
-      
-      // Backend returns data.data.value for the updated setting
-      setAllowRegistration(data.data?.value ?? checked)
-      
-      // Refresh global settings context so other components get the updated value
-      await refetchSettings()
-      
-      toast.success(
-        checked
-          ? "Registration has been enabled. New users can now sign up."
-          : "Registration has been disabled. New users cannot sign up."
-      )
+      const data = await apiPost<{ message: string; allowed: boolean }>(
+        "/api/admin/registrations/toggle",
+        {},
+      );
+      setEnabled(data.allowed);
+      toast.success(data.message);
     } catch (error) {
-      console.error("Failed to update registration status:", error)
-      toast.error("Failed to update registration setting")
-      // Revert the switch on error
-      setAllowRegistration(!checked)
+      setEnabled(!checked); // Revert
+      toast.error("Failed to toggle registrations");
     } finally {
-      setIsUpdating(false)
+      setToggling(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <Loader2 className="w-3 h-3 animate-spin" /> Loading status...
+      </div>
+    );
   }
 
   return (
-    <div className="flex items-center justify-between space-x-4">
-      <div className="space-y-0.5 flex-1">
-        <Label htmlFor="registration-toggle" className="text-base font-medium text-[#EAEAEA]">
+    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+      <div className="space-y-0.5">
+        <Label
+          htmlFor="reg-toggle"
+          className="text-sm font-medium text-gray-200"
+        >
           User Registration
         </Label>
-        <p className="text-sm text-[#EAEAEA]/60">
-          {allowRegistration 
-            ? "New users can create accounts on the platform"
-            : "Registration is closed. Only existing users can log in"}
-        </p>
+        <p className="text-xs text-gray-500">Allow new users to sign up</p>
       </div>
-      <Switch
-        id="registration-toggle"
-        checked={allowRegistration}
-        onCheckedChange={handleToggleRegistration}
-        disabled={isLoading || isUpdating}
-        className="data-[state=checked]:bg-[#DA70D6] data-[state=unchecked]:bg-[#EAEAEA]/20"
-      />
+      <div className="flex items-center gap-2">
+        {toggling && (
+          <Loader2 className="w-3 h-3 animate-spin text-[#00ff88]" />
+        )}
+        <Switch
+          id="reg-toggle"
+          checked={enabled}
+          onCheckedChange={handleToggle}
+          disabled={toggling}
+          className="data-[state=checked]:bg-[#00ff88]"
+        />
+      </div>
     </div>
-  )
+  );
 }

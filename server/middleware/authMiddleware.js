@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 const { supabase } = require("../config/db");
 const { securityLogger } = require("../utils/logger");
+const Settings = require("../models/Settings");
+const { cache } = require("../utils/cache");
 
 const authMiddleware = async (req, res, next) => {
   let token = null;
@@ -17,7 +19,7 @@ const authMiddleware = async (req, res, next) => {
         req.ip,
         null,
         false,
-        "Invalid token format"
+        "Invalid token format",
       );
       return res.status(401).json({
         success: false,
@@ -41,6 +43,30 @@ const authMiddleware = async (req, res, next) => {
     // Verify the JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Check for global logout (Force Logout)
+    const minJwtIat = await cache.getOrSet(
+      "min_jwt_issued_at",
+      async () => {
+        const val = await Settings.getSetting("min_jwt_issued_at");
+        return val ? Number(val) : 0;
+      },
+      60,
+    ); // Cache for 60 seconds
+
+    if (minJwtIat && decoded.iat * 1000 < minJwtIat) {
+      securityLogger.logAuthAttempt(
+        req.ip,
+        decoded.id,
+        false,
+        "Token invalidated by global logout",
+      );
+      return res.status(401).json({
+        success: false,
+        message: "Session expired due to security policy. Please login again.",
+        code: "SESSION_INVALIDATED",
+      });
+    }
+
     // Fetch user from database
     const { data: user, error } = await supabase
       .from("users")
@@ -53,7 +79,7 @@ const authMiddleware = async (req, res, next) => {
         req.ip,
         decoded.id,
         false,
-        "User not found"
+        "User not found",
       );
       return res.status(401).json({
         success: false,
@@ -69,7 +95,7 @@ const authMiddleware = async (req, res, next) => {
       req.ip,
       null,
       false,
-      `JWT verification failed: ${error.message}`
+      `JWT verification failed: ${error.message}`,
     );
     return res.status(401).json({
       success: false,
@@ -82,7 +108,7 @@ const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       const error = new Error(
-        `User role ${req.user.role} is not authorized to access this route`
+        `User role ${req.user.role} is not authorized to access this route`,
       );
       error.statusCode = 403;
       return next(error);

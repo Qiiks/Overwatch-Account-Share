@@ -1,225 +1,273 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Navigation } from "@/components/Navigation"
-import { DotGrid } from "@/components/DotGrid"
-import { GlassButton } from "@/components/ui/GlassButton"
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
-import { RegistrationToggle } from "@/components/admin/RegistrationToggle"
-import { UserManagement } from "@/components/admin/UserManagement"
-import { apiGet, clearStoredAuthSession, getStoredAuthSession } from "@/lib/api"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Navigation } from "@/components/Navigation";
+import { DotGrid } from "@/components/DotGrid";
+import { GlassCard, GlassCardContent } from "@/components/ui/GlassCard";
+import { RegistrationToggle } from "@/components/admin/RegistrationToggle";
+import { UserManagement } from "@/components/admin/UserManagement";
+import { GlobalAccessManager } from "@/components/admin/GlobalAccessManager";
+import { QuickActions } from "@/components/admin/QuickActions";
+import {
+  apiGet,
+  clearStoredAuthSession,
+  getStoredAuthSession,
+} from "@/lib/api";
+import {
+  Users,
+  Activity,
+  ShieldCheck,
+  Server,
+  AlertCircle,
+} from "lucide-react";
 
 interface AdminStats {
-  totalUsers: number
-  activeUsers: number
-  flaggedActivities: number
-  totalCredentials: number
-  sharedCredentials: number
-  systemHealth: "healthy" | "warning" | "critical"
+  totalUsers: number;
+  activeUsers: number;
+  flaggedActivities: number;
+  totalCredentials: number;
+  sharedCredentials: number;
+  systemHealth: "healthy" | "warning" | "critical";
 }
 
 export default function AdminPage() {
-  const router = useRouter()
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter();
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const { token, expired } = getStoredAuthSession()
-    const adminFlag = typeof window !== "undefined" ? localStorage.getItem("is_admin") === "true" : false
+    const { token, expired } = getStoredAuthSession();
+    const adminFlag =
+      typeof window !== "undefined"
+        ? localStorage.getItem("is_admin") === "true"
+        : false;
 
     if (!token || expired) {
       if (expired) {
-        clearStoredAuthSession()
+        clearStoredAuthSession();
       }
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
 
     if (!adminFlag) {
-      router.push("/dashboard")
-      return
+      router.push("/dashboard");
+      return;
     }
 
-    fetchAdminData()
-  }, [router])
+    fetchAdminData();
+  }, [router]);
 
   const fetchAdminData = async () => {
     try {
-      const data = await apiGet<{ stats: AdminStats }>('/api/admin/dashboard')
-      setStats(data.stats)
+      const data = await apiGet<{ stats: AdminStats }>("/api/admin/dashboard");
+      setStats(data.stats);
     } catch (error) {
-      console.error("Failed to fetch admin data:", error)
-      // No mock data; leave empty on failure
-      setStats(null)
+      console.error("Failed to fetch admin data:", error);
+      setStats(null);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  const handleQuickAction = async (action: string) => {
-    try {
-      let endpoint = ""
-
-      if (action === "security-audit") {
-        endpoint = "/api/admin/logs"
-      } else if (action === "database-backup") {
-        endpoint = "/api/admin/stats"
-      } else {
-        alert(`Action '${action}' is not supported`)
-        return
-      }
-
-      await apiGet(endpoint)
-      alert(`${action} completed successfully`)
-    } catch (error) {
-      console.error(`${action} error:`, error)
-      alert(`Failed to execute ${action}`)
-    }
-  }
+  };
 
   const getHealthColor = (health: string) => {
     switch (health) {
       case "healthy":
-        return "text-green-400"
+        return "text-[#00ff88]";
       case "warning":
-        return "text-yellow-400"
+        return "text-[#ffcc00]";
       case "critical":
-        return "text-red-400"
+        return "text-[#ff0040]";
       default:
-        return "text-gray-400"
+        return "text-gray-400";
     }
-  }
+  };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden flex items-center justify-center">
         <DotGrid />
-        <div className="relative z-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#DA70D6]"></div>
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A2BE2]"></div>
+          <p className="text-[#DA70D6] animate-pulse">
+            Initializing AdmnilNK...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden font-sans">
       <Navigation />
       <DotGrid />
 
-      <div className="relative z-10 container mx-auto px-4 py-8 pt-24">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between items-start md:items-center mb-8">
-          <div className="w-full md:w-auto">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#DA70D6] mb-2">Admin Panel</h1>
-            <p className="text-sm sm:text-base text-[#EAEAEA]/70">System administration and user management</p>
+      {/* Decorative Background Glows */}
+      <div className="fixed top-20 left-1/4 w-96 h-96 bg-[#8A2BE2]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-[#DA70D6]/10 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="relative z-10 container mx-auto px-4 py-8 pt-24 space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#8A2BE2] via-[#DA70D6] to-[#00ffff] font-[family-name:var(--font-heading)]">
+              Admin Command Center
+            </h1>
+            <p className="text-gray-400 max-w-lg">
+              System overhaul complete. Monitoring active neural links and user
+              permissions.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full md:w-auto mt-4 md:mt-0">
-            <GlassButton onClick={() => handleQuickAction("security-audit")} variant="warning" className="w-full sm:w-auto text-sm sm:text-base">
-              <span className="sm:hidden">Audit</span>
-              <span className="hidden sm:inline">Security Audit</span>
-            </GlassButton>
-            <GlassButton onClick={() => handleQuickAction("database-backup")} variant="success" className="w-full sm:w-auto text-sm sm:text-base">
-              <span className="sm:hidden">Backup</span>
-              <span className="hidden sm:inline">Backup Database</span>
-            </GlassButton>
+          <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
+            <div
+              className={`w-2.5 h-2.5 rounded-full ${stats?.systemHealth === "healthy" ? "bg-[#00ff88] animate-pulse" : "bg-red-500"}`}
+            />
+            <span className="text-sm font-medium uppercase tracking-wider text-gray-300">
+              System: {stats?.systemHealth || "Unknown"}
+            </span>
           </div>
         </div>
 
-        {/* Statistics */}
+        {/* Stats Grid */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
-            <GlassCard>
-              <GlassCardContent className="p-3 sm:p-4">
-                <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{stats.totalUsers}</div>
-                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Total Users</div>
-              </GlassCardContent>
-            </GlassCard>
-            <GlassCard>
-              <GlassCardContent className="p-3 sm:p-4">
-                <div className="text-xl sm:text-2xl font-bold text-green-400">{stats.activeUsers}</div>
-                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Active Users</div>
-              </GlassCardContent>
-            </GlassCard>
-            <GlassCard>
-              <GlassCardContent className="p-3 sm:p-4">
-                <div className="text-xl sm:text-2xl font-bold text-red-400">{stats.flaggedActivities}</div>
-                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Flagged Activities</div>
-              </GlassCardContent>
-            </GlassCard>
-            <GlassCard>
-              <GlassCardContent className="p-3 sm:p-4">
-                <div className="text-xl sm:text-2xl font-bold text-[#8A2BE2]">{stats.totalCredentials}</div>
-                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Total Credentials</div>
-              </GlassCardContent>
-            </GlassCard>
-            <GlassCard>
-              <GlassCardContent className="p-3 sm:p-4">
-                <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{stats.sharedCredentials}</div>
-                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Shared Credentials</div>
-              </GlassCardContent>
-            </GlassCard>
-            <GlassCard>
-              <GlassCardContent className="p-3 sm:p-4">
-                <div className={`text-xl sm:text-2xl font-bold ${getHealthColor(stats.systemHealth)}`}>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <StatsCard
+              icon={<Users className="w-5 h-5 text-[#8A2BE2]" />}
+              label="Total Users"
+              value={stats.totalUsers}
+              trend="+12%"
+            />
+            <StatsCard
+              icon={<Activity className="w-5 h-5 text-[#00ff88]" />}
+              label="Active Now"
+              value={stats.activeUsers}
+              color="text-[#00ff88]"
+            />
+            <StatsCard
+              icon={<ShieldCheck className="w-5 h-5 text-[#DA70D6]" />}
+              label="Credentials"
+              value={stats.totalCredentials}
+            />
+            <StatsCard
+              icon={<Server className="w-5 h-5 text-blue-400" />}
+              label="Shared Items"
+              value={stats.sharedCredentials}
+            />
+            <StatsCard
+              icon={<AlertCircle className="w-5 h-5 text-[#ff0040]" />}
+              label="Flagged"
+              value={stats.flaggedActivities}
+              color="text-[#ff0040]"
+            />
+            <GlassCard className="col-span-1 lg:col-span-1 flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/20 to-[#DA70D6]/20 border-[#DA70D6]/30">
+              <div className="text-center">
+                <div className="text-xs text-[#DA70D6] uppercase tracking-widest mb-1">
+                  Status
+                </div>
+                <div
+                  className={`text-xl font-bold ${getHealthColor(stats.systemHealth)}`}
+                >
                   {stats.systemHealth.toUpperCase()}
                 </div>
-                <div className="text-xs sm:text-sm text-[#EAEAEA]/70">System Health</div>
-              </GlassCardContent>
+              </div>
             </GlassCard>
           </div>
         )}
 
-        {/* Quick Actions */}
-        <GlassCard className="mb-8">
-          <GlassCardHeader>
-            <GlassCardTitle className="text-[#DA70D6]">Quick Actions</GlassCardTitle>
-          </GlassCardHeader>
-          <GlassCardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <GlassButton
-                onClick={() => handleQuickAction("system-settings")}
-                variant="ghost"
-                className="min-h-16 h-auto py-3 flex-col"
-              >
-                <div className="text-xl sm:text-2xl mb-1">⚙️</div>
-                <div className="text-sm sm:text-base">System Settings</div>
-              </GlassButton>
-              <GlassButton
-                onClick={() => handleQuickAction("security-audit")}
-                variant="ghost"
-                className="min-h-16 h-auto py-3 flex-col"
-              >
-                <div className="text-xl sm:text-2xl mb-1">🔍</div>
-                <div className="text-sm sm:text-base">Security Audit</div>
-              </GlassButton>
-              <GlassButton
-                onClick={() => handleQuickAction("database-backup")}
-                variant="ghost"
-                className="min-h-16 h-auto py-3 flex-col"
-              >
-                <div className="text-xl sm:text-2xl mb-1">💾</div>
-                <div className="text-sm sm:text-base">Database Backup</div>
-              </GlassButton>
-            </div>
-          </GlassCardContent>
-        </GlassCard>
+        {/* Quick Actions Panel */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-6 w-1 bg-[#8A2BE2] rounded-full" />
+            <h2 className="text-xl font-bold text-white font-[family-name:var(--font-heading)]">
+              Quick Actions
+            </h2>
+          </div>
+          <QuickActions />
+        </section>
 
-        {/* Application Settings */}
-        <GlassCard className="mb-8">
-          <GlassCardHeader>
-            <GlassCardTitle className="text-[#DA70D6]">Application Settings</GlassCardTitle>
-          </GlassCardHeader>
-          <GlassCardContent>
-            <div className="space-y-6">
-              <RegistrationToggle />
-            </div>
-          </GlassCardContent>
-        </GlassCard>
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content Area - Left Column */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* User Management */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-6 w-1 bg-[#DA70D6] rounded-full" />
+                <h2 className="text-xl font-bold text-white font-[family-name:var(--font-heading)]">
+                  User Database
+                </h2>
+              </div>
+              <UserManagement onUsersChange={fetchAdminData} />
+            </section>
+          </div>
 
-        {/* User Management */}
-        <UserManagement onUsersChange={fetchAdminData} />
+          {/* Sidebar - Right Column */}
+          <div className="space-y-8">
+            {/* Global Access Manager */}
+            <section>
+              <GlobalAccessManager />
+            </section>
+
+            {/* Application Settings */}
+            <section>
+              <GlassCard>
+                <GlassCardContent className="pt-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Server className="w-4 h-4 text-gray-400" />
+                    System Controls
+                  </h3>
+                  <div className="space-y-4">
+                    <RegistrationToggle />
+                    {/* Add more system toggles here later */}
+                    <div className="p-4 rounded-lg bg-white/5 border border-white/5 text-xs text-gray-500 text-center">
+                      More system controls coming soon
+                    </div>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </section>
+          </div>
+        </div>
       </div>
     </div>
-  )
+  );
+}
+
+function StatsCard({
+  icon,
+  label,
+  value,
+  trend,
+  color = "text-white",
+}: {
+  icon: any;
+  label: string;
+  value: number;
+  trend?: string;
+  color?: string;
+}) {
+  return (
+    <GlassCard className="hover:border-[#8A2BE2]/50 transition-colors duration-300 group">
+      <GlassCardContent className="p-5">
+        <div className="flex justify-between items-start mb-2">
+          <div className="p-2 rounded-md bg-white/5 group-hover:bg-[#8A2BE2]/20 transition-colors">
+            {icon}
+          </div>
+          {trend && (
+            <span className="text-xs text-[#00ff88] bg-[#00ff88]/10 px-1.5 py-0.5 rounded">
+              {trend}
+            </span>
+          )}
+        </div>
+        <div
+          className={`text-2xl font-bold mb-1 ${color} font-[family-name:var(--font-heading)]`}
+        >
+          {value}
+        </div>
+        <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+          {label}
+        </div>
+      </GlassCardContent>
+    </GlassCard>
+  );
 }

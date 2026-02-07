@@ -15,6 +15,11 @@ const {
   toggleRegistrations,
   createUser,
   exportUserData,
+  shareAccountAccess,
+  searchAccountsUsers,
+  forceLogoutAll,
+  performSystemMaintenance,
+  exportAllUsers,
 } = require("../controllers/adminController");
 const { protect } = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
@@ -82,5 +87,30 @@ router.post("/toggle-registrations", toggleRegistrations);
 // @desc    Create a new user (legacy endpoint)
 // @access  Admin
 router.post("/create-user", createUser);
+
+// @route   POST /api/admin/share-account
+// @desc    Grant account access to a specific user
+// @access  Admin
+router.post("/share-account", shareAccountAccess);
+
+// @route   GET /api/admin/search
+// @desc    Search for accounts or users
+// @access  Admin
+router.get("/search", searchAccountsUsers);
+
+// @route   POST /api/admin/force-logout
+// @desc    Force logout all users
+// @access  Admin
+router.post("/force-logout", forceLogoutAll);
+
+// @route   POST /api/admin/clear-cache
+// @desc    Clear system cache
+// @access  Admin
+router.post("/clear-cache", performSystemMaintenance);
+
+// @route   GET /api/admin/export-users
+// @desc    Export all users as CSV
+// @access  Admin
+router.get("/export-users", exportAllUsers);
 
 module.exports = router;
