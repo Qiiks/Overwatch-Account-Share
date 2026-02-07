@@ -1,12 +1,23 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import { Outfit, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/sonner";
 import { Suspense } from "react";
 import { SettingsProvider } from "@/context/SettingsContext";
 import "./globals.css";
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-heading",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -29,12 +40,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}
+        className={`font-sans ${outfit.variable} ${inter.variable} antialiased bg-[#0a0a0a] text-white`}
       >
         <SettingsProvider>
           <Suspense fallback={null}>
             {children}
-            <Toaster />
+            <Toaster richColors theme="dark" />
           </Suspense>
         </SettingsProvider>
         <Analytics />

@@ -1,315 +1,403 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useCallback } from "react"
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
-import { GlassButton } from "@/components/ui/GlassButton"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserActions } from "./UserActions"
-import { CreateUserModal } from "./CreateUserModal"
-import { Plus, Search, Filter } from "lucide-react"
-import { toast } from "sonner"
-import { apiGet, apiPatch, apiDelete } from "@/lib/api"
+import { useState, useEffect } from "react";
+import { GlassCard, GlassCardContent } from "@/components/ui/GlassCard";
+import { GlassButton } from "@/components/ui/GlassButton";
+import { GlassInput } from "@/components/ui/GlassInput";
+import { apiGet, apiPatch, apiDelete, apiPost } from "@/lib/api";
+import { toast } from "sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"; // We might need to create this if it doesn't exist or use standard table
+import {
+  MoreVertical,
+  Shield,
+  ShieldAlert,
+  UserX,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Search,
+  Plus,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface User {
-  id: string
-  username: string
-  email: string
-  role: "user" | "admin"
-  status: "active" | "suspended" | "pending"
-  lastLogin: string
-  credentialCount?: number
-  accountsOwned?: number
-  flaggedCount?: number
-  joinDate?: string
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  isadmin: boolean;
+  isapproved: boolean;
+  last_login: string | null;
+  createdat: string;
 }
 
 interface UserManagementProps {
-  onUsersChange?: () => void
+  onUsersChange: () => void;
 }
 
 export function UserManagement({ onUsersChange }: UserManagementProps) {
-  const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Create User State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
-    // Get current user ID from localStorage
-    const userStr = localStorage.getItem("user")
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr)
-        setCurrentUserId(user.id)
-      } catch (error) {
-        console.error("Failed to parse user data:", error)
-      }
-    }
-    fetchUsers()
-  }, [])
-
-  useEffect(() => {
-    let filtered = users
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (user) =>
-          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((user) => user.status === statusFilter)
-    }
-
-    setFilteredUsers(filtered)
-  }, [users, searchTerm, statusFilter])
+    fetchUsers();
+  }, [page, search]);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const data = await apiGet<any[]>('/api/admin/users')
-      
-      // Debug: Log raw API response
-      console.log('[DEBUG] Raw API response for users:', data)
-      
-      // Map the data to ensure consistent structure
-      const mappedUsers = data.map((user: any) => {
-        // Debug: Log individual user data
-        if (user.username === 'Qiikzx') {
-          console.log('[DEBUG] Qiikzx user data from API:', user)
-          console.log('[DEBUG] Qiikzx accountsOwned value:', user.accountsOwned)
-        }
-        
-        return {
-          id: user.id || user._id,
-          username: user.username,
-          email: user.email,
-          role: user.role || (user.isAdmin ? "admin" : "user"),
-          status: user.status || (user.isApproved ? "active" : "suspended"),
-          lastLogin: user.lastLogin || "Never",
-          credentialCount: user.credentialCount || user.accountsOwned || 0,
-          accountsOwned: user.accountsOwned || 0,
-          flaggedCount: user.flaggedCount || 0,
-          joinDate: user.joinDate || "N/A"
-        }
-      })
-      
-      console.log('[DEBUG] Mapped users:', mappedUsers)
-      setUsers(mappedUsers)
+      // Assuming the API supports pagination and search
+      // Adjust endpoint if necessary based on server implementation
+      const data = await apiGet<{ users: User[]; totalPages: number }>(
+        `/api/admin/users?page=${page}&limit=10&search=${search}`,
+      );
+      setUsers(data.users);
+      setTotalPages(data.totalPages || 1);
     } catch (error) {
-      console.error("Failed to fetch users:", error)
-      toast.error("Failed to fetch users")
+      console.error("Failed to fetch users", error);
+      toast.error("Failed to load user list");
     } finally {
-      setIsLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const handleUserStatusChange = useCallback(async (userId: string, newStatus: "active" | "suspended") => {
+  const handleStatusChange = async (userId: string, currentStatus: boolean) => {
     try {
       await apiPatch(`/api/admin/users/${userId}/status`, {
-        status: newStatus
-      })
-      
-      toast.success(`User ${newStatus === "active" ? "activated" : "suspended"} successfully`)
-      fetchUsers() // Refresh the list
-      onUsersChange?.() // Trigger parent data refresh
-    } catch (error: any) {
-      console.error("Failed to update user status:", error)
-      toast.error(error.message || "Failed to update user status")
+        isApproved: !currentStatus,
+      });
+      toast.success(`User ${!currentStatus ? "activated" : "suspended"}`);
+      fetchUsers();
+      onUsersChange();
+    } catch (error) {
+      toast.error("Failed to update status");
     }
-  }, [onUsersChange])
+  };
 
-  const handleUserRoleChange = useCallback(async (userId: string, newRole: "user" | "admin") => {
+  const handleRoleChange = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === "admin" ? "user" : "admin"; // Simple toggle for now
     try {
       await apiPatch(`/api/admin/users/${userId}/role`, {
-        role: newRole
-      })
-      
-      toast.success(`User role updated to ${newRole} successfully`)
-      fetchUsers() // Refresh the list
-      onUsersChange?.() // Trigger parent data refresh
-    } catch (error: any) {
-      console.error("Failed to update user role:", error)
-      toast.error(error.message || "Failed to update user role")
+        role: newRole,
+      });
+      toast.success(`User role updated to ${newRole}`);
+      fetchUsers();
+      onUsersChange();
+    } catch (error) {
+      toast.error("Failed to update role");
     }
-  }, [onUsersChange])
+  };
 
-  const handleUserDelete = useCallback(async (userId: string) => {
+  const handleDelete = async (userId: string) => {
+    if (!confirm("Are you sure? This action cannot be undone.")) return;
+
     try {
-      await apiDelete(`/api/admin/users/${userId}`)
-      
-      toast.success("User deleted successfully")
-      fetchUsers() // Refresh the list
-      onUsersChange?.() // Trigger parent data refresh
+      await apiDelete(`/api/admin/users/${userId}`);
+      toast.success("User deleted");
+      fetchUsers();
+      onUsersChange();
+    } catch (error) {
+      toast.error("Failed to delete user");
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreating(true);
+    try {
+      await apiPost("/api/admin/users", newUser);
+      toast.success("User created successfully");
+      setIsCreateOpen(false);
+      setNewUser({ username: "", email: "", password: "" });
+      fetchUsers();
+      onUsersChange();
     } catch (error: any) {
-      console.error("Failed to delete user:", error)
-      toast.error(error.message || "Failed to delete user")
+      toast.error(error.message || "Failed to create user");
+    } finally {
+      setIsCreating(false);
     }
-  }, [onUsersChange])
-
-  const handleUserCreated = useCallback((newUser: User) => {
-    // Add the new user to the list
-    setUsers(prev => [...prev, newUser])
-    setShowCreateModal(false)
-    toast.success("User created successfully")
-    onUsersChange?.() // Trigger parent data refresh
-  }, [onUsersChange])
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500/20 text-green-400 border-green-500/30"
-      case "suspended":
-        return "bg-red-500/20 text-red-400 border-red-500/30"
-      case "pending":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30"
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <GlassCard>
-        <GlassCardContent className="p-8">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#DA70D6]"></div>
-          </div>
-        </GlassCardContent>
-      </GlassCard>
-    )
-  }
+  };
 
   return (
-    <>
-      <GlassCard>
-        <GlassCardHeader>
-          <div className="flex items-center justify-between">
-            <GlassCardTitle className="text-[#8A2BE2]">User Management</GlassCardTitle>
-            <GlassButton onClick={() => setShowCreateModal(true)} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Create User
-            </GlassButton>
-          </div>
-        </GlassCardHeader>
-        <GlassCardContent>
-          {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#EAEAEA]/50" />
-              <Input
-                placeholder="Search users by username or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA] placeholder:text-[#EAEAEA]/50"
-              />
-            </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#EAEAEA]/50" />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48 pl-10 bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#111111]/95 backdrop-blur-md border-white/10">
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <GlassCard>
+      <GlassCardContent className="p-0">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-white/5 flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+            <input
+              className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-[#8A2BE2]/50 transition-colors"
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
-          {/* User Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left p-4 text-[#EAEAEA]/70 font-medium">User</th>
-                  <th className="text-left p-4 text-[#EAEAEA]/70 font-medium">Email</th>
-                  <th className="text-left p-4 text-[#EAEAEA]/70 font-medium">Role</th>
-                  <th className="text-left p-4 text-[#EAEAEA]/70 font-medium">Status</th>
-                  <th className="text-left p-4 text-[#EAEAEA]/70 font-medium">Accounts</th>
-                  <th className="text-left p-4 text-[#EAEAEA]/70 font-medium">Last Login</th>
-                  <th className="text-right p-4 text-[#EAEAEA]/70 font-medium">Actions</th>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <GlassButton className="w-full md:w-auto flex items-center gap-2 bg-[#8A2BE2]/20 hover:bg-[#8A2BE2]/30 text-[#DA70D6] border-[#8A2BE2]/30">
+                <Plus className="w-4 h-4" /> Add User
+              </GlassButton>
+            </DialogTrigger>
+            <DialogContent className="bg-[#0a0a0a] border border-white/10 text-white">
+              <DialogHeader>
+                <DialogTitle>Create New User</DialogTitle>
+                <DialogDescription>
+                  Add a new user to the system. They will receive an email to
+                  verify their account.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateUser} className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    value={newUser.username}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, username: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, email: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, password: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <DialogFooter>
+                  <GlassButton
+                    type="submit"
+                    disabled={isCreating}
+                    className="w-full"
+                  >
+                    {isCreating ? (
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    ) : (
+                      "Create Account"
+                    )}
+                  </GlassButton>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs uppercase bg-white/5 text-gray-400">
+              <tr>
+                <th className="px-6 py-3">User</th>
+                <th className="px-6 py-3">Role</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Joined</th>
+                <th className="px-6 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    Loading users...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
+              ) : users.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    No users found matching your search.
+                  </td>
+                </tr>
+              ) : (
+                users.map((user) => (
                   <tr
                     key={user.id}
-                    className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                    className="hover:bg-white/5 transition-colors"
                   >
-                    <td className="p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-[#8A2BE2]/20 flex items-center justify-center">
-                          <span className="text-sm font-medium text-[#8A2BE2]">
-                            {user.username.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-[#EAEAEA]">{user.username}</div>
-                          {user.joinDate && (
-                            <div className="text-xs text-[#EAEAEA]/50">Joined: {user.joinDate}</div>
-                          )}
-                        </div>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-white">
+                          {user.username}
+                        </span>
+                        <span className="text-gray-500 text-xs">
+                          {user.email}
+                        </span>
                       </div>
                     </td>
-                    <td className="p-4 text-[#EAEAEA]/80">{user.email}</td>
-                    <td className="p-4">
-                      {user.role === "admin" ? (
-                        <Badge variant="secondary" className="bg-[#DA70D6]/20 text-[#DA70D6]">
-                          Admin
-                        </Badge>
+                    <td className="px-6 py-4">
+                      {user.isadmin ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#8A2BE2]/20 text-[#DA70D6] text-xs">
+                          <Shield className="w-3 h-3" /> Admin
+                        </span>
                       ) : (
-                        <Badge variant="secondary" className="bg-[#8A2BE2]/20 text-[#8A2BE2]">
-                          User
-                        </Badge>
+                        <span className="text-gray-400">User</span>
                       )}
                     </td>
-                    <td className="p-4">
-                      <Badge className={getStatusColor(user.status)}>{user.status}</Badge>
+                    <td className="px-6 py-4">
+                      {user.isapproved ? (
+                        <span className="inline-flex items-center gap-1 text-[#00ff88]">
+                          <CheckCircle2 className="w-3 h-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-gray-500">
+                          <XCircle className="w-3 h-3" /> Suspended
+                        </span>
+                      )}
                     </td>
-                    <td className="p-4 text-[#EAEAEA]/80">
-                      {user.accountsOwned || 0}
-                      {(user.flaggedCount ?? 0) > 0 ? (
-                        <span className="ml-2 text-red-400">⚠️ {user.flaggedCount}</span>
-                      ) : null}
+                    <td className="px-6 py-4 text-gray-500">
+                      {new Date(user.createdat).toLocaleDateString()}
                     </td>
-                    <td className="p-4 text-[#EAEAEA]/60">{user.lastLogin}</td>
-                    <td className="p-4 text-right">
-                      <UserActions
-                        user={user}
-                        currentUserId={currentUserId}
-                        onStatusChange={handleUserStatusChange}
-                        onRoleChange={handleUserRoleChange}
-                        onDelete={handleUserDelete}
-                      />
+                    <td className="px-6 py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                            <MoreVertical className="w-4 h-4 text-gray-400" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="bg-[#1a1a1a] border-white/10 text-gray-300"
+                        >
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleStatusChange(user.id, user.isapproved)
+                            }
+                            className={
+                              user.isapproved
+                                ? "text-yellow-500 focus:text-yellow-500"
+                                : "text-[#00ff88] focus:text-[#00ff88]"
+                            }
+                          >
+                            {user.isapproved ? (
+                              <>
+                                <ShieldAlert className="w-4 h-4 mr-2" /> Suspend
+                                User
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 mr-2" />{" "}
+                                Activate User
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleRoleChange(
+                                user.id,
+                                user.isadmin ? "admin" : "user",
+                              )
+                            }
+                          >
+                            <Shield className="w-4 h-4 mr-2" />
+                            {user.isadmin ? "Revoke Admin" : "Make Admin"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-white/10" />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(user.id)}
+                            className="text-red-500 focus:text-red-500 hover:bg-red-500/10"
+                          >
+                            <UserX className="w-4 h-4 mr-2" /> Delete Account
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredUsers.length === 0 && (
-              <div className="text-center py-8 text-[#EAEAEA]/50">
-                No users found matching your criteria.
-              </div>
-            )}
-          </div>
-        </GlassCardContent>
-      </GlassCard>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Create User Modal */}
-      <CreateUserModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onUserCreated={handleUserCreated}
-      />
-    </>
-  )
+        {/* Pagination - Simple Implementation */}
+        <div className="p-4 border-t border-white/5 flex justify-end gap-2">
+          <GlassButton
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((p) => p - 1)}
+            variant="ghost"
+            className="text-xs"
+          >
+            Previous
+          </GlassButton>
+          <span className="flex items-center px-2 text-sm text-gray-500">
+            Page {page} of {totalPages}
+          </span>
+          <GlassButton
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage((p) => p + 1)}
+            variant="ghost"
+            className="text-xs"
+          >
+            Next
+          </GlassButton>
+        </div>
+      </GlassCardContent>
+    </GlassCard>
+  );
 }

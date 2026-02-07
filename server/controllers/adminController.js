@@ -62,13 +62,13 @@ const getStats = async (req, res) => {
           totalUsers: totalUsersRaw,
           totalAccounts: totalAccountsRaw,
         },
-        CACHE_TTL.USERS
+        CACHE_TTL.USERS,
       );
 
       performanceLogger.logQuery(
         "admin_stats",
         "stats_aggregation",
-        queryDuration
+        queryDuration,
       );
     }
 
@@ -90,7 +90,7 @@ const getStats = async (req, res) => {
 
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
     logger.debug(
-      `[PERF] Admin stats request completed in ${totalDuration.toFixed(2)}ms`
+      `[PERF] Admin stats request completed in ${totalDuration.toFixed(2)}ms`,
     );
 
     const responseData = {
@@ -105,7 +105,7 @@ const getStats = async (req, res) => {
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
     logger.error(
       `[PERF] Admin stats request failed after ${totalDuration.toFixed(2)}ms:`,
-      error
+      error,
     );
     res.status(500).json({ message: "Server error retrieving stats" });
   }
@@ -122,7 +122,7 @@ const listUsers = async (req, res) => {
     const { data: users, error: usersError } = await supabase
       .from("users")
       .select(
-        "id, username, email, isadmin, isapproved, createdat, updatedat, overwatch_accounts(count)"
+        "id, username, email, isadmin, isapproved, createdat, updatedat, overwatch_accounts(count)",
       );
 
     if (usersError) {
@@ -133,7 +133,7 @@ const listUsers = async (req, res) => {
     if (process.env.NODE_ENV !== "production") {
       logger.debug(
         "[DEBUG] Raw users data from Supabase:",
-        JSON.stringify(users.slice(0, 2), null, 2)
+        JSON.stringify(users.slice(0, 2), null, 2),
       );
     }
 
@@ -283,7 +283,7 @@ const updateUserStatus = async (req, res) => {
       user.id || user._id,
       user.username,
       oldStatus,
-      status
+      status,
     );
 
     res.json({
@@ -383,7 +383,7 @@ const updateUserRole = async (req, res) => {
       user.id || user._id,
       user.username,
       oldRole,
-      role
+      role,
     );
 
     res.json({
@@ -463,7 +463,7 @@ const deleteUser = async (req, res) => {
     }
 
     logger.info(
-      `Deleted ${accountsDeleted} Overwatch accounts for user ${userToDelete.username}`
+      `Deleted ${accountsDeleted} Overwatch accounts for user ${userToDelete.username}`,
     );
 
     // Delete the user
@@ -482,7 +482,7 @@ const deleteUser = async (req, res) => {
       req.user.id,
       req.user.username,
       userToDelete.id || userToDelete._id,
-      userToDelete.username
+      userToDelete.username,
     );
 
     res.json({
@@ -602,14 +602,14 @@ const toggleRegistrations = async (req, res) => {
     await Settings.findOneAndUpdate(
       { key: "registrationsEnabled" },
       { value: enabled },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // Audit log the registration toggle
     adminAuditLogger.logRegistrationToggled(
       req.user.id,
       req.user.username,
-      enabled
+      enabled,
     );
 
     res.json({
@@ -653,7 +653,7 @@ const createUser = async (req, res) => {
       .from("users")
       .select("email, username")
       .or(
-        `email.eq.${email.toLowerCase()},username.eq.${username.toLowerCase()}`
+        `email.eq.${email.toLowerCase()},username.eq.${username.toLowerCase()}`,
       );
 
     if (searchError) {
@@ -704,7 +704,7 @@ const createUser = async (req, res) => {
       req.user.username,
       user.id,
       user.username,
-      user.email
+      user.email,
     );
 
     res.status(201).json({
@@ -734,7 +734,7 @@ const exportUserData = async (req, res) => {
     const { data: user, error: userError } = await supabase
       .from("users")
       .select(
-        "id, username, email, role, isadmin, isapproved, createdat, updatedat"
+        "id, username, email, role, isadmin, isapproved, createdat, updatedat",
       )
       .eq("id", targetUserId)
       .single();
@@ -747,7 +747,7 @@ const exportUserData = async (req, res) => {
     const { data: ownedAccounts, error: accountsError } = await supabase
       .from("overwatch_accounts")
       .select(
-        "id, accounttag, accountemail, createdat, updatedat, otp_fetched_at, linked_google_account_id"
+        "id, accounttag, accountemail, createdat, updatedat, otp_fetched_at, linked_google_account_id",
       )
       .eq("owner_id", targetUserId);
 
@@ -759,7 +759,7 @@ const exportUserData = async (req, res) => {
     const { data: sharedAccess, error: sharedError } = await supabase
       .from("overwatch_account_allowed_users")
       .select(
-        "overwatch_account_id, overwatch_accounts(id, accounttag, accountemail)"
+        "overwatch_account_id, overwatch_accounts(id, accounttag, accountemail)",
       )
       .eq("user_id", targetUserId);
 
@@ -809,11 +809,20 @@ const exportUserData = async (req, res) => {
         accountTag: access.overwatch_accounts?.accounttag,
         accountEmail: access.overwatch_accounts?.accountemail,
       })),
-      linkedGoogleAccounts: (googleAccounts || []).map((ga) => ({
-        id: ga.id,
-        email: ga.email,
-        isActive: ga.is_active,
-        linkedAt: ga.createdat,
+      sharedAccess: (sharedAccess || []).map((share) => ({
+        accountId: share.overwatch_account_id,
+        accountTag: share.overwatch_accounts
+          ? share.overwatch_accounts.accounttag
+          : "Unknown",
+        email: share.overwatch_accounts
+          ? share.overwatch_accounts.accountemail
+          : "Unknown",
+      })),
+      linkedGoogleAccounts: (googleAccounts || []).map((account) => ({
+        id: account.id,
+        email: account.email,
+        isActive: account.is_active,
+        linkedAt: account.createdat,
       })),
       dataRetentionNote:
         "This export contains all personal data stored for this user as per GDPR Article 15.",
@@ -824,7 +833,7 @@ const exportUserData = async (req, res) => {
       req.user.id,
       req.user.username,
       targetUserId,
-      user.username
+      user.username,
     );
 
     // Set content type for download
@@ -833,13 +842,250 @@ const exportUserData = async (req, res) => {
       "Content-Disposition",
       `attachment; filename="user-data-export-${user.username}-${
         new Date().toISOString().split("T")[0]
-      }.json"`
+      }.json"`,
     );
 
     res.json(exportData);
   } catch (error) {
     logger.error("Error in exportUserData:", error);
     res.status(500).json({ message: "Server error exporting user data" });
+  }
+};
+
+// @desc    Grant account access to a specific user (Admin override)
+// @route   POST /api/admin/share-account
+// @access  Admin
+const shareAccountAccess = async (req, res) => {
+  try {
+    const { accountId, targetUserId } = req.body;
+
+    if (!accountId || !targetUserId) {
+      return res
+        .status(400)
+        .json({ message: "Account ID and Target User ID are required" });
+    }
+
+    const supabase = global.supabase;
+
+    // Check if account exists
+    const { data: account, error: accountError } = await supabase
+      .from("overwatch_accounts")
+      .select("id, accounttag")
+      .eq("id", accountId)
+      .single();
+
+    if (accountError || !account) {
+      return res.status(404).json({ message: "Overwatch account not found" });
+    }
+
+    // Check if target user exists
+    const { data: targetUser, error: userError } = await supabase
+      .from("users")
+      .select("id, username")
+      .eq("id", targetUserId)
+      .single();
+
+    if (userError || !targetUser) {
+      return res.status(404).json({ message: "Target user not found" });
+    }
+
+    // Insert into allowed users
+    const { error: shareError } = await supabase
+      .from("overwatch_account_allowed_users")
+      .insert({
+        overwatch_account_id: accountId,
+        user_id: targetUserId,
+      });
+
+    if (shareError) {
+      // Check for duplicate key error
+      if (shareError.code === "23505") {
+        return res
+          .status(400)
+          .json({ message: "User already has access to this account" });
+      }
+      logger.error("Error sharing account:", shareError);
+      throw shareError;
+    }
+
+    // Audit log
+    adminAuditLogger.log(
+      "ACCOUNT_SHARED_BY_ADMIN",
+      req.user.id,
+      {
+        adminUsername: req.user.username,
+        targetUserId: targetUser.id,
+        targetUsername: targetUser.username,
+        accountId: account.id,
+        accountTag: account.accounttag,
+      },
+      req,
+    );
+
+    res.json({
+      message: `Access to ${account.accounttag} granted to ${targetUser.username}`,
+    });
+  } catch (error) {
+    logger.error("Error in shareAccountAccess:", error);
+    res.status(500).json({ message: "Server error sharing account" });
+  }
+};
+
+// @desc    Search accounts or users for admin tools
+// @route   GET /api/admin/search
+// @access  Admin
+const searchAccountsUsers = async (req, res) => {
+  try {
+    const { query, type } = req.query;
+
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+
+    const supabase = global.supabase;
+    let results = [];
+
+    if (type === "user") {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, username, email")
+        .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
+        .limit(10);
+
+      if (error) throw error;
+      results = data.map((u) => ({
+        id: u.id,
+        label: `${u.username} (${u.email})`,
+        value: u.id,
+        type: "user",
+      }));
+    } else if (type === "account") {
+      const { data, error } = await supabase
+        .from("overwatch_accounts")
+        .select("id, accounttag, accountemail")
+        .or(`accounttag.ilike.%${query}%,accountemail.ilike.%${query}%`)
+        .limit(10);
+
+      if (error) throw error;
+      results = data.map((a) => ({
+        id: a.id,
+        label: `${a.accounttag} (${a.accountemail})`,
+        value: a.id,
+        type: "account",
+      }));
+    }
+
+    res.json(results);
+  } catch (error) {
+    logger.error("Error in searchAccountsUsers:", error);
+    res.status(500).json({ message: "Search failed" });
+  }
+};
+
+module.exports = {
+  getStats,
+  getUsers,
+  listUsers,
+  updateUserStatus,
+  updateUserStatusValidation,
+  updateUserRole,
+  updateUserRoleValidation,
+  deleteUser,
+  getLogs,
+  getAdminDashboard,
+  getRegistrationStatus,
+// @desc    Force logout all users (except current admin)
+// @route   POST /api/admin/force-logout
+// @access  Admin
+const forceLogoutAll = async (req, res) => {
+  try {
+    const timestamp = Date.now();
+    await Settings.updateSetting("min_jwt_issued_at", timestamp);
+    
+    // Audit log
+    adminAuditLogger.log(
+      "FORCE_LOGOUT_ALL",
+      req.user.id,
+      {
+        adminUsername: req.user.username,
+        timestamp,
+      },
+      req
+    );
+
+    res.json({ message: "All users have been forced to log out." });
+  } catch (error) {
+    logger.error("Error in forceLogoutAll:", error);
+    res.status(500).json({ message: "Server error forcing logout" });
+  }
+};
+
+// @desc    Clear system cache
+// @route   POST /api/admin/clear-cache
+// @access  Admin
+const performSystemMaintenance = async (req, res) => {
+  try {
+    await cache.clear();
+    
+    // Audit log
+    adminAuditLogger.log(
+      "SYSTEM_CACHE_CLEARED",
+      req.user.id,
+      {
+        adminUsername: req.user.username,
+      },
+      req
+    );
+
+    res.json({ message: "System cache cleared successfully" });
+  } catch (error) {
+    logger.error("Error in performSystemMaintenance:", error);
+    res.status(500).json({ message: "Server error clearing cache" });
+  }
+};
+
+// @desc    Export all users as CSV
+// @route   GET /api/admin/export-users
+// @access  Admin
+const exportAllUsers = async (req, res) => {
+  try {
+    const supabase = global.supabase;
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id, username, email, role, isadmin, isapproved, createdat, last_login");
+
+    if (error) throw error;
+
+    // Convert to CSV
+    const fields = ["id", "username", "email", "role", "status", "joined_at", "last_login"];
+    const csvRows = [fields.join(",")];
+
+    users.forEach((user) => {
+      const status = user.isapproved ? "active" : "suspended";
+      const role = user.isadmin ? "admin" : "user";
+      const joined = user.createdat ? new Date(user.createdat).toISOString() : "";
+      const lastLogin = user.last_login ? new Date(user.last_login).toISOString() : "";
+      
+      const row = [
+        user.id,
+        `"${user.username}"`,
+        `"${user.email}"`,
+        role,
+        status,
+        joined,
+        lastLogin
+      ];
+      csvRows.push(row.join(","));
+    });
+
+    const csvString = csvRows.join("\n");
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("users_export.csv");
+    return res.send(csvString);
+  } catch (error) {
+    logger.error("Error in exportAllUsers:", error);
+    res.status(500).json({ message: "Server error exporting users" });
   }
 };
 
@@ -858,4 +1104,9 @@ module.exports = {
   toggleRegistrations,
   createUser,
   exportUserData,
+  shareAccountAccess,
+  searchAccountsUsers,
+  forceLogoutAll,
+  performSystemMaintenance,
+  exportAllUsers,
 };
