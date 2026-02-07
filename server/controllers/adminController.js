@@ -155,9 +155,13 @@ const listUsers = async (req, res) => {
           : "Never",
         isAdmin: user.isadmin || false,
       };
+      };
     });
 
-    res.json(formattedUsers);
+    res.json({
+      users: formattedUsers,
+      totalPages: 1
+    });
   } catch (error) {
     logger.error("Error in listUsers:", error);
     res.status(500).json({ message: "Server error fetching users" });
