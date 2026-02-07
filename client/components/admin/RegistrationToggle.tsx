@@ -20,7 +20,7 @@ export function RegistrationToggle() {
   const fetchStatus = async () => {
     try {
       const data = await apiGet<{ allowed: boolean }>(
-        "/api/admin/registrations/status",
+        "/api/admin/registration-status",
       );
       setEnabled(data.allowed);
     } catch (error) {
@@ -36,7 +36,7 @@ export function RegistrationToggle() {
     setEnabled(checked);
     try {
       const data = await apiPost<{ message: string; allowed: boolean }>(
-        "/api/admin/registrations/toggle",
+        "/api/admin/toggle-registrations",
         {},
       );
       setEnabled(data.allowed);
