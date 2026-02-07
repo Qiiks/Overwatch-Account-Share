@@ -2,7 +2,7 @@ name: Build and Deploy
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "master"]
   workflow_dispatch:
 
 env:
@@ -140,4 +140,4 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push -f origin main:deploy
+          git push -f origin HEAD:deploy
