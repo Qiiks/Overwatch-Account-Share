@@ -100,10 +100,13 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
 
   const handleStatusChange = async (userId: string, currentStatus: boolean) => {
     try {
+      const newStatus = currentStatus ? "suspended" : "active";
       await apiPatch(`/api/admin/users/${userId}/status`, {
-        isApproved: !currentStatus,
+        status: newStatus,
       });
-      toast.success(`User ${!currentStatus ? "activated" : "suspended"}`);
+      toast.success(
+        `User ${newStatus === "active" ? "activated" : "suspended"}`,
+      );
       fetchUsers();
       onUsersChange();
     } catch (error) {
