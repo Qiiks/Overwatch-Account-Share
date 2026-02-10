@@ -584,7 +584,7 @@ const getRegistrationStatus = async (req, res) => {
   try {
     const setting = await Settings.findOne({ key: "registrationsEnabled" });
     const enabled = setting ? setting.value : true; // Default to true if not set
-    res.json(enabled);
+    res.json({ allowed: enabled });
   } catch (error) {
     logger.error("Error in getRegistrationStatus:", error);
     res.status(500).json({ message: "Server error" });

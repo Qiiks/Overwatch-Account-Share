@@ -35,11 +35,11 @@ export function RegistrationToggle() {
     // Optimistic update
     setEnabled(checked);
     try {
-      const data = await apiPost<{ message: string; allowed: boolean }>(
+      const data = await apiPost<{ message: string; enabled: boolean }>(
         "/api/admin/toggle-registrations",
-        {},
+        { enabled: checked },
       );
-      setEnabled(data.allowed);
+      setEnabled(data.enabled);
       toast.success(data.message);
     } catch (error) {
       setEnabled(!checked); // Revert
