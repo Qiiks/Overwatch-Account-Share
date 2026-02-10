@@ -87,6 +87,10 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    // Map Supabase fields to common middleware fields
+    user.role = user.isadmin ? "admin" : "user";
+    user.id = user.id;
+
     // Attach user to request object
     req.user = user;
     next();
