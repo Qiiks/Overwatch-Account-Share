@@ -145,6 +145,9 @@ const listUsers = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.isadmin ? "admin" : "user",
+        isadmin: user.isadmin || false,
+        isapproved: user.isapproved !== false,
+        createdat: user.createdat || null,
         joinDate: user.createdat
           ? new Date(user.createdat).toLocaleDateString()
           : "N/A",
