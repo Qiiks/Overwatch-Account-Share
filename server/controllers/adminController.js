@@ -456,7 +456,37 @@ const deleteUser = async (req, res) => {
 
     const accountsDeleted = accountsToDelete ? accountsToDelete.length : 0;
 
+    // 1. Delete all shared access records where this user is the recipient
+    const { error: deleteRecipientError } = await supabase
+      .from("overwatch_account_allowed_users")
+      .delete()
+      .eq("user_id", req.params.id);
+
+    if (deleteRecipientError) {
+      logger.error(
+        "Error deleting shared access records (recipient):",
+        deleteRecipientError,
+      );
+      throw deleteRecipientError;
+    }
+
+    // 2. Delete all shared access records for accounts owned by this user
     if (accountsDeleted > 0) {
+      const accountIds = accountsToDelete.map((a) => a.id);
+      const { error: deleteSharesError } = await supabase
+        .from("overwatch_account_allowed_users")
+        .delete()
+        .in("overwatch_account_id", accountIds);
+
+      if (deleteSharesError) {
+        logger.error(
+          "Error deleting shared access records (accounts):",
+          deleteSharesError,
+        );
+        throw deleteSharesError;
+      }
+
+      // 3. Delete user's overwatch accounts
       const { error: deleteAccountsError } = await supabase
         .from("overwatch_accounts")
         .delete()
@@ -468,11 +498,7 @@ const deleteUser = async (req, res) => {
       }
     }
 
-    logger.info(
-      `Deleted ${accountsDeleted} Overwatch accounts for user ${userToDelete.username}`,
-    );
-
-    // Delete the user
+    // 4. Delete the user
     const { error: deleteUserError } = await supabase
       .from("users")
       .delete()
@@ -510,12 +536,18 @@ const deleteUser = async (req, res) => {
 // @access  Admin
 const getLogs = async (req, res) => {
   try {
-    // TODO: Implement logging
-    const logs = [];
-    res.json(logs);
+    const supabase = global.supabase;
+    const { data: logs, error } = await supabase
+      .from("admin_audit_logs")
+      .select("*")
+      .order("createdat", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    res.json(logs || []);
   } catch (error) {
     logger.error("Error in getLogs:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error fetching logs" });
   }
 };
 
@@ -553,11 +585,44 @@ const getAdminDashboard = async (req, res) => {
       throw usersError;
     }
 
-    const activeUsers = 0; // Placeholder
-    const flaggedActivities = 0; // Placeholder
-    const sharedCredentials = 0; // Placeholder - TODO: implement
+    // Get active users count (updated in last 15 minutes)
+    const fifteenMinutesAgo = new Date(
+      Date.now() - 15 * 60 * 1000,
+    ).toISOString();
+    const { count: activeUsers, error: activeError } = await supabase
+      .from("users")
+      .select("*", { count: "exact", head: true })
+      .gt("updatedat", fifteenMinutesAgo);
+
+    if (activeError) logger.error("Error counting active users:", activeError);
+
+    // Get shared credentials count
+    const { count: sharedCredentials, error: sharedError } = await supabase
+      .from("overwatch_account_allowed_users")
+      .select("*", { count: "exact", head: true });
+
+    if (sharedError)
+      logger.error("Error counting shared credentials:", sharedError);
+
+    // Get flagged activities (e.g., failed logins or admin overrides)
+    const { count: flaggedActivities, error: flaggedError } = await supabase
+      .from("admin_audit_logs")
+      .select("*", { count: "exact", head: true })
+      .ilike("action", "%FAILED%");
+
+    if (flaggedError)
+      logger.error("Error counting flagged activities:", flaggedError);
+
     const systemHealth = "healthy"; // Default to healthy
-    const logs = []; // Placeholder
+
+    // Get recent logs
+    const { data: logs, error: logsError } = await supabase
+      .from("admin_audit_logs")
+      .select("*")
+      .order("createdat", { ascending: false })
+      .limit(10);
+
+    if (logsError) logger.error("Error fetching admin logs:", logsError);
 
     res.json({
       stats: {
@@ -596,9 +661,14 @@ const getRegistrationStatus = async (req, res) => {
 // @access  Admin
 const toggleRegistrations = async (req, res) => {
   try {
-    const { enabled } = req.body;
+    let { enabled } = req.body;
 
-    if (typeof enabled !== "boolean") {
+    // If enabled is not provided (e.g. from Quick Actions), toggle the current status
+    if (enabled === undefined) {
+      const setting = await Settings.findOne({ key: "registrationsEnabled" });
+      const currentStatus = setting ? setting.value : true;
+      enabled = !currentStatus;
+    } else if (typeof enabled !== "boolean") {
       return res
         .status(400)
         .json({ message: "Enabled must be a boolean value" });
