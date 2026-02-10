@@ -26,8 +26,8 @@ export function DotGrid() {
       let gradient = gradientCacheRef.current.get(key);
       if (!gradient) {
         gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-        gradient.addColorStop(0, `rgba(0, 255, 255, ${opacity})`);
-        gradient.addColorStop(1, `rgba(0, 255, 200, ${opacity * 0.3})`);
+        gradient.addColorStop(0, `rgba(138, 43, 226, ${opacity})`);
+        gradient.addColorStop(1, `rgba(218, 112, 214, ${opacity * 0.3})`);
 
         // Limit cache size to prevent memory issues
         if (gradientCacheRef.current.size > 500) {
@@ -155,7 +155,7 @@ export function DotGrid() {
 
           // Only draw connection lines for strong proximity
           if (influence > 0.4) {
-            ctx.strokeStyle = `rgba(0, 255, 255, ${influence * 0.15})`;
+            ctx.strokeStyle = `rgba(138, 43, 226, ${influence * 0.15})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(dot.x, dot.y);
