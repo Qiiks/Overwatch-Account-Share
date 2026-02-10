@@ -104,7 +104,7 @@ exports.addAccount = [
 
     // Use field normalizer for consistent field extraction with backward compatibility
     const { accountTag, accountEmail, accountPassword } = extractAccountFields(
-      req.body
+      req.body,
     );
     const googleAccountId = req.body.googleAccountId;
 
@@ -117,9 +117,8 @@ exports.addAccount = [
 
     try {
       // Check for exact duplicates of accountTag
-      const existingAccountByTag = await findOverwatchAccountByAccountTag(
-        accountTag
-      );
+      const existingAccountByTag =
+        await findOverwatchAccountByAccountTag(accountTag);
       if (existingAccountByTag) {
         return res.status(400).json({
           success: false,
@@ -130,9 +129,8 @@ exports.addAccount = [
       // Check for exact duplicates of accountEmail
       // NOTE: We allow multiple accounts with the same normalized email (aliases)
       // but not the exact same email address
-      const existingAccountByEmail = await findOverwatchAccountByAccountEmail(
-        accountEmail
-      );
+      const existingAccountByEmail =
+        await findOverwatchAccountByAccountEmail(accountEmail);
       if (existingAccountByEmail) {
         return res.status(400).json({
           success: false,
@@ -191,7 +189,7 @@ exports.getAccounts = async (req, res, next) => {
           account.accounttag &&
           account.accounttag
             .toLowerCase()
-            .includes(req.query.search.toLowerCase())
+            .includes(req.query.search.toLowerCase()),
       );
       logger.debug("[PERF] Search query applied", { query: req.query.search });
     }
@@ -238,7 +236,7 @@ exports.getAccounts = async (req, res, next) => {
       "/api/overwatch-accounts",
       200,
       totalDuration,
-      req.user.id
+      req.user.id,
     );
 
     res.status(200).json({
@@ -261,7 +259,7 @@ exports.getAccounts = async (req, res, next) => {
         error: error.message,
         stack: error.stack,
         userId: req.user.id,
-      }
+      },
     );
     // Pass error to centralized error handler
     next(error);
@@ -374,7 +372,7 @@ exports.updateAccount = [
 
       const updatedAccount = await updateOverwatchAccount(
         accountId,
-        updateData
+        updateData,
       );
 
       // Decrypt accountTag for response
@@ -517,7 +515,7 @@ exports.updateAccountAccess = async (req, res, next) => {
     performanceLogger.logCache(
       "invalidate",
       `owner-${account.owner_id}`,
-      false
+      false,
     );
     logger.debug(`[Cache] Invalidated cache for owner and affected users`, {
       ownerId: account.owner_id,
@@ -532,7 +530,7 @@ exports.updateAccountAccess = async (req, res, next) => {
         `
         *,
         overwatch_account_allowed_users(user_id)
-      `
+      `,
       )
       .eq("id", accountId)
       .single();
@@ -641,7 +639,7 @@ exports.getAccountCredentials = async (req, res, next) => {
       {
         accountId,
         timestamp: new Date().toISOString(),
-      }
+      },
     );
 
     // Fetch the account
@@ -825,13 +823,15 @@ exports.shareAccountByEmail = async (req, res, next) => {
       });
     }
 
-    // Verify that the requester is the owner of the account
-    if (account.owner_id !== requesterId) {
+    // Verify that the requester is the owner of the account OR an admin
+    const isAdmin = req.user.role === "admin" || req.user.isadmin === true;
+
+    if (account.owner_id !== requesterId && !isAdmin) {
       return res.status(403).json({
         success: false,
         error: [
           {
-            msg: "You are not authorized to share this account. Only the owner can share.",
+            msg: "You are not authorized to share this account. Only the owner or an admin can share.",
           },
         ],
       });
@@ -983,7 +983,7 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
         }
 
         return responseData;
-      })
+      }),
     );
 
     res.status(200).json({

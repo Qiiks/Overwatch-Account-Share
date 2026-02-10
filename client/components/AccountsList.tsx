@@ -6,7 +6,8 @@ import { io } from "socket.io-client";
 import { apiGet, apiPost, getStoredAuthSession } from "@/lib/api";
 import { CyberpunkCredentialDisplay } from "./CyberpunkCredentialDisplay";
 import { GlassCard } from "./ui/GlassCard";
-import { Shield, Users, User, Lock, Unlock } from "lucide-react";
+import { Shield, Users, User, Lock, Unlock, Share2 } from "lucide-react";
+import { ShareAccountDialog } from "./ShareAccountDialog";
 
 interface AccountOwner {
   id: string;
@@ -39,6 +40,12 @@ interface AccountsListProps {
   onDataChange?: () => void | Promise<void>;
 }
 
+interface ShareDialogState {
+  isOpen: boolean;
+  accountId: string;
+  accountTag: string;
+}
+
 export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   const [accounts, setAccounts] = useState<OverwatchAccount[]>([]);
   const [credentials, setCredentials] = useState<Record<string, Credentials>>(
@@ -46,6 +53,12 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [newOtpAccounts, setNewOtpAccounts] = useState<Set<string>>(new Set());
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [shareDialog, setShareDialog] = useState<ShareDialogState>({
+    isOpen: false,
+    accountId: "",
+    accountTag: "",
+  });
   // Create a map of accountTag to accountId for OTP updates
   const accountTagToIdMapRef = useRef<Record<string, string>>({});
 
@@ -91,6 +104,12 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     };
 
     fetchAccounts();
+
+    // Get current user info for permission checks
+    const { user } = getStoredAuthSession();
+    if (user) {
+      setCurrentUser(user);
+    }
 
     // Establish WebSocket connection with authentication
     // Validate NEXT_PUBLIC_API_BASE_URL is set for WebSocket connections
@@ -201,59 +220,16 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   }, []);
 
   // Share account access with another user
-  const shareAccountAccess = async (accountId: string) => {
-    const email = prompt(
-      "Enter the email address of the user you want to share with:",
-    );
+  const openShareDialog = (account: OverwatchAccount) => {
+    setShareDialog({
+      isOpen: true,
+      accountId: account.id,
+      accountTag: account.accountTag,
+    });
+  };
 
-    if (!email) {
-      return; // User cancelled
-    }
-
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
-    try {
-      const data = await apiPost(
-        `/api/overwatch-accounts/${accountId}/share-by-email`,
-        { email },
-      );
-      toast.success(data.message || "Account shared successfully");
-
-      // Refresh the accounts list to show updated shared status
-      const accountsData = await apiGet("/api/overwatch-accounts/all-public");
-      setAccounts(accountsData.data || []);
-
-      // Trigger parent data refresh if provided
-      onDataChange?.();
-    } catch (error: any) {
-      console.error("Error sharing account:", error);
-
-      // Provide more specific error messages based on the error response
-      let errorMessage = "Failed to share account";
-
-      if (error.response?.data?.error) {
-        // Handle error array from backend (like validation errors)
-        if (Array.isArray(error.response.data.error)) {
-          const errorMsgs = error.response.data.error
-            .map((e: any) => e.msg || String(e))
-            .filter(Boolean);
-          if (errorMsgs.length > 0) {
-            errorMessage = errorMsgs.join(", ");
-          }
-        } else {
-          errorMessage = String(error.response.data.error);
-        }
-      } else if (error.response?.data?.message) {
-        errorMessage = String(error.response.data.message);
-      } else if (error.message) {
-        errorMessage = String(error.message);
-      }
-
-      toast.error(errorMessage);
-    }
+  const closeShareDialog = () => {
+    setShareDialog((prev) => ({ ...prev, isOpen: false }));
   };
 
   if (isLoading) {
@@ -381,11 +357,14 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
 
               {/* Action Buttons */}
               <div className="mt-6 flex gap-3">
-                {account.hasAccess && account.accessType === "owner" && (
+                {(account.accessType === "owner" ||
+                  ((currentUser?.role === "admin" || currentUser?.isAdmin) &&
+                    account.hasAccess)) && (
                   <button
-                    onClick={() => shareAccountAccess(account.id)}
-                    className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all"
+                    onClick={() => openShareDialog(account)}
+                    className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all flex items-center justify-center gap-2"
                   >
+                    <Share2 className="w-4 h-4" />
                     Share Access
                   </button>
                 )}
@@ -430,6 +409,17 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
           {accounts.filter((a) => !a.hasAccess).length}
         </p>
       </div>
+      <ShareAccountDialog
+        isOpen={shareDialog.isOpen}
+        onClose={closeShareDialog}
+        accountId={shareDialog.accountId}
+        accountTag={shareDialog.accountTag}
+        onShareSuccess={() => {
+          closeShareDialog();
+          // Refresh accounts/data
+          onDataChange?.();
+        }}
+      />
     </div>
   );
 }
