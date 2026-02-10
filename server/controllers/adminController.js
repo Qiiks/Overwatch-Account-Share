@@ -674,12 +674,8 @@ const toggleRegistrations = async (req, res) => {
         .json({ message: "Enabled must be a boolean value" });
     }
 
-    // Update or create the setting
-    await Settings.findOneAndUpdate(
-      { key: "registrationsEnabled" },
-      { value: enabled },
-      { upsert: true, new: true },
-    );
+    // Update or create the setting using the helper method that handles upsert
+    await Settings.updateSetting("registrationsEnabled", enabled);
 
     // Audit log the registration toggle
     adminAuditLogger.logRegistrationToggled(
