@@ -155,12 +155,11 @@ const listUsers = async (req, res) => {
           : "Never",
         isAdmin: user.isadmin || false,
       };
-      };
     });
 
     res.json({
       users: formattedUsers,
-      totalPages: 1
+      totalPages: 1,
     });
   } catch (error) {
     logger.error("Error in listUsers:", error);
