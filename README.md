@@ -280,4 +280,4 @@ For technical support and questions:
 
 ---
 
-_For detailed technical specifications, see [API_Specification.md](API_Specification.md) and [supabase_schemas.md](supabase_schemas.md)._
+_For detailed technical specifications, see [API_Specification.md](API_Specification.md) and [supabase_schemas.md](supabase_schemas.md)._# trigger rebuild with correct build args
