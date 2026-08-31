@@ -19,8 +19,9 @@ COPY --chown=nodejs:nodejs package.json pnpm-lock.yaml ./
 # Switch to nodejs user for all subsequent operations
 USER nodejs
 
-# Install dependencies as nodejs user
-RUN pnpm install
+# NODE_ENV=production may leak in from Coolify build env and skip devDependencies
+# (e.g. @tailwindcss/postcss needed by next build) - force development for install.
+RUN NODE_ENV=development pnpm install
 
 # Copy application source code with proper ownership
 COPY --chown=nodejs:nodejs . .
