@@ -1,8 +1,9 @@
 # Base image
 FROM node:20-alpine AS builder
 
-# Install pnpm globally
-RUN npm install -g pnpm
+# Pin pnpm 9: pnpm 10 hard-fails on unapproved native build scripts
+# (@tailwindcss/oxide, unrs-resolver) breaking `pnpm install` in CI builds.
+RUN npm install -g pnpm@9
 
 # Create a non-root user to run the application FIRST
 RUN addgroup -g 1001 -S nodejs && \
@@ -39,8 +40,7 @@ RUN pnpm build
 # Production stage
 FROM node:20-alpine AS runner
 
-# Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9
 
 # Create nodejs user
 RUN addgroup -g 1001 -S nodejs && \
