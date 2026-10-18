@@ -45,12 +45,23 @@ const authMiddleware = async (req, res, next) => {
       "min_jwt_issued_at",
       async () => {
         const val = await Settings.getSetting("min_jwt_issued_at");
-        return val ? Number(val) : 0;
+        if (val === null || val === undefined) return 0;
+        const parsed = Number(val);
+        if (!Number.isFinite(parsed)) {
+          securityLogger.logSuspiciousActivity(
+            req.ip,
+            "Invalid min_jwt_issued_at setting",
+            { value: String(val) },
+          );
+          return 0;
+        }
+        return parsed;
       },
       60,
     );
 
-    if (minJwtIat && decoded.iat * 1000 < minJwtIat) {
+    // Both sides are compared in seconds; `iat` is second-granular, the setting is ms.
+    if (minJwtIat && decoded.iat < Math.floor(minJwtIat / 1000)) {
       securityLogger.logAuthAttempt(email, false, req.ip, userAgent);
       return next(
         new ApiError(

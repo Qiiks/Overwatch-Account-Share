@@ -76,12 +76,23 @@ OpenAPI document before rebuilding anything from it).
 
 - Account credentials are encrypted with AES-256-GCM; the API only decrypts them for the owner or a
   user the account is shared with — everyone else sees cipher text.
-- Sessions are httpOnly cookies; JavaScript never holds a token.
+- `ENCRYPTION_SECRET` is hashed once with sha256 to form the key (no salt, no stretching), so it must be
+  a high-entropy random string of at least 32 characters, not a passphrase. The ciphertext format
+  (`iv:tag:ct`) carries no key id: changing the secret makes every stored credential undecryptable, so a
+  rotation requires a decrypt-and-re-encrypt pass first.
+- Sessions are httpOnly cookies; JavaScript never holds a token. `NODE_ENV=production` is required in
+  production — it is what sets the cookie's `Secure` flag (the server refuses to boot without `NODE_ENV`).
+- `app.set('trust proxy', 1)` assumes exactly one proxy hop in front of the API (Traefik on Coolify).
+  Rate limits and audit IPs key off `req.ip`; adding a CDN in front makes that one hop two and every
+  user shares a bucket — update the value when the topology changes. Never trust the leftmost `XFF`.
 - CSRF: double-submit cookie validated against the `x-csrf-token` header, with a strict origin
   allowlist on non-GET requests.
 - OTP messages are pushed over an authenticated socket to the owner and the users the account is
-  shared with — never broadcast.
-- Rate limits: per-route limits on auth, credential reads, admin operations and the account browse list.
+  shared with — never broadcast. Suspending a user or forcing a logout also drops their live sockets.
+- Rate limits: per-route limits on auth (plus a per origin+account failure counter), credential reads
+  and the account browse list.
+- The OTP relay's health is exposed at `GET /health` under `services.otpRelay`; a mailbox that Google
+  rejects is deactivated and shown as "reconnect required" in the app.
 
 ## Testing
 

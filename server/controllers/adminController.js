@@ -275,6 +275,22 @@ const updateUserStatus = async (req, res, next) => {
     // Update the user object with the new data
     Object.assign(user, updatedUser);
 
+    // A suspension must take effect immediately: drop the user's live sockets, or an open
+    // tab keeps receiving OTP pushes until the token expires.
+    if (status !== "active") {
+      const io = req.app.get("io");
+      if (io) {
+        const sockets = await io.fetchSockets();
+        for (const socket of sockets) {
+          const socketUser = socket.data && socket.data.user;
+          if (socketUser && socketUser.id === req.params.id) {
+            socket.disconnect(true);
+          }
+        }
+      }
+      await invalidateUserCachesFor([req.params.id]);
+    }
+
     // Return formatted user data
     const { count: accountCount, error: countError } = await supabase
       .from("overwatch_accounts")
@@ -987,7 +1003,7 @@ const shareAccountAccess = async (req, res, next) => {
     // Check if account exists
     const { data: account, error: accountError } = await supabase
       .from("overwatch_accounts")
-      .select("id, accounttag")
+      .select("id, accounttag, owner_id")
       .eq("id", accountId)
       .single();
 
@@ -1114,13 +1130,36 @@ const forceLogoutAll = async (req, res, next) => {
     const timestamp = Date.now();
     await Settings.updateSetting("min_jwt_issued_at", timestamp);
 
+    // authMiddleware reads this key through a 60 s cache: drop it now, or revoked tokens
+    // keep working for the remainder of that window.
+    await cache.del("min_jwt_issued_at");
+
+    // Drop live sockets too — they authenticate once, at handshake time.
+    const io = req.app.get("io");
+    let disconnected = 0;
+    if (io) {
+      const sockets = await io.fetchSockets();
+      for (const socket of sockets) {
+        // RemoteSocket exposes only the `data` projection, not custom properties.
+        const socketUser = socket.data && socket.data.user;
+        if (socketUser && socketUser.id !== req.user.id) {
+          socket.disconnect(true);
+          disconnected += 1;
+        }
+      }
+    }
+
     // Audit log
     adminAuditLogger.log("force_logout", req.user.id, {
       adminUsername: req.user.username,
       timestamp,
+      socketsDisconnected: disconnected,
     });
 
-    return ok(res, { message: "All users have been forced to log out." });
+    return ok(res, {
+      message: "All users have been forced to log out.",
+      socketsDisconnected: disconnected,
+    });
   } catch (error) {
     logger.error("Error in forceLogoutAll:", error);
     next(error);

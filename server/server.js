@@ -17,6 +17,11 @@ const missingEnv = REQUIRED_ENV.filter((name) => !process.env[name]);
 if (!process.env.ALLOWED_ORIGINS && !process.env.FRONTEND_URL) {
   missingEnv.push('ALLOWED_ORIGINS (or FRONTEND_URL)');
 }
+// NODE_ENV gates the `Secure` cookie flag and the dev-tooling mount: an image that omits it
+// silently downgrades the session cookie, so an unset value counts as misconfiguration.
+if (!process.env.NODE_ENV) {
+  missingEnv.push('NODE_ENV');
+}
 if (missingEnv.length > 0) {
   console.error(`[config] Missing required environment variables: ${missingEnv.join(', ')}`);
   process.exit(1);
@@ -40,11 +45,12 @@ const googleAuthRoutes = require('./routes/googleAuth');
 const settingsRoutes = require('./routes/settings');
 const csrfProtection = require('./middleware/csrfProtection');
 const { supabase } = require('./config/db');
-const { startOtpFetching } = require('./services/otpService');
+const { startOtpFetching, otpService } = require('./services/otpService');
+const Settings = require('./models/Settings');
 const jwt = require('jsonwebtoken');
 const errorHandler = require('./middleware/errorMiddleware');
 const requestLogger = require('./middleware/requestLogger');
-const { apiLimiter, authLimiter, passwordResetLimiter, adminLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, authLimiter, authEmailLimiter, passwordResetLimiter } = require('./middleware/rateLimiter');
 const { httpLogger, logger, performanceLogger, securityLogger } = require('./utils/logger');
 const { performanceMonitor, memoryMonitor } = require('./middleware/performanceMonitor');
 const { cache } = require('./utils/cache');
@@ -148,7 +154,7 @@ app.use(helmet({
   },
   noSniff: true,
   frameguard: { action: 'deny' },
-  xssFilter: true,
+  // xssFilter (X-XSS-Protection) is deprecated and was itself an XSS risk in old browsers.
   referrerPolicy: { policy: 'no-referrer' },
   crossOriginEmbedderPolicy: false,
 }));
@@ -172,8 +178,11 @@ app.use(requestLogger);
 app.use('/api/', apiLimiter); // General API rate limiting
 app.use('/api/auth/login', authLimiter); // Stricter auth rate limiting
 app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/login', authEmailLimiter); // Per-origin+account failure counter
+app.use('/api/auth/register', authEmailLimiter);
 app.use('/api/auth/change-password', passwordResetLimiter);
-app.use('/api/admin', adminLimiter);
+// Admin routes are already behind protect + adminMiddleware and counted by apiLimiter;
+// a second counter on /api/admin only shortened a working admin session.
 
 // Main health check endpoint with detailed status
 app.get('/health', async (req, res) => {
@@ -206,6 +215,7 @@ app.get('/health', async (req, res) => {
       services: {
         supabase: supabaseStatus,
         cache: cacheStatus,
+        otpRelay: otpService.status(),
       },
       version: process.env.npm_package_version || '1.0.0',
     });
@@ -276,6 +286,23 @@ io.use(async (socket, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // The same revocation check authMiddleware applies: otherwise a force-logged-out
+    // session can simply reconnect and keep receiving OTP pushes.
+    const minJwtIat = await cache.getOrSet(
+      "min_jwt_issued_at",
+      async () => {
+        const val = await Settings.getSetting("min_jwt_issued_at");
+        const parsed = Number(val);
+        return Number.isFinite(parsed) ? parsed : 0;
+      },
+      60,
+    );
+    if (minJwtIat && decoded.iat < Math.floor(minJwtIat / 1000)) {
+      logger.debug('[Socket.IO Auth] Token predates the forced-logout cutoff', { origin });
+      return next();
+    }
+
     const { data: user, error } = await supabase
       .from('users')
       .select('id, username, email, role, isadmin, isapproved')
@@ -288,6 +315,10 @@ io.use(async (socket, next) => {
         return next();
       }
       socket.user = user;
+      // io.fetchSockets() only exposes the `data` projection, so identity must live there
+      // too or a later disconnect-the-user pass cannot see it.
+      socket.data.user = user;
+      socket.data.userId = user.id;
     }
   } catch (error) {
     logger.debug('[Socket.IO Auth] Token verification failed', { error: error.message, origin });

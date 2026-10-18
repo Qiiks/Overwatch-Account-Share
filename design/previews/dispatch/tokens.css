@@ -136,5 +136,10 @@ html { caret-color: var(--signal); scrollbar-color: #2A2F2B var(--ground); }
      `--animate-sweep: none` or replace it with a one-shot route-change sweep.
    - under `prefers-reduced-motion: reduce`, set the sweep to a static offset. */
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    /* Transitions are motion too: reveals, hovers and the sweep fallback must stop. */
+    transition-duration: 0.001ms !important;
+  }
 }

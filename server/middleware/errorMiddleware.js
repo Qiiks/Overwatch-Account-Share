@@ -48,6 +48,19 @@ const errorHandler = (err, req, res, next) => {
     // undefined_table — almost always a schema/migration problem, never the caller's fault.
     loud = true;
     message = 'Database schema is missing a required table';
+  } else if (
+    err &&
+    (err.name === 'FetchError' ||
+      err.code === 'ECONNREFUSED' ||
+      err.code === 'ENOTFOUND' ||
+      err.code === 'ETIMEDOUT' ||
+      /fetch failed/i.test(err.message || ''))
+  ) {
+    // Supabase unreachable: an outage, not a bug — separable in logs and client toasts.
+    status = 502;
+    code = 'UPSTREAM_UNAVAILABLE';
+    message = 'The database is temporarily unreachable. Please try again shortly.';
+    loud = true;
   } else if (err && (err.status || err.statusCode)) {
     status = err.status || err.statusCode;
     message = err.message || message;

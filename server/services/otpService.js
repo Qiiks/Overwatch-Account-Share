@@ -172,6 +172,9 @@ class OTPService {
       // Get all active Google accounts across all users
       const googleAccounts = await UserGoogleAccount.find({ is_active: true });
 
+      this.lastRunAt = new Date().toISOString();
+      this.activeMailboxCount = (googleAccounts || []).length;
+
       if (!googleAccounts || googleAccounts.length === 0) {
         logger.info("[OTP Service] No active Google accounts found");
         return;
@@ -192,10 +195,19 @@ class OTPService {
             error.message,
           );
 
-          // Handle authentication errors
-          if (error.response && [400, 401].includes(error.response.status)) {
+          this.lastError = error.message;
+          this.lastErrorAt = new Date().toISOString();
+
+          // Auth errors and undecryptable tokens both mean this mailbox can never deliver
+          // again; park it so the linked-accounts UI can show it as needing a re-link.
+          const isAuthError =
+            error.response && [400, 401].includes(error.response.status);
+          const isDecryptError = /decrypt|Unsupported state|unable to authenticate/i.test(
+            error.message || "",
+          );
+          if (isAuthError || isDecryptError) {
             logger.warn(
-              `[OTP Service] Deactivating Google account ${googleAccount.id} due to auth error`,
+              `[OTP Service] Deactivating Google account ${googleAccount.id} (${isAuthError ? "auth error" : "undecryptable token"})`,
             );
             await UserGoogleAccount.deactivate(googleAccount.id);
           }
@@ -204,10 +216,27 @@ class OTPService {
 
       logger.info("[OTP Service] OTP fetch cycle completed");
     } catch (error) {
+      this.lastError = error.message;
+      this.lastErrorAt = new Date().toISOString();
       logger.error("[OTP Service] Critical error in fetch cycle:", error);
     } finally {
       this.isFetching = false;
     }
+  }
+
+  /**
+   * Relay health for the /health payload: a poller that has silently stopped fetching is
+   * otherwise invisible (it logs and keeps going).
+   */
+  status() {
+    return {
+      lastRunAt: this.lastRunAt || null,
+      activeMailboxCount:
+        typeof this.activeMailboxCount === "number" ? this.activeMailboxCount : null,
+      lastError: this.lastError || null,
+      lastErrorAt: this.lastErrorAt || null,
+      intervalMs: FETCH_INTERVAL_MS,
+    };
   }
 
   /**
@@ -431,11 +460,28 @@ class OTPService {
   async cleanupExpiredOTPs() {
     try {
       const expiredAccounts = await OverwatchAccount.clearExpiredOTPs();
-      if (expiredAccounts > 0) {
-        logger.info(`[OTP Service] Cleaned up ${expiredAccounts} expired OTPs`);
+      const cleaned = Array.isArray(expiredAccounts)
+        ? expiredAccounts.length
+        : Number(expiredAccounts) || 0;
+      if (cleaned > 0) {
+        logger.info(`[OTP Service] Cleaned up ${cleaned} expired OTPs`);
       }
     } catch (error) {
       logger.error("[OTP Service] Error cleaning up expired OTPs:", error);
+    }
+
+    // Credential reveals are persisted per page open; keep the audit trail bounded.
+    try {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from("admin_audit_logs")
+        .delete()
+        .lt("createdat", cutoff);
+      if (error && error.code !== "42P01") throw error;
+    } catch (error) {
+      logger.warn("[OTP Service] Audit-log retention sweep failed", {
+        error: error.message,
+      });
     }
   }
 

@@ -913,24 +913,23 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
 
     if (error) throw error;
 
+    // One query for the caller's shared accounts instead of one per row.
+    let sharedAccountIds = new Set();
+    if (userId) {
+      const { data: shares, error: shareError } = await supabase
+        .from("overwatch_account_allowed_users")
+        .select("overwatch_account_id")
+        .eq("user_id", userId);
+
+      if (shareError) throw shareError;
+      sharedAccountIds = new Set((shares || []).map((row) => row.overwatch_account_id));
+    }
+
     // Process each account to determine access level
     const processedAccounts = await Promise.all(
       accounts.map(async (account) => {
         const isOwner = userId && account.owner_id === userId;
-
-        // Check shared access
-        let hasSharedAccess = false;
-        if (!isOwner && userId) {
-          const { data: allowedUser } = await supabase
-            .from("overwatch_account_allowed_users")
-            .select("*")
-            .eq("overwatch_account_id", account.id)
-            .eq("user_id", userId)
-            .single();
-
-          hasSharedAccess = !!allowedUser;
-        }
-
+        const hasSharedAccess = !isOwner && sharedAccountIds.has(account.id);
         const hasAccess = isOwner || hasSharedAccess;
 
         // Decrypt accountTag
