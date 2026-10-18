@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const {
-  getStats,
   getUsers,
   listUsers,
   updateUserStatus,
@@ -26,11 +25,6 @@ const adminMiddleware = require("../middleware/adminMiddleware");
 
 // All routes in this file are protected and require admin privileges
 router.use(protect, adminMiddleware);
-
-// @route   GET /api/admin/stats
-// @desc    Get admin statistics
-// @access  Admin
-router.get("/stats", getStats);
 
 // @route   GET /api/admin/users
 // @desc    Get all users (listUsers)

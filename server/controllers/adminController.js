@@ -50,108 +50,6 @@ const sanitizeSearchTerm = (value) => {
   return term.replace(/[,()]/g, "");
 };
 
-// @desc    Get high-level statistics
-// @route   GET /api/admin/stats
-// @access  Admin
-const getStats = async (req, res, next) => {
-  const startTime = process.hrtime.bigint();
-  logger.debug("[PERF] Admin stats request started");
-
-  try {
-    // Check cache first for admin stats
-    const cacheKey = "admin:stats";
-    let cachedStats = await cache.get(cacheKey);
-
-    let totalUsersRaw, totalAccountsRaw, queryDuration;
-
-    if (cachedStats) {
-      performanceLogger.logCache("get", cacheKey, true);
-      totalUsersRaw = cachedStats.totalUsers;
-      totalAccountsRaw = cachedStats.totalAccounts;
-      queryDuration = 0;
-    } else {
-      // Use Supabase to get counts
-      const statsQueryStart = process.hrtime.bigint();
-      const supabase = global.supabase;
-
-      const [usersResult, accountsResult] = await Promise.all([
-        supabase.from("users").select("*", { count: "exact", head: true }),
-        supabase
-          .from("overwatch_accounts")
-          .select("*", { count: "exact", head: true }),
-      ]);
-
-      queryDuration =
-        Number(process.hrtime.bigint() - statsQueryStart) / 1000000;
-
-      if (usersResult.error) {
-        logger.error("Error counting users:", usersResult.error);
-        throw usersResult.error;
-      }
-      if (accountsResult.error) {
-        logger.error("Error counting accounts:", accountsResult.error);
-        throw accountsResult.error;
-      }
-
-      totalUsersRaw = usersResult.count || 0;
-      totalAccountsRaw = accountsResult.count || 0;
-
-      // Cache the results
-      await cache.set(
-        cacheKey,
-        {
-          totalUsers: totalUsersRaw,
-          totalAccounts: totalAccountsRaw,
-        },
-        CACHE_TTL.USERS,
-      );
-
-      performanceLogger.logQuery(
-        "admin_stats",
-        "stats_aggregation",
-        queryDuration,
-      );
-    }
-
-    // Convert to numbers and validate
-    const totalUsers = Number(totalUsersRaw);
-    const totalAccounts = Number(totalAccountsRaw);
-
-    if (isNaN(totalUsers) || isNaN(totalAccounts)) {
-      logger.error("Invalid count values:", {
-        totalUsers: totalUsersRaw,
-        totalAccounts: totalAccountsRaw,
-      });
-      throw new ApiError(500, "INTERNAL", "Invalid data from database");
-    }
-
-    // TODO: Implement activeUsers and flaggedActivities
-    const activeUsers = 0;
-    const flaggedActivities = 0;
-
-    const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-    logger.debug(
-      `[PERF] Admin stats request completed in ${totalDuration.toFixed(2)}ms`,
-    );
-
-    const responseData = {
-      totalUsers,
-      activeUsers,
-      totalAccounts,
-      flaggedActivities,
-    };
-
-    return ok(res, responseData);
-  } catch (error) {
-    const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
-    logger.error(
-      `[PERF] Admin stats request failed after ${totalDuration.toFixed(2)}ms:`,
-      error,
-    );
-    next(error);
-  }
-};
-
 // @desc    Get all users (listUsers)
 // @route   GET /api/admin/users
 // @access  Admin
@@ -1245,7 +1143,6 @@ const exportAllUsers = async (req, res, next) => {
 };
 
 module.exports = {
-  getStats,
   getUsers,
   listUsers,
   updateUserStatus,
