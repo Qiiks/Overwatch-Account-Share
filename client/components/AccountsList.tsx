@@ -45,6 +45,18 @@ interface AccountsListProps {
   onDataChange?: () => void | Promise<void>;
 }
 
+// The API answers with this sentinel (never an empty string) whenever a stored code is missing
+// or has aged out, so "there is a string here" says nothing about whether a code is usable.
+// Both the ledger's CODE READY badge and the readout's LIVE chip ask this instead.
+const OTP_PLACEHOLDER = "--:--:--";
+
+const hasLiveCode = (code?: string | null, expiresAt?: string | null) => {
+  if (!code || code === OTP_PLACEHOLDER) return false;
+  if (!expiresAt) return true; // no recorded expiry: treat the code as usable
+  const at = Date.parse(expiresAt);
+  return Number.isFinite(at) ? at > Date.now() : true;
+};
+
 interface ShareDialogState {
   isOpen: boolean;
   accountId: string;
@@ -247,10 +259,15 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
                 {accounts.map((account) => {
                   const isOpen = revealed.has(account.id);
                   const creds = credentials[account.id];
-                  // A code is "ready" when the socket pushed one, or when the ledger already carries a live code.
-                  const relayed =
-                    newOtpAccounts.has(account.id) ||
-                    Boolean(account.hasAccess && (creds?.otp || account.otp));
+                  // A code is "ready" when the socket just pushed one, or when the row already
+                  // carries a live one. Truthiness is not liveness: the API sends the sentinel
+                  // "--:--:--" for a missing or aged-out code, so asking about the expiry is
+                  // what actually distinguishes the two.
+                  const liveCode = hasLiveCode(
+                    creds?.otp ?? account.otp,
+                    creds?.otpExpiresAt ?? account.otpExpiresAt,
+                  );
+                  const relayed = newOtpAccounts.has(account.id) || (account.hasAccess && liveCode);
                   const ownerName = account.owner?.username || "Unknown";
 
                   return (
@@ -414,6 +431,13 @@ function FragmentRow({
                 label="Login code"
                 variant="readout"
                 expiresAt={creds?.otpExpiresAt ?? account.otpExpiresAt}
+                live={
+                  account.hasAccess &&
+                  hasLiveCode(
+                    creds?.otp ?? account.otp,
+                    creds?.otpExpiresAt ?? account.otpExpiresAt,
+                  )
+                }
                 value={
                   creds?.otp ||
                   account.otp ||

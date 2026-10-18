@@ -13,6 +13,9 @@ interface CyberpunkCredentialDisplayProps {
   /** ISO date or epoch ms — when known, the readout states when the code dies. Null means
    *  "no live code", which is the shape the API sends for a placeholder row. */
   expiresAt?: string | number | null;
+  /** Whether the value is a live code. The readout only chips it LIVE when true, so an
+   *  aged-out placeholder is not presented as a working code. */
+  live?: boolean;
 }
 
 function expiryLabel(expiresAt?: string | number | null) {
@@ -33,6 +36,7 @@ export function CyberpunkCredentialDisplay({
   onDecrypt,
   variant = "row",
   expiresAt,
+  live = true,
 }: CyberpunkCredentialDisplayProps) {
   const [showValue, setShowValue] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -105,17 +109,21 @@ export function CyberpunkCredentialDisplay({
       <div className="rounded-lg border border-line bg-panel-2 px-3.5 py-3">
         <div className="flex items-center gap-2.5">
           {labelNode}
-          <span className="rounded-sm bg-signal px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-signal-ink uppercase">
-            Live
-          </span>
+          {live && (
+            <span className="rounded-sm bg-signal px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-signal-ink uppercase">
+              Live
+            </span>
+          )}
           <span className="ml-auto">{copyButton}</span>
         </div>
         <p className="mt-2 font-mono text-xl tabular-nums break-all text-ink">
           {value || "—"}
         </p>
-        <div className="mt-2.5 h-0.5 overflow-hidden rounded-xs bg-white/[0.09]">
-          <div className="h-full origin-left bg-signal animate-countdown motion-reduce:animate-none" />
-        </div>
+        {live && (
+          <div className="mt-2.5 h-0.5 overflow-hidden rounded-xs bg-white/[0.09]">
+            <div className="h-full origin-left bg-signal animate-countdown motion-reduce:animate-none" />
+          </div>
+        )}
         {expires && (
           <p className="mt-2 font-mono text-2xs tracking-[0.05em] text-ink-3 uppercase">
             expires <b className="font-medium text-ink-2">{expires}</b> · pushed over
