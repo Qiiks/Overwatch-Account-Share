@@ -98,19 +98,6 @@ Shares an account with another user.
 
 Endpoints restricted to users with administrator privileges.
 
-### GET `/stats`
-
-Retrieves high-level statistics for the admin dashboard.
--   **Response (200 OK):**
-    ```json
-    {
-      "totalUsers": "number",
-      "activeUsers": "number",
-      "totalAccounts": "number",
-      "flaggedActivities": "number"
-    }
-    ```
-
 ### GET `/users`
 
 Fetches a list of all users in the system. Supports pagination and filtering.
