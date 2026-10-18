@@ -1,0 +1,133 @@
+/* ============================================================================
+   DIRECTION C — "FIELD"  ·  paste-ready token block for client/app/globals.css
+   Tailwind v4, CSS-first. Namespaces that generate utilities: --color-*, --font-*,
+   --text-*, --tracking-*, --leading-*, --radius-*, --shadow-*, --ease-*, --animate-*.
+   Plain custom properties (--dur-*, --field-* …) do not generate utilities.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ground: true black, so the field's trails are the only texture */
+  --ground: #050505;
+  --panel: rgba(255, 255, 255, 0.035);
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.18);
+
+  /* ink: warm paper-white */
+  --ink: #F4F1EC;
+  --ink-2: #AAA49B;
+  --ink-3: #7D776E;
+
+  /* heat — sodium orange, used for action and for the live signal */
+  --heat: #FF5A1F;
+  --heat-hi: #FF7442;
+  --heat-ink: #100603;
+  --alarm: #E5484D;
+
+  /* flow field (canvas) */
+  --field-trail: 255, 90, 31;      /* rgb triplet, alpha applied at draw time */
+  --field-fade: 0.022;             /* per-frame trail decay */
+  --field-dpr-cap: 1.5;
+  --field-fps-cap: 30;
+
+  /* layout + motion primitives (not utility-generating) */
+  --pad-x: clamp(16px, 2.6vw, 40px);
+  --dur-1: 220ms;
+  --dur-2: 400ms;
+  --dur-3: 900ms;
+}
+
+@theme inline {
+  /* ---- colour ---- */
+  --color-ground: var(--ground);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-heat: var(--heat);
+  --color-heat-hi: var(--heat-hi);
+  --color-heat-ink: var(--heat-ink);
+  --color-alarm: var(--alarm);
+
+  /* ---- shadcn/compat layer ---- */
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --color-card: var(--ground);
+  --color-card-foreground: var(--ink);
+  --color-popover: #0C0A09;
+  --color-primary: var(--heat);
+  --color-primary-foreground: var(--heat-ink);
+  --color-secondary: #141110;
+  --color-secondary-foreground: var(--ink);
+  --color-muted: #141110;
+  --color-muted-foreground: var(--ink-3);
+  --color-accent: var(--heat-hi);
+  --color-accent-foreground: var(--heat-ink);
+  --color-destructive: var(--alarm);
+  --color-border: var(--line);
+  --color-input: var(--line-2);
+  --color-ring: var(--heat);
+
+  /* ---- type: editorial scale contrast, display very tight ---- */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --text-2xs: 0.59375rem; --text-2xs--line-height: 0.875rem;  /* 9.5px table heads  */
+  --text-xs: 0.65625rem;  --text-xs--line-height: 0.95rem;    /* 10.5px mono meta   */
+  --text-sm: 0.75rem;     --text-sm--line-height: 1.1rem;     /* 12px data          */
+  --text-base: 0.84375rem;--text-base--line-height: 1.3rem;   /* 13.5px UI default  */
+  --text-md: 1rem;        --text-md--line-height: 1.55rem;    /* 16px prose         */
+  --text-lg: 1.0625rem;   --text-lg--line-height: 1.7rem;     /* 17px lede          */
+  --text-xl: 1.1875rem;   --text-xl--line-height: 1.5rem;     /* 19px screen title  */
+  --text-2xl: 2.25rem;    --text-2xl--line-height: 1.05;      /* 36px readout       */
+  --text-display: clamp(42px, 5.9vw, 88px);
+  --text-display--line-height: 0.98;
+  --text-clip: clamp(52px, 15.5vw, 232px);   /* the cropped wordmark */
+  --text-clip--line-height: 0.86;
+  --tracking-display: -0.04em;
+  --tracking-clip: -0.05em;
+  --tracking-label: 0.14em;
+
+  /* ---- radius: square chrome, one round element (the pulse/CTA orb) ---- */
+  --radius-none: 0px;
+  --radius-sm: 2px;    /* buttons, inputs, chips */
+  --radius-full: 999px;
+
+  /* ---- spacing ---- */
+  --spacing: 0.25rem;
+
+  /* ---- depth: this world has no shadows — depth is the field ---- */
+  --shadow-drawer: 0 30px 70px -30px rgba(0, 0, 0, 0.95);
+
+  /* ---- motion: snappy, exponential ease-out, one overshoot ---- */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --animate-travel: travel 2.4s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  --animate-count: count 60s linear infinite;
+  --animate-blink: blink 2.2s ease-in-out infinite;
+
+  @keyframes travel { from { transform: translateX(0) } to { transform: translateX(150px) } }
+  @keyframes count { from { transform: scaleX(0.62) } to { transform: scaleX(0) } }
+  @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
+}
+
+/* browser surfaces */
+::selection { background: var(--heat); color: var(--heat-ink); }
+html { caret-color: var(--heat); scrollbar-color: #241C18 var(--ground); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #241C18; border: 3px solid var(--ground); border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--heat); outline-offset: 3px; }
+
+/* Background "FLOW FIELD" rules of use (the only direction that needs JS):
+   - ONE canvas element mounted once in AppShell, fixed, pointer-events:none, z-index 0.
+   - ~90–170 particles (count scales with area, capped), 1px strokes, step 1.35px,
+     per-frame fade `--field-fade` (0.022) which is what makes trails.
+   - rAF loop capped to ~30fps by timestamp skipping; DPR capped at --field-dpr-cap.
+   - paused on `visibilitychange`; resized by re-seeding; under
+     `prefers-reduced-motion: reduce` it draws a single pre-advanced frame and never
+     starts the loop. */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}

@@ -124,6 +124,14 @@ tr:hover .rowacts{opacity:1}
 .k-relay{color:var(--signal)}.k-mail{color:#8FB6FF}.k-login{color:#fff}.k-share{color:var(--warn)}.k-vault{color:var(--ink-3)}.k-session{color:#7FD8C8}
 
 .statusbar{margin-top:auto;display:flex;align-items:center;gap:clamp(10px,2vw,26px);height:38px;border-top:1px solid var(--line-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.relaycol{display:flex;flex-direction:column;gap:16px;min-width:0}
+.memlist{list-style:none}
+.memlist li{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:12.5px}
+.memlist .avatar{width:22px;height:22px;font-size:9.5px}
+.memlist .mname{color:var(--ink)}
+.memlist .mstate{margin-left:auto;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.memlist .mstate.live{color:var(--signal)}
+.memlist .more{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--ink-3)}
 .statusbar b{color:var(--ink-2);font-weight:500}
 .statusbar .right{margin-left:auto;display:flex;gap:16px}
 
@@ -239,7 +247,7 @@ tr:hover .rowacts{opacity:1}
                 <td><span class="b-tag">Gremlin#0901</span><span class="pw">password ••••••••••••</span></td>
                 <td><span class="access"><svg class="i" style="width:13px;height:13px"><use href="#i-users"/></svg>holt</span></td>
                 <td class="mono">17 Oct 22:10</td>
-                <td><span class="chip">Cooldown</span></td>
+                <td><span class="chip">Idle</span></td>
                 <td><span class="rowacts"><button class="icon-btn" aria-label="Reveal password"><svg class="i" style="width:13px;height:13px"><use href="#i-eye"/></svg></button><button class="btn btn-ghost btn-sm">Share</button></span></td>
               </tr>
             </tbody>
@@ -268,7 +276,8 @@ tr:hover .rowacts{opacity:1}
         </section>
       </div>
 
-      <aside class="panel relay" aria-label="Relay">
+      <aside class="relaycol" aria-label="Relay and members">
+      <section class="panel relay">
         <div class="panel-head">
           <span class="led"></span><h2>Relay · live</h2><span class="count" style="margin-left:auto">NightRunner#2841</span>
         </div>
@@ -287,6 +296,18 @@ tr:hover .rowacts{opacity:1}
             <li><time>12:58:40</time><span class="k k-vault">VAULT</span><span>StaticDrift#1174 credentials rotated</span></li>
           </ol>
         </div>
+      </section>
+
+      <section class="panel members">
+        <div class="panel-head"><h2>Members online</h2><span class="count">12 now</span><span class="right"><button class="btn btn-ghost btn-sm">All members</button></span></div>
+        <ul class="memlist">
+          <li><span class="avatar">wr</span><span class="mname">wren</span><span class="mstate live">in session</span></li>
+          <li><span class="avatar">kr</span><span class="mname">korone</span><span class="mstate">online</span></li>
+          <li><span class="avatar">bc</span><span class="mname">bitcrush</span><span class="mstate">online</span></li>
+          <li><span class="avatar">ho</span><span class="mname">holt</span><span class="mstate">idle · 12m</span></li>
+          <li class="more">+ 8 more members online</li>
+        </ul>
+      </section>
       </aside>
     </div>
 

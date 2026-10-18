@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction C · FIELD — landing</title>
+<style>
+/* ============================================================
+   DIRECTION C — "FIELD"
+   Kinetic vector field + editorial scale. The handoff drawn as a
+   signal moving between two players. Static mock, mock data.
+   One canvas, ~130 particles, 30fps cap, static under reduced motion.
+   ============================================================ */
+@font-face{font-family:"Geist";src:url("../fonts/Geist-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:"Geist Mono";src:url("../fonts/GeistMono-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:block}
+
+:root{
+  --ground:#050505;
+  --ink:#F4F1EC;
+  --ink-2:#AAA49B;
+  --ink-3:#7D776E;
+  --heat:#FF5A1F;
+  --heat-ink:#100603;
+  --line:rgba(255,255,255,.09);
+  --line-2:rgba(255,255,255,.18);
+  --panel:rgba(255,255,255,.035);
+  --font-sans:"Geist",system-ui,sans-serif;
+  --font-mono:"Geist Mono",ui-monospace,monospace;
+  --display:clamp(42px,5.9vw,88px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.55;min-height:100dvh;overflow-x:hidden;color-scheme:dark;font-feature-settings:"tnum" 1}
+::selection{background:var(--heat);color:var(--heat-ink)}
+:focus-visible{outline:2px solid var(--heat);outline-offset:3px}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+html{caret-color:var(--heat);scrollbar-color:#241C18 var(--ground)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#241C18;border:3px solid var(--ground);border-radius:6px}
+
+/* ---------- background: FLOW FIELD (one canvas) + halftone + vignette ---------- */
+#field{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
+.halftone{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:radial-gradient(rgba(255,90,31,.5) 1px,transparent 1.5px);
+  background-size:9px 9px;opacity:.12;
+  mask-image:linear-gradient(200deg,#000 0%,transparent 42%),linear-gradient(0deg,#000 0%,transparent 30%);
+  mask-composite:intersect}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(115% 85% at 62% 22%,transparent 42%,rgba(3,3,3,.82))}
+
+.shell{position:relative;z-index:10}
+.wrap{max-width:1520px;margin:0 auto;padding:0 clamp(16px,2.6vw,40px)}
+
+/* ---------- masthead (in flow, not glued) ---------- */
+.masthead{display:flex;align-items:center;gap:clamp(14px,2.4vw,38px);padding:20px 0;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:10px;font-weight:700;letter-spacing:-0.01em;font-size:15px}
+.brand .mark{width:10px;height:10px;background:var(--heat);display:inline-block;transform:translateY(-1px)}
+.readouts{display:none;gap:22px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.readouts b{color:var(--ink-2);font-weight:500}
+.nav{margin-left:auto;display:flex;gap:4px;align-items:center}
+.nav a{font-size:13px;color:var(--ink-2);padding:8px 12px;border-bottom:2px solid transparent}
+.nav a:hover{color:var(--ink)}
+.nav a.here{color:var(--ink);border-bottom-color:var(--heat)}
+.mastcta{display:flex;gap:10px;align-items:center;padding-left:clamp(8px,1.6vw,24px);border-left:1px solid var(--line)}
+.menu{display:none;width:44px;height:44px;align-items:center;justify-content:center;border:1px solid var(--line-2)}
+
+.btn{display:inline-flex;align-items:center;gap:10px;justify-content:center;font-weight:600;font-size:13.5px;padding:11px 16px;border:1px solid transparent;border-radius:2px;transition:transform 220ms cubic-bezier(.16,1,.3,1),background-color 220ms cubic-bezier(.16,1,.3,1),color 220ms cubic-bezier(.16,1,.3,1),border-color 220ms cubic-bezier(.16,1,.3,1)}
+.btn:active{transform:translateY(1px)}
+.btn-heat{background:var(--heat);color:var(--heat-ink)}
+.btn-heat:hover{background:#FF7442}
+.btn-heat .orb{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(16,6,3,.16)}
+.btn-line{border-color:var(--line-2);color:var(--ink-2)}
+.btn-line:hover{color:var(--ink);border-color:var(--ink-3);background:rgba(255,255,255,.04)}
+.btn-lg{padding:15px 20px;font-size:14.5px}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:clamp(24px,3.6vw,64px);align-items:start;padding:clamp(34px,6vh,72px) 0 clamp(24px,4vh,44px)}
+h1{font-size:var(--display);line-height:.98;font-weight:700;letter-spacing:-0.04em;margin-bottom:24px;text-wrap:balance}
+h1 .dim{color:var(--ink-3)}
+h1 .hot{color:var(--heat)}
+.lede{font-size:clamp(15px,1.15vw,17px);color:var(--ink-2);max-width:48ch;margin-bottom:30px}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.tiny{margin-top:28px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:8px 18px}
+.tiny b{color:var(--ink-2);font-weight:500}
+
+/* ---------- handoff diagram (signature) ---------- */
+.handoff{position:relative;padding:8px;border:1px solid var(--line);background:var(--panel);border-radius:2px}
+.handoff .cap{display:flex;align-items:center;gap:10px;padding:6px 8px 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.handoff .cap .live{color:var(--heat)}
+.handoff svg{display:block;width:100%;height:auto}
+.nodebox{fill:rgba(8,8,8,.72);stroke:rgba(255,255,255,.16)}
+.nodelabel{fill:var(--ink);font-family:var(--font-mono);font-size:12px}
+.nodesub{fill:var(--ink-3);font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em}
+.wire{stroke:rgba(255,255,255,.2);stroke-width:1}
+.wire-heat{stroke:rgba(255,90,31,.75);stroke-width:1.4}
+.pulse{fill:var(--heat)}
+.pulse2{fill:#fff}
+.codebox{fill:rgba(16,6,3,.9);stroke:rgba(255,90,31,.55)}
+.codetext{fill:#fff;font-family:var(--font-mono);font-size:20px;letter-spacing:.12em}
+.codemeta{fill:var(--ink-3);font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase}
+@keyframes travel1{from{transform:translateX(0)}to{transform:translateX(150px)}}
+@keyframes travel2{from{transform:translateX(0)}to{transform:translateX(150px)}}
+.p1{animation:travel1 2.4s cubic-bezier(.5,0,.5,1) infinite}
+.p2{animation:travel2 2.4s cubic-bezier(.5,0,.5,1) infinite;animation-delay:1.2s}
+.handoff .foot{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 8px 6px;border-top:1px solid var(--line);margin-top:10px;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.handoff .foot b{color:var(--ink-2);font-weight:500}
+
+/* ---------- ticker ---------- */
+.ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;display:flex;list-style:none;gap:0}
+.ticker li{display:flex;align-items:center;gap:9px;padding:10px 22px;border-right:1px solid var(--line);font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;color:var(--ink-2);white-space:nowrap}
+.ticker time{color:var(--ink-3)}
+.ticker .k{color:var(--heat);letter-spacing:.1em}
+.ticker li:last-child{border-right:0}
+
+/* ---------- ledger ---------- */
+.ledger{padding:clamp(20px,4vh,40px) 0 0}
+.ledger-head{display:flex;align-items:baseline;gap:14px;padding-bottom:12px}
+.ledger-head h2{font-size:15px;font-weight:600;letter-spacing:-0.01em}
+.ledger-head span{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.ledger-head .right{margin-left:auto;display:flex;gap:10px}
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);text-align:left;font-weight:500;padding:10px 14px;border-bottom:1px solid var(--line-2)}
+td{padding:16px 14px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}
+tbody tr:hover{background:rgba(255,90,31,.06)}
+tbody tr:hover td:first-child{box-shadow:inset 2px 0 0 var(--heat)}
+.b-tag{font-family:var(--font-mono);font-size:14px;color:var(--ink)}
+.pw{display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.14em;margin-top:3px}
+.mono{font-family:var(--font-mono);font-size:12px;color:var(--ink-2)}
+.who{font-family:var(--font-mono);font-size:12px;color:var(--ink-2)}
+.chip{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border:1px solid var(--line-2);color:var(--ink-2)}
+.chip.hot{background:var(--heat);border-color:var(--heat);color:var(--heat-ink)}
+
+/* ---------- clip wordmark ---------- */
+.clip{padding:clamp(26px,6vh,64px) 0 0;overflow:hidden}
+.clip b{display:block;font-size:clamp(52px,15.5vw,232px);line-height:.86;font-weight:800;letter-spacing:-0.05em;text-transform:uppercase;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.13);white-space:nowrap}
+footer{border-top:1px solid var(--line);margin-top:26px;padding:16px 0 22px;display:flex;flex-wrap:wrap;gap:10px 22px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+footer .right{margin-left:auto;display:flex;gap:18px}
+
+@media (min-width:1200px){.readouts{display:flex}}
+@media (max-width:960px){
+  .hero{grid-template-columns:1fr}
+  .handoff{order:2}
+  h1{letter-spacing:-0.035em}
+}
+@media (max-width:700px){
+  .nav,.mastcta{display:none}
+  .menu{display:flex;margin-left:auto}
+  .hero{padding-top:26px}
+  .ctas .btn{width:100%}
+  .ticker li:nth-child(n+4){display:none}
+  th:nth-child(2),td:nth-child(2){display:none}
+  .handoff .cap span:nth-child(2){display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .p1,.p2{animation:none;opacity:.55}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M2.5 8h10m0 0-4-4m4 4-4 4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2 4.5h12M2 8h12M2 11.5h12"/></symbol>
+</svg>
+
+<canvas id="field" aria-hidden="true"></canvas>
+<div class="halftone" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="shell">
+  <div class="wrap">
+    <header class="masthead">
+      <span class="brand"><span class="mark"></span> Overwatch Share</span>
+      <div class="readouts">
+        <span><b>12</b> online</span>
+        <span>relay <b>1.2s</b></span>
+        <span><b>9</b> accounts</span>
+      </div>
+      <nav class="nav">
+        <a class="here" href="#">Overview</a>
+        <a href="#">Accounts</a>
+        <a href="#">Members</a>
+      </nav>
+      <div class="mastcta">
+        <a class="btn btn-line" href="#">Log in</a>
+        <a class="btn btn-heat" href="#">Create account <span class="orb"><svg class="i" style="width:13px;height:13px"><use href="#i-arrow"/></svg></span></a>
+      </div>
+      <button class="menu" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+    </header>
+
+    <section class="hero">
+      <div>
+        <h1>Your login code,<br><span class="dim">their session,</span><br><span class="hot">1.2 seconds.</span></h1>
+        <p class="lede">Owners keep the credentials and the mailbox. Members get the Battle.net code the moment it arrives — no screenshots, no DMs, no inbox.</p>
+        <div class="ctas">
+          <a class="btn btn-heat btn-lg" href="#">Create account <span class="orb"><svg class="i" style="width:14px;height:14px"><use href="#i-arrow"/></svg></span></a>
+          <a class="btn btn-line btn-lg" href="#">How it works</a>
+        </div>
+        <p class="tiny"><span>invite-only</span><span><b>12</b> members online</span><span>relay median <b>1.2s</b></span></p>
+      </div>
+
+      <figure class="handoff">
+        <figcaption class="cap"><span>Handoff path</span><span class="live">● live relay</span></figcaption>
+        <svg viewBox="0 0 640 300" role="img" aria-label="Handoff path from owner to account to member session">
+          <!-- wires -->
+          <line class="wire" x1="126" y1="92" x2="214" y2="92"></line>
+          <line class="wire-heat" x1="126" y1="92" x2="214" y2="92" stroke-dasharray="4 10"></line>
+          <line class="wire" x1="378" y1="92" x2="470" y2="92"></line>
+          <line class="wire-heat" x1="378" y1="92" x2="470" y2="92" stroke-dasharray="4 10"></line>
+          <!-- travelling pulses -->
+          <circle class="pulse p1" cx="126" cy="92" r="3.4"></circle>
+          <circle class="pulse2 p2" cx="378" cy="92" r="3"></circle>
+
+          <!-- owner node -->
+          <rect class="nodebox" x="26" y="62" width="100" height="60"></rect>
+          <text class="nodelabel" x="40" y="88">vex</text>
+          <text class="nodesub" x="40" y="104">OWNER</text>
+
+          <!-- account node + code box -->
+          <rect class="nodebox" x="214" y="52" width="164" height="80"></rect>
+          <text class="nodelabel" x="230" y="78">NightRunner#2841</text>
+          <text class="nodesub" x="230" y="94">ACCOUNT · SEALED</text>
+          <rect class="codebox" x="230" y="102" width="120" height="22"></rect>
+          <text class="codemeta" x="238" y="117" style="font-size:12px;fill:#fff;letter-spacing:.1em">418 302</text>
+
+          <!-- member node -->
+          <rect class="nodebox" x="470" y="62" width="120" height="60"></rect>
+          <text class="nodelabel" x="484" y="88">wren</text>
+          <text class="nodesub" x="484" y="104">SESSION · LIVE</text>
+
+          <!-- mailbox rail -->
+          <rect class="nodebox" x="214" y="196" width="164" height="54" style="stroke:rgba(255,255,255,.1)"></rect>
+          <text class="nodesub" x="230" y="218">MAILBOX · READ-ONLY</text>
+          <text class="nodelabel" x="230" y="238" style="font-size:11px">v•••••@gmail.com</text>
+          <line class="wire" x1="296" y1="196" x2="296" y2="134"></line>
+          <text class="codemeta" x="304" y="168">1.2s</text>
+        </svg>
+        <div class="foot">
+          <span>expires <b>00:42</b></span>
+          <span>delivered to <b>wren · korone</b></span>
+          <span>nobody opened <b>the mailbox</b></span>
+        </div>
+      </figure>
+    </section>
+
+    <ol class="ticker" aria-label="Recent relay activity">
+      <li><time>14:02:11</time><span class="k">RELAY</span><span>code → wren, korone</span></li>
+      <li><time>14:02:10</time><span class="k">MAIL</span><span>received · v•••••@gmail.com</span></li>
+      <li><time>13:47:22</time><span class="k">LOGIN</span><span>wren · NightRunner#2841</span></li>
+      <li><time>13:20:04</time><span class="k">SHARE</span><span>vex → korone</span></li>
+      <li><time>12:58:40</time><span class="k">VAULT</span><span>credentials rotated</span></li>
+      <li><time>12:31:09</time><span class="k">LOGIN</span><span>korone · MothQueen#0907</span></li>
+      <li><time>12:04:52</time><span class="k">SHARE</span><span>sable → vex</span></li>
+    </ol>
+
+    <section class="ledger">
+      <div class="ledger-head">
+        <h2>Accounts in the field</h2><span>9 live · masked until access</span>
+        <span class="right"><button class="btn btn-line">Filter</button><a class="btn btn-line" href="#">Browse all <svg class="i"><use href="#i-arrow"/></svg></a></span>
+      </div>
+      <table>
+        <thead><tr><th>Account</th><th>Owner</th><th>Access</th><th>Last code</th><th>State</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="b-tag">NightRunner#2841</span><span class="pw">password ••••••••••••</span></td>
+            <td class="who">vex</td>
+            <td class="who">wren, korone</td>
+            <td class="mono">14:02:11</td>
+            <td><span class="chip hot">Live</span></td>
+          </tr>
+          <tr>
+            <td><span class="b-tag">StaticDrift#1174</span><span class="pw">password ••••••••••••</span></td>
+            <td class="who">vex</td>
+            <td class="who">bitcrush</td>
+            <td class="mono">12:58:40</td>
+            <td><span class="chip">Idle</span></td>
+          </tr>
+          <tr>
+            <td><span class="b-tag">MothQueen#0907</span><span class="pw">password ••••••••••••</span></td>
+            <td class="who">sable</td>
+            <td class="who">you</td>
+            <td class="mono">09:14:02</td>
+            <td><span class="chip">Idle</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="clip" aria-hidden="true"><b>Overwatch Share</b></div>
+
+    <footer>
+      <span>Overwatch Share · field</span>
+      <span class="right"><span>18 Oct 2026 · 14:02 UTC</span><a href="#">Privacy</a><a href="#">Terms</a></span>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* FLOW FIELD — one canvas, deterministic seed, pre-advanced so the still shows a developed field.
+   Shortcut: fixed particle count and 30fps cap; if a real GPU profile ever shows cost, drop the count before adding effects. */
+(function () {
+  var c = document.getElementById("field"), x = c.getContext("2d");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var W = 0, H = 0, dpr = 1, parts = [], raf = null, last = 0, t0 = 0;
+
+  var s = 0x9e3779b9;
+  function rnd() { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }
+
+  function size() {
+    dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    W = c.clientWidth; H = c.clientHeight;
+    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function seed() {
+    parts = [];
+    var n = Math.round(Math.max(90, Math.min(170, (W * H) / 9500)));
+    for (var i = 0; i < n; i++) parts.push({ x: rnd() * W, y: rnd() * H, life: 40 + rnd() * 150 });
+  }
+  function angle(px, py, t) {
+    return (Math.sin(px * 0.0016 + t * 0.00006) + Math.cos(py * 0.0022 - t * 0.00004)) * Math.PI;
+  }
+  function step(t) {
+    x.fillStyle = "rgba(5,5,5,0.022)";
+    x.fillRect(0, 0, W, H);
+    x.lineWidth = 1;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i], a = angle(p.x, p.y, t);
+      var nx = p.x + Math.cos(a) * 1.35, ny = p.y + Math.sin(a) * 1.35;
+      x.strokeStyle = "rgba(255,90,31," + (0.05 + 0.1 * Math.min(1, p.life / 70)).toFixed(3) + ")";
+      x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(nx, ny); x.stroke();
+      p.x = nx; p.y = ny; p.life--;
+      if (p.life <= 0 || p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) {
+        p.x = rnd() * W; p.y = rnd() * H; p.life = 60 + rnd() * 150;
+      }
+    }
+  }
+  function loop(t) {
+    if (t - last > 33) { last = t; step(t); }
+    raf = requestAnimationFrame(loop);
+  }
+  function start() { if (!raf && !reduce) { last = 0; raf = requestAnimationFrame(loop); } }
+  function stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+
+  function build() {
+    size(); seed();
+    x.fillStyle = "#050505"; x.fillRect(0, 0, W, H);
+    for (var i = 0; i < 560; i++) step(0);   // pre-advance: the field is already drawn in the still
+    if (!reduce) start();
+  }
+  size(); seed(); build();
+  window.addEventListener("resize", function () { stop(); s = 0x9e3779b9; build(); });
+  document.addEventListener("visibilitychange", function () { document.hidden ? stop() : start(); });
+})();
+</script>
+</body>
+</html>

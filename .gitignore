@@ -37,3 +37,6 @@ Thumbs.db
 
 # Ignore AI instructions
 .github/instructions/codacy.instructions.md
+
+# Design review artifacts: keep the mock sources and tokens, not the heavy PNG exports.
+design/previews/**/*.png

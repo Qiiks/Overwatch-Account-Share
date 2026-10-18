@@ -149,18 +149,25 @@ footer .right{margin-left:auto;display:flex;gap:20px}
 footer a:hover{color:var(--ink-2)}
 
 @media (max-width:960px){
-  .hero{grid-template-columns:1fr;padding-top:34px}
-  .sealstage{min-height:360px;order:-1}
-  .slab-a{left:0;top:8px;width:58%}
-  .slab-b{right:0;bottom:6px;width:54%}
+  .hero{grid-template-columns:1fr;padding-top:30px;gap:26px}
+  .sealstage{order:-1;min-height:0;display:flex;flex-direction:column;gap:12px;padding-bottom:6px}
+  .seal{order:-1;margin:0 auto 12px}
+  .slab{position:static;width:100%;transform:none}
   .step{width:100%;margin-left:0!important}
   .closebox{grid-template-columns:1fr;align-items:start}
   .navpill nav{display:none}
   .navpill{padding:6px 6px 6px 14px}
 }
+@media (max-width:640px){
+  .navpill{flex-wrap:nowrap}
+  .navpill .brand{white-space:nowrap;font-size:12.5px;padding-right:10px;margin-right:2px}
+  .pillcta .btn-quiet{display:none}
+  .navpill .btn-primary{padding:9px 14px;font-size:12.5px}
+  .navpill .btn-primary .orb{width:22px;height:22px}
+}
 @media (max-width:520px){
-  .seal{width:230px}
-  h1{font-size:clamp(32px,8.6vw,38px)}
+  .seal{width:250px}
+  h1{font-size:clamp(30px,8.4vw,36px)}
   .ctas .btn-lg{width:100%}
   footer .right{gap:14px;margin-left:0}
 }

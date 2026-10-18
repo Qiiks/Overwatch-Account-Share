@@ -1,0 +1,140 @@
+/* ============================================================================
+   DIRECTION A — "DISPATCH"  ·  paste-ready token block for client/app/globals.css
+   Tailwind v4, CSS-first. No tailwind.config.* needed.
+   Namespaces that generate utilities: --color-*, --font-*, --text-*, --tracking-*,
+   --leading-*, --radius-*, --shadow-*, --ease-*, --animate-*, --spacing.
+   Plain custom properties (--dur-*, --row-*, --pad-*) do NOT generate utilities;
+   use them in component CSS or as arbitrary values: duration-[var(--dur-2)].
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ground + structure */
+  --ground: #0B0C0C;
+  --panel: #0F1211;
+  --panel-2: #131715;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.13);
+
+  /* ink */
+  --ink: #E9EBE4;
+  --ink-2: #A3A99F;
+  --ink-3: #848B80;
+
+  /* signal — lime is only for live/online/primary action */
+  --signal: #CBEF4A;
+  --signal-ink: #0B0C0C;
+  --alarm: #FF5C4D;
+  --warn: #F2B33D;
+
+  /* event-tape channel colours (data, not decoration) */
+  --chan-mail: #8FB6FF;
+  --chan-session: #7FD8C8;
+
+  /* layout + motion primitives (not utility-generating) */
+  --pad-x: clamp(14px, 1.4vw, 22px);
+  --row-h: 2.75rem;
+  --dur-1: 120ms;
+  --dur-2: 160ms;
+  --dur-3: 240ms;
+  --dur-4: 420ms; /* code arrival: the one authored moment */
+}
+
+@theme inline {
+  /* ---- colour: Tailwind utilities (bg-ground, text-ink-2, border-line …) ---- */
+  --color-ground: var(--ground);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-alarm: var(--alarm);
+  --color-warn: var(--warn);
+  --color-chan-mail: var(--chan-mail);
+  --color-chan-session: var(--chan-session);
+
+  /* ---- colour: shadcn/compat layer so stock components inherit the world ---- */
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--panel-2);
+  --color-primary: var(--signal);
+  --color-primary-foreground: var(--signal-ink);
+  --color-secondary: var(--panel-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--panel);
+  --color-muted-foreground: var(--ink-3);
+  --color-accent: #D8F86A;          /* primary hover */
+  --color-accent-foreground: var(--signal-ink);
+  --color-destructive: var(--alarm);
+  --color-border: var(--line-2);
+  --color-input: var(--line-2);
+  --color-ring: var(--signal);
+
+  /* ---- type ---- */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --text-2xs: 0.625rem;   --text-2xs--line-height: 0.875rem;  /* 10px status labels   */
+  --text-xs: 0.6875rem;   --text-xs--line-height: 1rem;       /* 11px mono meta       */
+  --text-sm: 0.78125rem;  --text-sm--line-height: 1.15rem;    /* 12.5px table body    */
+  --text-base: 0.875rem;  --text-base--line-height: 1.35rem;  /* 14px UI default      */
+  --text-md: 0.9375rem;   --text-md--line-height: 1.5rem;     /* 15px prose           */
+  --text-lg: 1.0625rem;   --text-lg--line-height: 1.6rem;     /* 17px lede            */
+  --text-xl: 1.25rem;     --text-xl--line-height: 1.6rem;     /* 20px readout         */
+  --text-2xl: 1.5rem;     --text-2xl--line-height: 1.75rem;   /* 24px section title   */
+  --text-3xl: 2.125rem;   --text-3xl--line-height: 2.125rem;
+  --text-display: clamp(38px, 4.7vw, 68px);
+  --text-display--line-height: 0.95;
+  --tracking-display: -0.022em;
+  --tracking-label: 0.13em;   /* the mono micro-labels */
+
+  /* ---- radius: machined, small ---- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;    /* panels, buttons, inputs */
+  --radius-xl: 8px;    /* corner registration ticks */
+
+  /* ---- spacing scale (utilities: p-1, gap-2 … = n × 4px) ---- */
+  --spacing: 0.25rem;
+
+  /* ---- depth: hairlines instead of glows ---- */
+  --shadow-panel: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-raised: 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+
+  /* ---- motion: fast, mechanical, exponential ease-out ---- */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --animate-led: led 2.4s ease-in-out infinite;
+  --animate-countdown: countdown 6s linear infinite;
+  --animate-sweep: sweep 15s linear infinite;
+  --animate-row-in: row-in var(--dur-4) var(--ease-standard) both;
+
+  @keyframes led { 0%, 100% { opacity: 1 } 50% { opacity: 0.25 } }
+  @keyframes countdown { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+  @keyframes sweep { from { transform: translateX(-340px) } to { transform: translateX(calc(100vw + 340px)) } }
+  @keyframes row-in { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+}
+
+/* browser surfaces — the parts nobody draws still carry the world */
+::selection { background: var(--signal); color: var(--signal-ink); }
+html { caret-color: var(--signal); scrollbar-color: #2A2F2B var(--ground); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #2A2F2B; border: 3px solid var(--ground); border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 2px; }
+
+/* Background "GRID & SWEEP" rules of use:
+   - grids are two static repeating-linear-gradients (72px fine / 288px coarse, masked),
+     zero JS, zero canvas.
+   - `--animate-sweep` belongs to the landing hero ONLY. On app screens ship it as
+     `--animate-sweep: none` or replace it with a one-shot route-change sweep.
+   - under `prefers-reduced-motion: reduce`, set the sweep to a static offset. */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}

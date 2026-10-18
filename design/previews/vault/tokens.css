@@ -1,0 +1,148 @@
+/* ============================================================================
+   DIRECTION B — "VAULT"  ·  paste-ready token block for client/app/globals.css
+   Tailwind v4, CSS-first. Namespaces that generate utilities: --color-*, --font-*,
+   --text-*, --tracking-*, --leading-*, --radius-*, --shadow-*, --ease-*, --animate-*.
+   Plain custom properties (--dur-*, --blur-nav …) do not generate utilities.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ground + depth */
+  --ground: #05070C;
+  --depth-1: #0A0E16;
+  --depth-2: #0E1424;
+  --shell: rgba(255, 255, 255, 0.05);          /* bezel of the double-bezel slab */
+  --core: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.16);
+
+  /* ink */
+  --ink: #EAF0FA;
+  --ink-2: #9DA9C0;
+  --ink-3: #7E8AA3;
+
+  /* ice — the world. code — the only warm object on the page */
+  --ice: #9CC4FF;
+  --ice-2: #5C93FF;
+  --ice-3: #2A4CFF;
+  --lilac: #7A5CFF;
+  --code: #FFCE8A;
+  --code-ink: #1A1005;
+
+  /* aurora blobs (background layers, already-transparent edges) */
+  --aurora-1: rgba(42, 76, 255, 0.28);
+  --aurora-2: rgba(122, 92, 255, 0.22);
+  --aurora-3: rgba(46, 211, 255, 0.12);
+
+  /* layout + motion primitives (not utility-generating) */
+  --pad-x: clamp(16px, 2vw, 24px);
+  --dur-1: 200ms;
+  --dur-2: 320ms;
+  --dur-3: 520ms;
+  --dur-4: 900ms;                 /* the seal opening */
+  --blur-nav: blur(14px) saturate(130%);  /* fixed chrome only, never scrolling content */
+}
+
+@theme inline {
+  /* ---- colour ---- */
+  --color-ground: var(--ground);
+  --color-depth-1: var(--depth-1);
+  --color-depth-2: var(--depth-2);
+  --color-shell: var(--shell);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ice: var(--ice);
+  --color-ice-2: var(--ice-2);
+  --color-ice-3: var(--ice-3);
+  --color-lilac: var(--lilac);
+  --color-code: var(--code);
+  --color-code-ink: var(--code-ink);
+
+  /* ---- shadcn/compat layer ---- */
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --color-card: var(--depth-1);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--depth-2);
+  --color-primary: var(--ice);
+  --color-primary-foreground: #06101F;
+  --color-secondary: var(--depth-1);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--depth-1);
+  --color-muted-foreground: var(--ink-3);
+  --color-accent: var(--code);
+  --color-accent-foreground: var(--code-ink);
+  --color-destructive: #FF7A6B;
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--ice);
+
+  /* ---- type: sans-led, mono only for codes and ids ---- */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --text-2xs: 0.65625rem; --text-2xs--line-height: 1rem;      /* 10.5px mono meta   */
+  --text-xs: 0.71875rem;  --text-xs--line-height: 1.1rem;     /* 11.5px labels      */
+  --text-sm: 0.84375rem;  --text-sm--line-height: 1.3rem;     /* 13.5px controls    */
+  --text-base: 0.9375rem; --text-base--line-height: 1.45rem;  /* 15px UI default    */
+  --text-md: 1rem;        --text-md--line-height: 1.6rem;     /* 16px prose         */
+  --text-lg: 1.0625rem;   --text-lg--line-height: 1.7rem;     /* 17px lede          */
+  --text-xl: 1.5rem;      --text-xl--line-height: 1.75rem;    /* 24px screen title  */
+  --text-2xl: 2.25rem;    --text-2xl--line-height: 1.15;      /* 36px code readout  */
+  --text-display: clamp(38px, 4.6vw, 66px);
+  --text-display--line-height: 1.02;
+  --tracking-display: -0.03em;
+  --tracking-label: 0.14em;
+  --tracking-code: 0.10em;
+
+  /* ---- radius: soft, concentric (outer = inner + bezel) ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;   /* slab core: outer 22px − 6px bezel */
+  --radius-xl: 22px;   /* slab shell */
+  --radius-pill: 999px;
+
+  /* ---- spacing ---- */
+  --spacing: 0.25rem;
+
+  /* ---- depth: soft, offset, wide — never a zero-offset halo ---- */
+  --shadow-slab: 0 40px 80px -50px rgba(0, 0, 0, 0.95);
+  --shadow-nav: 0 18px 40px -24px rgba(0, 0, 0, 0.9);
+  --shadow-code: 0 0 26px rgba(255, 206, 138, 0.35);   /* the one glow: the live code */
+
+  /* ---- motion: heavy, fluid, exponential ease-out ---- */
+  --ease-fluid: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --animate-drift-1: drift-1 120s ease-in-out infinite alternate;
+  --animate-drift-2: drift-2 150s ease-in-out infinite alternate;
+  --animate-drift-3: drift-3 180s ease-in-out infinite alternate;
+  --animate-code-pulse: code-pulse 3.2s ease-in-out infinite;
+  --animate-seal-arc: seal-arc 60s linear infinite;
+
+  @keyframes drift-1 { from { transform: translate3d(0, 0, 0) scale(1) } to { transform: translate3d(6vw, 4vh, 0) scale(1.08) } }
+  @keyframes drift-2 { from { transform: translate3d(0, 0, 0) scale(1.04) } to { transform: translate3d(-5vw, 6vh, 0) scale(1) } }
+  @keyframes drift-3 { from { transform: translate3d(0, 0, 0) scale(1) } to { transform: translate3d(4vw, -5vh, 0) scale(1.1) } }
+  @keyframes code-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(255, 206, 138, 0.14) } 50% { box-shadow: 0 0 0 6px rgba(255, 206, 138, 0.05) } }
+  @keyframes seal-arc { from { stroke-dasharray: 0.42 999 } to { stroke-dasharray: 0 999 } }
+}
+
+/* browser surfaces */
+::selection { background: var(--code); color: var(--code-ink); }
+html { caret-color: var(--ice); scrollbar-color: #1B2433 var(--ground); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #1B2433; border: 3px solid var(--ground); border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--ice); outline-offset: 3px; border-radius: 8px; }
+
+/* Background "AURORA DEPTH" rules of use:
+   - three absolutely positioned radial-gradient layers (no filter:blur on them — the
+     softness comes from the gradient stops), animated on transform only → compositor.
+   - one static grain layer (inline SVG feTurbulence data-URI, opacity ~0.045,
+     mix-blend-mode: overlay) and one vignette. No canvas, no rAF, no JS.
+   - `--blur-nav` is allowed on the fixed nav pill only: never backdrop-filter a
+     scrolling container. */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}
