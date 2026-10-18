@@ -1,6 +1,5 @@
 const {
   createOverwatchAccount,
-  findOverwatchAccountByAccountTag,
   findOverwatchAccountByAccountEmail,
   findOverwatchAccountByOwnerId,
   findOverwatchAccountById,
@@ -123,14 +122,22 @@ exports.addAccount = [
         owner_id: req.user.id,
       });
 
-      // Check for exact duplicates of accountTag
-      const existingAccountByTag =
-        await findOverwatchAccountByAccountTag(accountTag);
-      if (existingAccountByTag) {
+      // accounttag is stored as AES-256-GCM ciphertext with a random IV, so comparing
+      // the plaintext tag against that column can never match. Compare the caller's
+      // own decrypted tags instead (bounded by their account count).
+      const ownerAccounts = await findOverwatchAccountByOwnerId(req.user.id);
+      const duplicateTag = (ownerAccounts || []).find((account) => {
+        try {
+          return decrypt(account.accounttag) === accountTag;
+        } catch (error) {
+          return false;
+        }
+      });
+      if (duplicateTag) {
         throw new ApiError(
           409,
           "CONFLICT",
-          "An account with this Battletag already exists",
+          "You already have an account with this Battletag",
         );
       }
 

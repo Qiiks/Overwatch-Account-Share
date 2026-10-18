@@ -11,6 +11,9 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      # NEXT_PUBLIC_* are baked into the bundle at image build time (see the workflow
+      # build-args); the copies here are documentation only. INTERNAL_API_BASE_URL is
+      # read at runtime by the container healthcheck route.
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
       - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL}
       - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL}
@@ -56,6 +59,7 @@ services:
       - PORT=5001
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
       - OAUTH_STATE_SECRET=${OAUTH_STATE_SECRET}
@@ -63,7 +67,12 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
       - FRONTEND_URL=${FRONTEND_URL}
+      - CLIENT_URL=${CLIENT_URL}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      # 'lax' is correct when client and API share a registrable domain.
+      - COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
+      - HSTS_INCLUDE_SUBDOMAINS=${HSTS_INCLUDE_SUBDOMAINS:-false}
+      - OTP_FETCH_INTERVAL_MS=${OTP_FETCH_INTERVAL_MS:-10000}
       - REDIS_URL=${REDIS_URL}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}

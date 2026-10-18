@@ -70,13 +70,14 @@ class UserGoogleAccount {
       queryBuilder = queryBuilder.eq('user_id', userId);
     }
 
-    const { error } = await queryBuilder;
+    // Return the deleted rows so the caller can tell "unlinked" from "nothing matched".
+    const { data, error } = await queryBuilder.select();
 
     if (error) {
       throw error;
     }
 
-    return true;
+    return Array.isArray(data) ? data.length > 0 : !!data;
   }
 
   static async findOne(query) {
@@ -127,25 +128,6 @@ class UserGoogleAccount {
     }
     
     return data || [];
-  }
-  
-  static async updateMany(query, update) {
-    let queryBuilder = getSupabase().from('user_google_accounts').update(update);
-    
-    if (query.userId) {
-      queryBuilder = queryBuilder.eq('user_id', query.userId);
-    }
-    if (query._id && query._id.$ne) {
-      queryBuilder = queryBuilder.neq('id', query._id.$ne);
-    }
-    
-    const { data, error } = await queryBuilder;
-    
-    if (error) {
-      throw error;
-    }
-    
-    return data;
   }
   
   static async findById(id) {

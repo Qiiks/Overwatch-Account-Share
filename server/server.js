@@ -2,6 +2,26 @@ const dotenv = require('dotenv');
 const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+// Fail fast with a single message naming every missing variable. This must run before
+// the requires below: config/db.js, utils/encryption.js and googleAuthController.js all
+// throw at module load when their variables are absent.
+const REQUIRED_ENV = [
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'JWT_SECRET',
+  'ENCRYPTION_SECRET',
+  'OAUTH_STATE_SECRET',
+];
+const missingEnv = REQUIRED_ENV.filter((name) => !process.env[name]);
+if (!process.env.ALLOWED_ORIGINS && !process.env.FRONTEND_URL) {
+  missingEnv.push('ALLOWED_ORIGINS (or FRONTEND_URL)');
+}
+if (missingEnv.length > 0) {
+  console.error(`[config] Missing required environment variables: ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -29,25 +49,6 @@ const { httpLogger, logger, performanceLogger, securityLogger } = require('./uti
 const { performanceMonitor, memoryMonitor } = require('./middleware/performanceMonitor');
 const { cache } = require('./utils/cache');
 const { AUTH_COOKIE } = require('./utils/cookies');
-
-// Fail fast with a single message naming every missing variable, instead of
-// dying later inside a random module with an opaque stack.
-const REQUIRED_ENV = [
-  'SUPABASE_URL',
-  'SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'JWT_SECRET',
-  'ENCRYPTION_SECRET',
-  'OAUTH_STATE_SECRET',
-];
-const missingEnv = REQUIRED_ENV.filter((name) => !process.env[name]);
-if (!process.env.ALLOWED_ORIGINS && !process.env.FRONTEND_URL) {
-  missingEnv.push('ALLOWED_ORIGINS (or FRONTEND_URL)');
-}
-if (missingEnv.length > 0) {
-  console.error(`[config] Missing required environment variables: ${missingEnv.join(', ')}`);
-  process.exit(1);
-}
 
 const app = express();
 
