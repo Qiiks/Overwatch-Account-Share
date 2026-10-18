@@ -24,7 +24,7 @@ COPY --chown=nodejs:nodejs package*.json ./
 USER nodejs
 
 # Install dependencies as nodejs user (who now owns the directory)
-RUN npm ci --only=production || npm install --production
+RUN npm ci --omit=dev || npm install --omit=dev
 
 # Copy application source code with proper ownership
 # Note: --chown flag works even when USER is set

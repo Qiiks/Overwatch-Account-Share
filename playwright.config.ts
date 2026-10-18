@@ -31,7 +31,9 @@ export default defineConfig({
     {
       command: 'npm --prefix server start',
       url: 'http://localhost:5001/health',
-      reuseExistingServer: !process.env.CI,
+      // Reuse an already-running stack by default (CI commonly exports CI=true, which must
+      // not force a second copy); set PW_FRESH=1 to force Playwright to start its own.
+      reuseExistingServer: process.env.PW_FRESH !== '1',
       timeout: 120_000,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -39,7 +41,7 @@ export default defineConfig({
     {
       command: 'npm --prefix client run dev',
       url: 'http://localhost:3000',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: process.env.PW_FRESH !== '1',
       timeout: 180_000,
       stdout: 'pipe',
       stderr: 'pipe',
