@@ -110,6 +110,16 @@ The suite starts both processes itself unless they are already up, and the admin
 Set `PW_CHROMIUM_PATH=/usr/bin/brave` to drive a Chromium already installed on the host instead of
 Playwright's bundled build — useful where the download cannot unpack, and the same engine either way.
 
+Run it from a **clean environment**: the webServer commands inherit your shell, and a sourced
+`server/.env` exports `PORT=5001`, which makes `next dev` try to bind the API's port and die
+(`listen EADDRINUSE`, reported as "Process from config.webServer exited early"). Seed inside a
+subshell — `( set -a; . server/.env; set +a; … )` — and keep the exports away from the test run.
+
+Two flake sources worth knowing before debugging a red run against the live database: a second
+run inside the same minute 429s the credentials round-trip (shared per-IP budget of 5/min on
+`/all-public` and `/:id/credentials`), and Supabase can answer a transient 503 that fails the
+create assertion. Neither is a code defect — restart the API or wait out the window, and re-run.
+
 ## Deployment
 
 CI (`.github/workflows/deploy.yml`) builds both images, pushes them to GHCR (tagged `latest` and

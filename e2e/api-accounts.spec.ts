@@ -19,6 +19,39 @@ const OWNER = {
 
 const TRICKY_PASSWORD = "p'a&<b>#1";
 
+/**
+ * Safety net the per-test `finally` cannot give: a worker crash, a timeout or an interrupted
+ * run leaves its row behind, and this database is the owner's production project.
+ * `accountEmail` is plaintext in the list projection, so an `e2e-…` address is unambiguously
+ * ours (the owner's rows carry their real addresses). The list route has no credential
+ * limiter, so this cannot 429 however much budget a test spent.
+ */
+test.afterAll(async ({ request }) => {
+  const csrf = await request.get(`${API}/api/auth/csrf`);
+  const token = (await csrf.json()).data?.token as string | undefined;
+  const login = await request.post(`${API}/api/auth/login`, {
+    headers: { 'x-csrf-token': token || '' },
+    data: { email: OWNER.email, password: OWNER.password },
+  });
+  if (login.status() !== 200) return; // cannot authenticate ⇒ nothing to sweep
+
+  const list = await request.get(`${API}/api/overwatch-accounts`);
+  if (list.status() !== 200) return;
+
+  const rows = (await list.json()).data;
+  if (!Array.isArray(rows)) return;
+
+  const mine = rows.filter((row) => /^e2e-/i.test(String(row.accountEmail)));
+  for (const row of mine) {
+    await request.delete(`${API}/api/overwatch-accounts/${row.id}`, {
+      headers: { 'x-csrf-token': token || '' },
+    });
+  }
+  if (mine.length > 0) {
+    console.log(`[cleanup] removed ${mine.length} stranded fixture row(s)`);
+  }
+});
+
 const freshSession = async (request: APIRequestContext) => {
   const csrf = await request.get(`${API}/api/auth/csrf`);
   const token = (await csrf.json()).data.token as string;
