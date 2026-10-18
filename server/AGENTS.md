@@ -1,109 +1,51 @@
-# Backend Overview
+# Backend — Overwatch Account Share
 
-This server-side application is built with Node.js and Express, providing a RESTful API for the frontend. It handles user authentication, data persistence with MongoDB, and all business logic for the Overwatch Account Share application.
+Express 4 API server. No ORM: it talks to Supabase (PostgREST) through `@supabase/supabase-js`,
+using the service-role key server-side (RLS is bypassed by design; every access check is app-level).
 
-# Core Libraries
+## Layout
 
-The key backend libraries used in this project are:
+- `server.js` — entry point; middleware order: cors → helmet → cookieParser → csrfProtection →
+  compression → express.json → logging/perf → rate limits → routes → errorMiddleware.
+- `config/db.js` — the single Supabase client (`global.supabase` + module export).
+- `routes/` → `controllers/` → `models/` (thin PostgREST wrappers) → `services/` (OTP poller),
+  `utils/` (logger, encryption, cookies, cache, respond/ApiError).
+- `migrations/` — SQL to apply by hand in the Supabase SQL editor (`0001_baseline.sql` builds a fresh DB).
+- `scripts/` — admin bootstrap, dev seed, credential audit, OTP emit harness.
 
--   **Express**: A minimal and flexible Node.js web application framework that provides a robust set of features for web and mobile applications.
--   **Mongoose**: An Object Data Modeling (ODM) library for MongoDB and Node.js. It manages relationships between data, provides schema validation, and is used to translate between objects in code and the representation of those objects in MongoDB.
--   **bcryptjs**: A library to help you hash passwords.
--   **jsonwebtoken**: An implementation of JSON Web Tokens.
--   **dotenv**: A zero-dependency module that loads environment variables from a `.env` file into `process.env`.
+## Conventions
 
-# API Structure
+- Responses: `ok(res, data, status?, meta?)` → `{ success: true, data }`; errors are thrown as
+  `new ApiError(status, code, message, details?)` and normalised by `middleware/errorMiddleware.js`
+  into `{ success: false, error: { message, code, details? } }`. Codes: `VALIDATION_FAILED`,
+  `UNAUTHENTICATED`, `FORBIDDEN`, `CSRF_*`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`,
+  `RATE_LIMITED`, `UPSTREAM_UNAVAILABLE`, `INTERNAL`.
+- Auth: JWT in an httpOnly cookie (`auth_token`); CSRF by double-submit (`csrf-token` cookie +
+  `x-csrf-token` header) plus an Origin allowlist on non-GET.
+- Secrets: account credentials are AES-256-GCM encrypted at rest with a key derived from
+  `ENCRYPTION_SECRET`; never log or return plaintext except through the access-checked endpoints.
+- Logging: `utils/logger.js` exports an object — `{ logger, httpLogger, performanceLogger,
+  securityLogger, adminAuditLogger }`. Always destructure:
+  `const { logger } = require('../utils/logger')`. Using the module object directly
+  (`const logger = require('../utils/logger')` then `logger.error(...)`) is a TypeError.
 
-The API is structured to separate concerns and maintain a clean codebase:
+## Commands
 
--   **Routes**: Defined in `server/routes`, these files map API endpoints to controller functions.
--   **Controllers**: Located in `server/controllers`, these files contain the business logic for each route.
--   **Middleware**: Found in `server/middleware`, these files contain functions that have access to the request and response objects, and the next middleware function in the application’s request-response cycle.
--   **Models**: Mongoose schema models are located in `server/models`.
+- `npm run dev` — start with `node --watch`
+- `npm start` — production start
+- `npm run setup-admin` — create the first admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+- `npm run audit` — production dependency audit
 
-# Authentication
+## Environment
 
-Authentication is handled using JSON Web Tokens (JWT). Protected routes are secured using custom middleware:
+`.env` in this directory (gitignored). Required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `ENCRYPTION_SECRET`, `OAUTH_STATE_SECRET`,
+`ALLOWED_ORIGINS` (comma-separated) or `FRONTEND_URL`. Optional: `PORT` (5001), `NODE_ENV`,
+`CLIENT_URL`, `COOKIE_SAMESITE`, `HSTS_INCLUDE_SUBDOMAINS`, `OTP_FETCH_INTERVAL_MS`,
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `REGISTRATION_OPEN` is no longer
+read — registration is controlled by the `settings.allow_registration` row.
 
--   `authMiddleware.js`: Verifies the JWT token and attaches the user to the request object.
--   `adminMiddleware.js`: Checks if the authenticated user has admin privileges.
+## Testing
 
-# Build and Test Commands
-
--   **Run development server**: `npm run dev`
--   **Start in production**: `npm start`
--   **Setup admin user**: `npm run setup-admin`
-
-# Terminal Command Guidelines
-
-## Kilo Code Terminal Limitations
-⚠️ **CRITICAL**: Once a command is executed in Kilo Code terminal, you cannot send inputs to it. Plan accordingly!
-
-## Windows-Specific Background Process Management
-**Important**: The `&` operator behavior depends on your shell:
-
-- **Git Bash (Recommended)**: `&` runs processes in background (e.g., `npm run dev &`)
-- **Windows CMD**: `&` is a command separator, use `start /B` instead (e.g., `start /B npm run dev`)
-
-## Background Process Commands
-**Important**: Use output redirection to capture logs and ensure the process stays in background.
-
-- **Git Bash (Recommended)**: `cd server && node server.js > server.log 2>&1 &`
-- **Windows CMD**: `start /B cmd /C "cd server && node server.js > server.log 2>&1"`
-- **For debugging/testing**: Use extensive logging instead of interactive debugging
-- **For one-time commands**: Run in foreground to see results immediately
-
-**Output Redirection Explanation:**
-- `> server.log`: Redirects standard output to server.log
-- `2>&1`: Redirects error output to the same file as standard output
-- `&`: Runs the entire command chain in the background
-
-## Logging Strategy (Essential for Kilo Code)
-- **Always implement comprehensive logging** before running servers in background
-- **Use structured logging** with timestamps and context
-- **Log all errors, warnings, and key operations**
-- **Include request IDs** for tracing issues
-- **Log performance metrics** for monitoring
-
-## Log Reading Methods
-- **Live log monitoring**: `tail -f logs/filename.log` or `tail -f server/logs/*.log`
-- **Recent logs**: `tail -n 50 logs/filename.log` (last 50 lines)
-- **Search logs**: `grep "ERROR" logs/*.log` or `grep "keyword" logs/*.log`
-- **Log rotation**: Use `ls -la logs/` to see current log files
-
-## Server-Specific Commands
-- **Start server (Git Bash)**: `cd server && node server.js > server.log 2>&1 &`
-- **Start server (Windows CMD)**: `start /B cmd /C "cd server && node server.js > server.log 2>&1"`
-- **Check if running**: `ps aux | grep node` or `lsof -i :5000`
-- **Stop server**: `pkill -f "node server.js"` or `kill PID`
-- **View server logs**: `tail -f server.log` or `tail -f server/logs/combined-*.log`
-
-## Development Workflow (Kilo Code Adapted)
-1. **Implement logging first**: Ensure all critical paths have console.log/logger statements
-2. **Start server in background**: `cd server && node server.js > server.log 2>&1 &`
-3. **Monitor logs in separate terminal**: `tail -f server.log` or `tail -f server/logs/combined-*.log`
-4. **Continue development work** while server runs (cannot interact with server terminal)
-5. **Stop server when done**: `pkill -f "node server.js"`
-
-## Debugging in Kilo Code Environment
-- **Pre-implement debugging**: Add extensive logging before running
-- **Use separate terminals**: One for server, one for log monitoring
-- **Test in foreground first**: For critical debugging, run without `&` to see immediate output
-- **Accept limitations**: Cannot switch from foreground to background once started
-
-# Code Style Guidelines
-
-There is no linter or formatter configured for the server-side code. Please maintain a consistent style with the existing code.
-
-# Testing Instructions
-
-There is currently no testing framework set up for this project.
-
-# Environment Variables
-
-The server relies on a `.env` file for configuration. This file is not committed to version control and must be created locally. It contains sensitive information such as:
-
--   Database connection string (`MONGO_URI`)
--   JWT secret (`JWT_SECRET`)
-
-An example file is provided in `.env.example`.
+There is no server unit-test framework. End-to-end coverage lives in the repo root (`e2e/`,
+Playwright) and runs against a live client+server pair.

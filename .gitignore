@@ -23,7 +23,6 @@ testsprite_tests/
 # Environment/config files
 .env*
 *.env
-*.json
 
 # IDE/editor files
 .vscode/

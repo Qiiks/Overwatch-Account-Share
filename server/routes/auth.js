@@ -1,15 +1,3 @@
-// Debug: Log raw request body for login
-const fs = require("fs");
-const path = require("path");
-const debugLog = (req, res, next) => {
-  if (req.path === "/login" && req.method === "POST") {
-    fs.appendFileSync(
-      path.join(__dirname, "../server.log"),
-      `RAW BODY: ${JSON.stringify(req.body)}\n`
-    );
-  }
-  next();
-};
 const express = require("express");
 const router = express.Router();
 const {

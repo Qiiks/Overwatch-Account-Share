@@ -1,9 +1,6 @@
 # Base image
 FROM node:20-alpine AS builder
 
-# Install pnpm globally
-RUN npm install -g pnpm
-
 # Create a non-root user to run the application FIRST
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
@@ -13,13 +10,13 @@ WORKDIR /usr/src/app
 RUN chown nodejs:nodejs /usr/src/app
 
 # Copy package files with ownership
-COPY --chown=nodejs:nodejs package.json pnpm-lock.yaml ./
+COPY --chown=nodejs:nodejs package.json package-lock.json ./
 
 # Switch to nodejs user for all subsequent operations
 USER nodejs
 
 # Install dependencies as nodejs user
-RUN pnpm install
+RUN npm ci
 
 # Copy application source code with proper ownership
 COPY --chown=nodejs:nodejs . .
@@ -28,19 +25,18 @@ COPY --chown=nodejs:nodejs . .
 # These MUST be available at build time for Next.js to embed them in the client bundle
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_FRONTEND_URL
+ARG NEXT_PUBLIC_WEBSITE_URL
 
 # Set them as environment variables for the build process
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL}
+ENV NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL}
 
 # Build the app with the environment variables available
-RUN pnpm build
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine AS runner
-
-# Install pnpm
-RUN npm install -g pnpm
 
 # Create nodejs user
 RUN addgroup -g 1001 -S nodejs && \
@@ -54,14 +50,14 @@ RUN chown nodejs:nodejs /usr/src/app
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/.next ./.next
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/public ./public
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/package.json ./package.json
-COPY --from=builder --chown=nodejs:nodejs /usr/src/app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder --chown=nodejs:nodejs /usr/src/app/package-lock.json ./package-lock.json
 COPY --from=builder --chown=nodejs:nodejs /usr/src/app/next.config.mjs ./next.config.mjs
 
 # Switch to nodejs user
 USER nodejs
 
 # Install only production dependencies
-RUN pnpm install --prod
+RUN npm ci --omit=dev
 
 # Expose port
 EXPOSE 3000
@@ -71,4 +67,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => { process.exit(1); })"
 
 # Start the app as nodejs user
-CMD ["pnpm", "start"]
+CMD ["npm", "start"]
