@@ -108,13 +108,13 @@ services:
       # Same host as the client, but only /api and /socket.io; the priority beat the client's
       # catch-all Host(...) router. Do not use Coolify's path field here: on several versions
       # it strips the prefix, and this API mounts /api/auth without a strip.
-      - "traefik.http.routers.overwatch-server.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
+      - "traefik.http.routers.overwatch-server.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`) || Path(`/health`) || Path(`/ready`))"
       - "traefik.http.routers.overwatch-server.entrypoints=https"
       - "traefik.http.routers.overwatch-server.tls=true"
       - "traefik.http.routers.overwatch-server.tls.certresolver=letsencrypt"
       - "traefik.http.routers.overwatch-server.priority=500"
       - "traefik.http.services.overwatch-server.loadbalancer.server.port=5001"
-      - "traefik.http.routers.overwatch-server-http.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
+      - "traefik.http.routers.overwatch-server-http.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`) || Path(`/health`) || Path(`/ready`))"
       - "traefik.http.routers.overwatch-server-http.entrypoints=http"
       - "traefik.http.routers.overwatch-server-http.middlewares=redirect-to-https@docker"
 
