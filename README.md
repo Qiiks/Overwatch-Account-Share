@@ -68,8 +68,9 @@ ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='...' npm --prefix server run setup-a
 ## Database
 
 Supabase (PostgreSQL). Tables: `users`, `overwatch_accounts`, `overwatch_account_allowed_users`,
-`user_google_accounts`, `email_services`, `settings`. Schema reference: `supabase_schemas.md`;
-`server/migrations/0001_baseline.sql` builds the schema on a fresh project.
+`user_google_accounts`, `email_services`, `settings`. The authoritative schema for a fresh project is
+`server/migrations/0001_baseline.sql` (verify column names against the live project's PostgREST
+OpenAPI document before rebuilding anything from it).
 
 ## Security model
 

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction A · DISPATCH — dashboard</title>
+<style>
+/* DIRECTION A — "DISPATCH" dashboard. Operator console: index rail + dense ledger + relay panel. Mock data. */
+@font-face{font-family:"Geist";src:url("../fonts/Geist-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:"Geist Mono";src:url("../fonts/GeistMono-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:block}
+
+:root{
+  --ground:#0B0C0C;--panel:#0F1211;--panel-2:#131715;
+  --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.13);
+  --ink:#E9EBE4;--ink-2:#A3A99F;--ink-3:#848B80;
+  --signal:#CBEF4A;--signal-ink:#0B0C0C;--alarm:#FF5C4D;--warn:#F2B33D;
+  --font-sans:"Geist",system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace;
+  --pad:clamp(14px,1.4vw,22px);--r:6px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--font-sans);font-size:14px;line-height:1.5;font-feature-settings:"tnum" 1;min-height:100dvh;overflow-x:hidden;color-scheme:dark}
+::selection{background:var(--signal);color:var(--signal-ink)}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:2px}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+html{caret-color:var(--signal);scrollbar-color:#2A2F2B var(--ground)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2A2F2B;border:3px solid var(--ground);border-radius:6px}
+.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+
+/* background: grid + sweep (identical to landing) */
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg .fine{position:absolute;inset:-1px;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:72px 72px}
+.bg .coarse{position:absolute;inset:-1px;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:288px 288px;mask-image:radial-gradient(120% 90% at 80% 0%,#000 20%,transparent 70%)}
+.bg .sweep{position:absolute;top:0;bottom:0;width:340px;left:0;background:linear-gradient(90deg,transparent,rgba(203,239,74,.05) 45%,rgba(203,239,74,.09) 50%,rgba(203,239,74,.05) 55%,transparent);transform:translateX(-340px);animation:sweep 15s linear infinite;will-change:transform}
+.bg .sweep::after{content:"";position:absolute;inset:0 0 0 168px;width:1px;background:linear-gradient(180deg,transparent,rgba(203,239,74,.5),transparent)}
+.bg .vignette{position:absolute;inset:0;background:radial-gradient(130% 100% at 50% 0%,transparent 60%,rgba(0,0,0,.5))}
+@keyframes sweep{from{transform:translateX(-340px)}to{transform:translateX(calc(100vw + 340px))}}
+
+.frame{position:fixed;inset:12px;z-index:1;pointer-events:none;border:1px solid var(--line)}
+
+.app{position:relative;z-index:2;display:grid;grid-template-columns:212px minmax(0,1fr);min-height:100dvh}
+/* ---------- rail ---------- */
+.rail{border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 0 10px;background:rgba(9,10,10,.6)}
+.rail .brand{display:flex;align-items:center;gap:9px;padding:0 16px 14px;border-bottom:1px solid var(--line)}
+.led{width:7px;height:7px;background:var(--signal);flex:none;animation:led 2.4s ease-in-out infinite}
+@keyframes led{0%,100%{opacity:1}50%{opacity:.25}}
+.rail .brand b{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.railnav{padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.railnav a{display:flex;align-items:center;gap:10px;padding:9px 10px;font-size:12.5px;color:var(--ink-2);border-left:2px solid transparent}
+.railnav a i{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);font-style:normal;letter-spacing:.06em}
+.railnav a:hover{color:var(--ink);background:rgba(255,255,255,.04)}
+.railnav a.on{color:var(--ink);border-left-color:var(--signal);background:rgba(203,239,74,.06)}
+.railnav a.on i{color:var(--signal)}
+.rail .me{margin-top:auto;padding:12px 14px 4px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.avatar{width:26px;height:26px;border:1px solid var(--line-2);display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;color:var(--ink-2);flex:none}
+.rail .me .who{min-width:0}
+.rail .me .who b{display:block;font-size:12px;font-weight:600}
+.rail .me .who span{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.rail .me button{margin-left:auto;color:var(--ink-3)}
+.rail .me button:hover{color:var(--alarm)}
+
+/* ---------- main ---------- */
+.main{display:flex;flex-direction:column;min-width:0;padding:0 var(--pad)}
+.topbar{display:flex;align-items:center;gap:12px;height:58px;border-bottom:1px solid var(--line)}
+.topbar h1{font-size:15px;font-weight:600;letter-spacing:.01em}
+.topbar h1 span{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);margin-left:10px;letter-spacing:.1em;text-transform:uppercase}
+.search{margin-left:auto;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--line-2);border-radius:var(--r);width:clamp(180px,22vw,300px);color:var(--ink-3)}
+.search input{background:none;border:0;outline:0;color:var(--ink);font-size:12.5px;width:100%}
+.search kbd{font-family:var(--font-mono);font-size:10px;border:1px solid var(--line-2);padding:1px 4px;color:var(--ink-3)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:34px;padding:0 13px;font-size:12.5px;font-weight:600;border:1px solid var(--line-2);border-radius:var(--r);transition:background-color 160ms cubic-bezier(.2,.8,.2,1),color 160ms cubic-bezier(.2,.8,.2,1),border-color 160ms cubic-bezier(.2,.8,.2,1),transform 160ms cubic-bezier(.2,.8,.2,1)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+.btn-primary:hover{background:#D8F86A}
+.btn-ghost{color:var(--ink-2)}
+.btn-ghost:hover{background:rgba(255,255,255,.05);color:#fff}
+.btn-sm{height:28px;padding:0 10px;font-size:11.5px}
+
+.readout{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line);}
+.readout div{padding:12px 22px 12px 0;margin-right:22px;border-right:1px solid var(--line)}
+.readout div:last-child{border-right:0}
+.readout b{display:block;font-family:var(--font-mono);font-size:20px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+.readout span{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
+.readout .live b{color:var(--signal)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(330px,1fr);gap:clamp(16px,1.6vw,24px);padding:16px 0 0;align-items:start}
+.panel{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);position:relative}
+.panel::before{content:"";position:absolute;top:-1px;right:-1px;width:8px;height:8px;border:1px solid var(--line-2);border-left:0;border-bottom:0}
+.panel-head{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.panel-head h2{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:500}
+.panel-head .count{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.panel-head .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.mt{margin-top:16px}
+
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);text-align:left;font-weight:500;padding:10px 12px 6px}
+td{padding:10px 12px;border-top:1px solid var(--line);font-size:12.5px;vertical-align:middle}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+.b-tag{font-family:var(--font-mono);font-size:12.5px;color:var(--ink);font-weight:500}
+.pw{display:block;font-family:var(--font-mono);font-size:10px;color:var(--ink-3);letter-spacing:.12em;margin-top:2px}
+.owner{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-2)}
+.access{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--ink-2)}
+.chip{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border:1px solid var(--line-2);color:var(--ink-2);border-radius:3px}
+.chip.live{border-color:transparent;background:var(--signal);color:var(--signal-ink)}
+.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.rowacts{display:flex;gap:6px;justify-content:flex-end;opacity:.45;transition:opacity 160ms cubic-bezier(.2,.8,.2,1)}
+tr:hover .rowacts{opacity:1}
+.icon-btn{width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:4px;color:var(--ink-3)}
+.icon-btn:hover{color:var(--ink)}
+
+/* relay (identical language to landing) */
+.relay .code-body{padding:14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.code-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+.code{font-family:var(--font-mono);font-size:44px;font-weight:500;letter-spacing:.08em;line-height:1;color:#fff;font-variant-numeric:tabular-nums}
+.bar{height:2px;background:rgba(255,255,255,.09);margin:12px 0 8px;overflow:hidden}
+.bar i{display:block;height:100%;width:62%;background:var(--signal);transform-origin:left;animation:bar 6s linear infinite}
+@keyframes bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.code-meta{display:flex;flex-wrap:wrap;gap:5px 14px;font-family:var(--font-mono);font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+.code-meta b{color:var(--ink-2);font-weight:500}
+.tape ol{list-style:none;padding:6px 0}
+.tape li{display:grid;grid-template-columns:56px 54px 1fr;gap:8px;padding:5px 14px;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-2)}
+.tape time{color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tape .k{font-size:9.5px;letter-spacing:.08em}
+.k-relay{color:var(--signal)}.k-mail{color:#8FB6FF}.k-login{color:#fff}.k-share{color:var(--warn)}.k-vault{color:var(--ink-3)}.k-session{color:#7FD8C8}
+
+.statusbar{margin-top:auto;display:flex;align-items:center;gap:clamp(10px,2vw,26px);height:38px;border-top:1px solid var(--line-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.statusbar b{color:var(--ink-2);font-weight:500}
+.statusbar .right{margin-left:auto;display:flex;gap:16px}
+
+@media (max-width:1080px){
+  .grid{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .rail{flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;gap:6px;overflow-x:auto}
+  .rail .brand{border:0;padding:0 10px 0 0}
+  .railnav{flex-direction:row;padding:0;gap:2px}
+  .railnav a{border-left:0;border-bottom:2px solid transparent;white-space:nowrap;padding:7px 8px}
+  .railnav a.on{border-left:0;border-bottom-color:var(--signal)}
+  .rail .me{margin:0 0 0 auto;border:0;padding:0}
+  .rail .me .who{display:none}
+  .topbar{flex-wrap:wrap;height:auto;padding:12px 0;gap:10px}
+  .search{width:100%;order:3}
+  .readout div{margin-right:14px;padding-right:14px}
+  .readout b{font-size:17px}
+  th:nth-child(3),td:nth-child(3){display:none}
+  .statusbar .right span:nth-child(-n+2){display:none}
+  .frame{inset:8px}
+}
+@media (prefers-reduced-motion:reduce){
+  .bg .sweep{animation:none;opacity:.35;transform:translateX(20vw)}
+  .led,.bar i{animation:none}.bar i{transform:scaleX(1)}
+  *{transition-duration:1ms!important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M2.5 8h10m0 0-4-4m4 4-4 4"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.6 8S4 4.2 8 4.2 14.4 8 14.4 8 12 11.8 8 11.8 1.6 8 1.6 8Z"/><circle cx="8" cy="8" r="1.7"/></symbol>
+  <symbol id="i-users" viewBox="0 0 16 16"><circle cx="6" cy="5.9" r="2.3"/><path d="M1.8 13.2c0-2.1 1.9-3.4 4.2-3.4s4.2 1.3 4.2 3.4"/><path d="M11.1 4.1a2.3 2.3 0 0 1 0 4.5"/><path d="M12.3 13.2c0-1.6-.6-2.6-1.7-3.1"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.4" y="7" width="9.2" height="6.6" rx="1.2"/><path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7"/></symbol>
+  <symbol id="i-power" viewBox="0 0 16 16"><path d="M8 2.2v5.2"/><path d="M4.6 4.4a5 5 0 1 0 6.8 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.2v9.6M3.2 8h9.6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7.2" cy="7.2" r="4.2"/><path d="m10.4 10.4 3 3"/></symbol>
+</svg>
+
+<div class="bg" aria-hidden="true"><div class="fine"></div><div class="coarse"></div><div class="sweep"></div><div class="vignette"></div></div>
+<div class="frame" aria-hidden="true"></div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><span class="led"></span><b>Overwatch Share</b></div>
+    <nav class="railnav">
+      <a class="on" href="#"><i>01</i> Overview</a>
+      <a href="#"><i>02</i> Accounts</a>
+      <a href="#"><i>03</i> Members</a>
+      <a href="#"><i>04</i> Relay log</a>
+      <a href="#"><i>05</i> Admin</a>
+    </nav>
+    <div class="me">
+      <span class="avatar">vx</span>
+      <span class="who"><b>vex</b><span>owner</span></span>
+      <button aria-label="Log out"><svg class="i"><use href="#i-power"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1>Overview <span>14:02 UTC</span></h1>
+      <label class="search">
+        <svg class="i" style="width:14px;height:14px"><use href="#i-search"/></svg>
+        <input placeholder="Search accounts, members" aria-label="Search">
+        <kbd>⌘K</kbd>
+      </label>
+      <button class="btn btn-primary"><svg class="i" style="width:14px;height:14px"><use href="#i-plus"/></svg> Add account</button>
+    </header>
+
+    <div class="readout">
+      <div><b>4</b><span>Owned</span></div>
+      <div><b>2</b><span>Shared with me</span></div>
+      <div><b>2</b><span>Shared by me</span></div>
+      <div class="live"><b>12</b><span>Online now</span></div>
+      <div><b>1.2s</b><span>Relay median</span></div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Your accounts</h2><span class="count">4 in vault</span>
+            <span class="right"><button class="btn btn-ghost btn-sm">Sort: last code</button><button class="btn btn-ghost btn-sm">Filter</button></span>
+          </div>
+          <table>
+            <thead><tr><th>Account</th><th>Access</th><th>Last code</th><th>State</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="b-tag">NightRunner#2841</span><span class="pw">password ••••••••••••</span></td>
+                <td><span class="access"><svg class="i" style="width:13px;height:13px"><use href="#i-users"/></svg>wren, korone</span></td>
+                <td class="mono">14:02:11</td>
+                <td><span class="chip live">Live</span></td>
+                <td><span class="rowacts"><button class="icon-btn" aria-label="Reveal password"><svg class="i" style="width:13px;height:13px"><use href="#i-eye"/></svg></button><button class="btn btn-ghost btn-sm">Share</button></span></td>
+              </tr>
+              <tr>
+                <td><span class="b-tag">StaticDrift#1174</span><span class="pw">password ••••••••••••</span></td>
+                <td><span class="access"><svg class="i" style="width:13px;height:13px"><use href="#i-users"/></svg>bitcrush</span></td>
+                <td class="mono">12:58:40</td>
+                <td><span class="chip">Idle</span></td>
+                <td><span class="rowacts"><button class="icon-btn" aria-label="Reveal password"><svg class="i" style="width:13px;height:13px"><use href="#i-eye"/></svg></button><button class="btn btn-ghost btn-sm">Share</button></span></td>
+              </tr>
+              <tr>
+                <td><span class="b-tag">Aurora#3305</span><span class="pw">password ••••••••••••</span></td>
+                <td><span class="access"><svg class="i" style="width:13px;height:13px"><use href="#i-users"/></svg>—</span></td>
+                <td class="mono">08:41:57</td>
+                <td><span class="chip">Private</span></td>
+                <td><span class="rowacts"><button class="icon-btn" aria-label="Reveal password"><svg class="i" style="width:13px;height:13px"><use href="#i-eye"/></svg></button><button class="btn btn-ghost btn-sm">Share</button></span></td>
+              </tr>
+              <tr>
+                <td><span class="b-tag">Gremlin#0901</span><span class="pw">password ••••••••••••</span></td>
+                <td><span class="access"><svg class="i" style="width:13px;height:13px"><use href="#i-users"/></svg>holt</span></td>
+                <td class="mono">17 Oct 22:10</td>
+                <td><span class="chip">Cooldown</span></td>
+                <td><span class="rowacts"><button class="icon-btn" aria-label="Reveal password"><svg class="i" style="width:13px;height:13px"><use href="#i-eye"/></svg></button><button class="btn btn-ghost btn-sm">Share</button></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel mt">
+          <div class="panel-head"><h2>Shared with me</h2><span class="count">2 accounts</span></div>
+          <table>
+            <thead><tr><th>Account</th><th>Owner</th><th>Granted</th><th>State</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="b-tag">MothQueen#0907</span><span class="pw">password ••••••••••••</span></td>
+                <td class="owner">sable</td>
+                <td class="mono">09:14:02</td>
+                <td><span class="chip live">Code ready</span></td>
+              </tr>
+              <tr>
+                <td><span class="b-tag">Wanderer#5512</span><span class="pw">password ••••••••••••</span></td>
+                <td class="owner">wren</td>
+                <td class="mono">16 Oct 19:03</td>
+                <td><span class="chip">Idle</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <aside class="panel relay" aria-label="Relay">
+        <div class="panel-head">
+          <span class="led"></span><h2>Relay · live</h2><span class="count" style="margin-left:auto">NightRunner#2841</span>
+        </div>
+        <div class="code-body">
+          <p class="code-label">Login code — pushed over socket</p>
+          <p class="code">418 302</p>
+          <div class="bar"><i></i></div>
+          <p class="code-meta"><span>expires <b>00:42</b></span><span>delivered <b>1.2s</b></span><span>to <b>wren · korone</b></span></p>
+        </div>
+        <div class="tape">
+          <ol>
+            <li><time>14:02:11</time><span class="k k-relay">RELAY</span><span>delivered to wren, korone</span></li>
+            <li><time>14:02:10</time><span class="k k-mail">MAIL</span><span>code received · v•••••@gmail.com</span></li>
+            <li><time>13:47:22</time><span class="k k-login">LOGIN</span><span>wren signed in · NightRunner#2841</span></li>
+            <li><time>13:20:04</time><span class="k k-share">SHARE</span><span>vex → korone · NightRunner#2841</span></li>
+            <li><time>12:58:40</time><span class="k k-vault">VAULT</span><span>StaticDrift#1174 credentials rotated</span></li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span><b>Online 12</b></span><span>relay 1.2s</span><span>socket connected</span>
+      <span class="right"><span>18 Oct 2026 · 14:02 UTC</span><span>v2.0.0</span></span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

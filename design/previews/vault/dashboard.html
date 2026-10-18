@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B · VAULT — dashboard</title>
+<style>
+/* DIRECTION B — "VAULT" dashboard. Floating pill nav, sealed account slabs, the code ring. Mock data. */
+@font-face{font-family:"Geist";src:url("../fonts/Geist-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:"Geist Mono";src:url("../fonts/GeistMono-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:block}
+
+:root{
+  --ground:#05070C;--ice:#9CC4FF;--ice-2:#5C93FF;--code:#FFCE8A;
+  --ink:#EAF0FA;--ink-2:#9DA9C0;--ink-3:#7E8AA3;
+  --line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.16);
+  --shell:rgba(255,255,255,.05);--core:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+  --font-sans:"Geist",system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace;
+  --r-shell:20px;--r-core:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.55;min-height:100dvh;overflow-x:hidden;color-scheme:dark}
+::selection{background:var(--code);color:#1A1005}
+:focus-visible{outline:2px solid var(--ice);outline-offset:3px;border-radius:8px}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+html{caret-color:var(--ice);scrollbar-color:#1B2433 var(--ground)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#1B2433;border:3px solid var(--ground);border-radius:6px}
+
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;will-change:transform}
+.b1{width:120vw;height:120vw;left:-40vw;top:-60vw;background:radial-gradient(circle at 50% 50%,rgba(42,76,255,.26),rgba(42,76,255,0) 62%);animation:drift1 120s ease-in-out infinite alternate}
+.b2{width:90vw;height:90vw;right:-28vw;top:6vh;background:radial-gradient(circle at 50% 50%,rgba(122,92,255,.2),rgba(122,92,255,0) 60%);animation:drift2 150s ease-in-out infinite alternate}
+@keyframes drift1{from{transform:translate3d(0,0,0)}to{transform:translate3d(5vw,4vh,0)}}
+@keyframes drift2{from{transform:translate3d(0,0,0)}to{transform:translate3d(-4vw,5vh,0)}}
+.grain{position:absolute;inset:0;opacity:.045;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+.vig{position:absolute;inset:0;background:radial-gradient(130% 90% at 50% 0%,transparent 50%,rgba(2,3,6,.72))}
+
+.navwrap{position:sticky;top:0;z-index:30;display:flex;justify-content:center;padding:16px 20px 0}
+.navpill{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 16px;border:1px solid var(--line);border-radius:999px;background:rgba(10,14,22,.62);backdrop-filter:blur(14px) saturate(130%);box-shadow:0 18px 40px -24px rgba(0,0,0,.9);max-width:100%}
+.navpill .brand{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;padding-right:14px;margin-right:6px;border-right:1px solid var(--line)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--code);box-shadow:0 0 0 3px rgba(255,206,138,.14)}
+.navpill nav{display:flex;gap:2px}
+.navpill nav a{font-size:13px;color:var(--ink-2);padding:8px 12px;border-radius:999px;transition:color 200ms cubic-bezier(.32,.72,0,1),background-color 200ms cubic-bezier(.32,.72,0,1)}
+.navpill nav a:hover,.navpill nav a.here{color:var(--ink);background:rgba(255,255,255,.06)}
+.userchip{display:flex;align-items:center;gap:9px;margin-left:6px;padding:5px 12px 5px 5px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;color:var(--ink-2)}
+.userchip .av{width:24px;height:24px;border-radius:50%;background:linear-gradient(140deg,rgba(156,196,255,.35),rgba(122,92,255,.35));display:grid;place-items:center;font-family:var(--font-mono);font-size:10px;color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;font-weight:600;font-size:13px;
+  transition:transform 320ms cubic-bezier(.32,.72,0,1),background-color 320ms cubic-bezier(.32,.72,0,1),border-color 320ms cubic-bezier(.32,.72,0,1),color 320ms cubic-bezier(.32,.72,0,1)}
+.btn:active{transform:scale(.985)}
+.btn-primary{background:linear-gradient(180deg,#B6D4FF,#7FA8FF);color:#06101F;padding:10px 16px;box-shadow:0 10px 26px -16px rgba(124,168,255,.9),inset 0 1px 0 rgba(255,255,255,.6)}
+.btn-primary:hover{background:linear-gradient(180deg,#C6DEFF,#8FB4FF)}
+.btn-quiet{color:var(--ink-2);padding:9px 14px;border:1px solid var(--line)}
+.btn-quiet:hover{color:var(--ink);border-color:var(--line-2)}
+
+main{position:relative;z-index:10;padding:26px 24px 0}
+.wrap{max-width:1280px;margin:0 auto}
+.pagehead{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding-bottom:16px}
+.pagehead h1{font-size:24px;font-weight:600;letter-spacing:-0.02em}
+.tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:999px}
+.tabs button{font-size:12.5px;color:var(--ink-2);padding:7px 14px;border-radius:999px;transition:color 220ms cubic-bezier(.32,.72,0,1),background-color 220ms cubic-bezier(.32,.72,0,1)}
+.tabs button.on{background:rgba(255,255,255,.08);color:var(--ink)}
+.tabs button:hover{color:var(--ink)}
+.pagehead .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.search{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:1px solid var(--line);border-radius:999px;color:var(--ink-3);min-width:200px}
+.search input{background:none;border:0;outline:0;color:var(--ink);font-size:13px;width:100%}
+
+.readout{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:baseline;padding:14px 2px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.readout b{color:var(--ink);font-weight:500;font-size:14px;margin-right:7px}
+.readout .hot b{color:var(--code)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.52fr) minmax(320px,1fr);gap:26px;padding:24px 0 8px;align-items:start}
+.section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.section-head h2{font-size:15px;font-weight:600;letter-spacing:-0.01em}
+.section-head span{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
+.section-head .right{margin-left:auto}
+
+/* sealed account slabs — double bezel */
+.slab{border:1px solid var(--line);border-radius:var(--r-shell);background:var(--shell);padding:8px;margin-bottom:14px;transition:transform 420ms cubic-bezier(.32,.72,0,1),border-color 420ms cubic-bezier(.32,.72,0,1)}
+.slab:hover{transform:translateY(-2px);border-color:var(--line-2)}
+.slab .core{border-radius:var(--r-core);background:var(--core);border:1px solid rgba(255,255,255,.06);padding:16px 18px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:16px;align-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.b-tag{font-family:var(--font-mono);font-size:13.5px;color:var(--ink)}
+.masked{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;color:var(--ink-3);margin-top:3px}
+.access{display:flex;align-items:center;gap:8px}
+.avs{display:flex}
+.avs span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-size:9.5px;color:var(--ink);background:linear-gradient(140deg,rgba(156,196,255,.3),rgba(122,92,255,.3));border:1px solid rgba(5,7,12,.7);margin-left:-7px}
+.avs span:first-child{margin-left:0}
+.access .who{font-family:var(--font-mono);font-size:11px;color:var(--ink-2)}
+.state{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.state .led{width:6px;height:6px;border-radius:50%;background:var(--code)}
+.state.idle .led{background:rgba(255,255,255,.25)}
+.slab .actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* compact seal */
+.ringcard{border:1px solid var(--line);border-radius:var(--r-shell);background:var(--shell);padding:8px;margin-bottom:16px}
+.ringcore{border-radius:var(--r-core);background:var(--core);border:1px solid rgba(255,255,255,.06);padding:22px 18px 18px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.ringlabel{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+.ringcode{font-family:var(--font-mono);font-size:38px;font-weight:500;letter-spacing:.1em;color:#fff;text-shadow:0 0 24px rgba(255,206,138,.35);font-variant-numeric:tabular-nums}
+.ringbar{height:2px;background:rgba(255,255,255,.08);margin:16px 22px 10px;overflow:hidden}
+.ringbar i{display:block;height:100%;width:100%;background:var(--code);transform-origin:left;animation:ring 45s linear infinite}
+@keyframes ring{from{transform:scaleX(.62)}to{transform:scaleX(0)}}
+.ringmeta{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);line-height:1.9}
+.ringmeta b{color:var(--code);font-weight:500}
+
+.activity{border:1px solid var(--line);border-radius:var(--r-shell);background:var(--shell);padding:8px}
+.activity .core{border-radius:var(--r-core);background:var(--core);border:1px solid rgba(255,255,255,.06);padding:8px 4px}
+.actlist{list-style:none}
+.actlist li{display:flex;gap:12px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12.5px;color:var(--ink-2)}
+.actlist li:last-child{border-bottom:0}
+.actlist time{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);flex:none;width:52px}
+.actlist b{color:var(--ink);font-weight:500}
+.actlist .warm{color:var(--code)}
+
+footer{position:relative;z-index:10;max-width:1280px;margin:24px auto 0;padding:18px 24px 22px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px 24px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+footer .right{margin-left:auto;display:flex;gap:20px}
+
+@media (max-width:1000px){
+  .grid{grid-template-columns:1fr}
+  .slab .core{grid-template-columns:1fr auto;gap:12px}
+  .slab .actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media (max-width:640px){
+  .navpill nav{display:none}
+  main{padding:18px 16px 0}
+  .pagehead h1{font-size:20px}
+  .pagehead .right{width:100%;margin-left:0}
+  .search{flex:1}
+  .readout{gap:8px 18px}
+  footer .right{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .blob{animation:none}.ringbar i{animation:none;transform:scaleX(.62)}
+  *{transition-duration:1ms!important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M2.5 8h10m0 0-4-4m4 4-4 4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7.2" cy="7.2" r="4.2"/><path d="m10.4 10.4 3 3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.2v9.6M3.2 8h9.6"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.6 8S4 4.2 8 4.2 14.4 8 14.4 8 12 11.8 8 11.8 1.6 8 1.6 8Z"/><circle cx="8" cy="8" r="1.7"/></symbol>
+  <symbol id="i-users" viewBox="0 0 16 16"><circle cx="6" cy="5.9" r="2.3"/><path d="M1.8 13.2c0-2.1 1.9-3.4 4.2-3.4s4.2 1.3 4.2 3.4"/><path d="M11.1 4.1a2.3 2.3 0 0 1 0 4.5"/><path d="M12.3 13.2c0-1.6-.6-2.6-1.7-3.1"/></symbol>
+</svg>
+
+<div class="bg" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="grain"></div><div class="vig"></div></div>
+
+<div class="navwrap">
+  <div class="navpill">
+    <span class="brand"><span class="dot"></span> Overwatch Share</span>
+    <nav>
+      <a class="here" href="#">Vault</a>
+      <a href="#">Accounts</a>
+      <a href="#">Members</a>
+      <a href="#">Admin</a>
+    </nav>
+    <span class="userchip"><span class="av">vx</span> vex</span>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>Your vault</h1>
+    <div class="tabs">
+      <button class="on">All</button>
+      <button>Shared by me</button>
+      <button>Shared with me</button>
+    </div>
+    <div class="right">
+      <label class="search"><svg class="i" style="width:14px;height:14px"><use href="#i-search"/></svg><input placeholder="Search vault" aria-label="Search vault"></label>
+      <button class="btn btn-primary"><svg class="i" style="width:14px;height:14px"><use href="#i-plus"/></svg> Add account</button>
+    </div>
+  </div>
+
+  <div class="readout">
+    <span><b>4</b>sealed</span>
+    <span><b>2</b>shared by me</span>
+    <span><b>2</b>shared with me</span>
+    <span class="hot"><b>1</b>code live now</span>
+    <span><b>12</b>online</span>
+  </div>
+
+  <div class="grid">
+    <section>
+      <div class="section-head">
+        <h2>Sealed accounts</h2><span>4 total</span>
+        <span class="right"><button class="btn btn-quiet">Sort: recent</button></span>
+      </div>
+
+      <article class="slab">
+        <div class="core">
+          <div>
+            <p class="b-tag">NightRunner#2841</p>
+            <p class="masked">password ••••••••••••</p>
+          </div>
+          <div class="access">
+            <span class="avs"><span>wr</span><span>kr</span></span>
+            <span class="who">wren · korone</span>
+          </div>
+          <div class="actions">
+            <span class="state"><span class="led"></span> code live</span>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-users"/></svg> Share</button>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-eye"/></svg> Reveal</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="slab">
+        <div class="core">
+          <div>
+            <p class="b-tag">StaticDrift#1174</p>
+            <p class="masked">password ••••••••••••</p>
+          </div>
+          <div class="access">
+            <span class="avs"><span>bc</span></span>
+            <span class="who">bitcrush</span>
+          </div>
+          <div class="actions">
+            <span class="state idle"><span class="led"></span> idle</span>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-users"/></svg> Share</button>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-eye"/></svg> Reveal</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="slab">
+        <div class="core">
+          <div>
+            <p class="b-tag">Aurora#3305</p>
+            <p class="masked">password ••••••••••••</p>
+          </div>
+          <div class="access"><span class="who">only you</span></div>
+          <div class="actions">
+            <span class="state idle"><span class="led"></span> private</span>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-users"/></svg> Share</button>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-eye"/></svg> Reveal</button>
+          </div>
+        </div>
+      </article>
+
+      <div class="section-head" style="margin-top:22px">
+        <h2>Shared with me</h2><span>2 accounts</span>
+      </div>
+      <article class="slab">
+        <div class="core">
+          <div>
+            <p class="b-tag">MothQueen#0907</p>
+            <p class="masked">password ••••••••••••</p>
+          </div>
+          <div class="access"><span class="who">owner sable</span></div>
+          <div class="actions">
+            <span class="state"><span class="led"></span> code ready</span>
+            <button class="btn btn-quiet"><svg class="i" style="width:14px;height:14px"><use href="#i-eye"/></svg> Reveal</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <aside>
+      <div class="ringcard">
+        <div class="ringcore">
+          <p class="ringlabel">Login code</p>
+          <p class="ringcode">418 302</p>
+          <div class="ringbar"><i></i></div>
+          <p class="ringmeta">NightRunner#2841 · delivered to <b>wren · korone</b><br>1.2s after arrival · expires <b>00:42</b></p>
+        </div>
+      </div>
+
+      <div class="section-head"><h2>Recent activity</h2><span class="right" style="margin-left:auto"><a class="btn btn-quiet" href="#">Log</a></span></div>
+      <div class="activity">
+        <div class="core">
+          <ol class="actlist">
+            <li><time>14:02:11</time><span><b class="warm">Code delivered</b> to wren, korone</span></li>
+            <li><time>14:02:10</time><span>Mail received · v•••••@gmail.com</span></li>
+            <li><time>13:47:22</time><span><b>wren</b> signed in · NightRunner#2841</span></li>
+            <li><time>13:20:04</time><span>Access granted to korone</span></li>
+            <li><time>12:31:09</time><span>korone logged out</span></li>
+          </ol>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <span>Overwatch Share · vault</span>
+  <span class="right"><span>18 Oct 2026 · 14:02 UTC</span><span>v2.0.0</span><a href="#">Privacy</a><a href="#">Terms</a></span>
+</footer>
+</body>
+</html>

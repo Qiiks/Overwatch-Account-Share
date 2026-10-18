@@ -22,6 +22,7 @@ testsprite_tests/
 
 # Environment/config files
 .env*
+!.env.example
 *.env
 
 # IDE/editor files
