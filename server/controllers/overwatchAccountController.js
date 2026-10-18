@@ -17,10 +17,22 @@ const {
   logger,
   performanceLogger,
   securityLogger,
+  adminAuditLogger,
 } = require("../utils/logger");
 const { extractAccountFields } = require("../utils/fieldNormalizer");
 const ApiError = require("../utils/ApiError");
 const { ok } = require("../utils/respond");
+
+// A stored code is only shown while it is still valid; an expired one must not be handed out.
+const OTP_PLACEHOLDER = "--:--:--";
+const freshOtp = (account) => {
+  if (!account || !account.otp) return OTP_PLACEHOLDER;
+  if (account.otp_expires_at) {
+    const expiresAt = new Date(account.otp_expires_at).getTime();
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return OTP_PLACEHOLDER;
+  }
+  return account.otp;
+};
 
 // Validation failures are thrown, never returned: errorMiddleware owns the shape.
 const failValidation = (req) => {
@@ -625,9 +637,10 @@ exports.getAccountCredentials = async (req, res, next) => {
     const userId = req.user?.id;
 
     securityLogger.logSuspiciousActivity(
-      userId || "anonymous",
+      req.ip,
       "Credential access attempt",
       {
+        userId: userId || "anonymous",
         accountId,
         timestamp: new Date().toISOString(),
       },
@@ -666,6 +679,17 @@ exports.getAccountCredentials = async (req, res, next) => {
       hasSharedAccess,
       hasAccess,
     });
+
+    // A reveal is a security-relevant event: persist it where the admin log view reads
+    // (adminAuditLogger.persist -> admin_audit_logs), not only to the log file.
+    if (hasAccess) {
+      adminAuditLogger.persist("credential_reveal", userId, {
+        accountId,
+        isOwner,
+        accessType: isOwner ? "owner" : "shared",
+        ip: req.ip,
+      });
+    }
 
     if (!hasAccess) {
       // Return cyberpunk cipher text for unauthorized users
@@ -720,7 +744,7 @@ exports.getAccountCredentials = async (req, res, next) => {
       accountTag: decryptedAccountTag,
       accountEmail: account.accountemail,
       accountPassword: decryptedPassword,
-      otp: account.otp || "--:--:--",
+      otp: freshOtp(account),
       hasAccess: true,
       accessType: isOwner ? "owner" : "shared",
     });
@@ -944,7 +968,7 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
 
           responseData.accountEmail = account.accountemail;
           responseData.accountPassword = decryptedPassword;
-          responseData.otp = account.otp || "--:--:--";
+          responseData.otp = freshOtp(account);
         } else {
           // Show cipher text for unauthorized users
           responseData.accountEmail = generateCipherText("email");
