@@ -10,6 +10,11 @@ const PG_ERRORS = {
   // The request is unprocessable rather than a server fault, so these answer 400 (this is the
   // backstop for every unvalidated id, not just the routes that validate their fields).
   '22P02': [400, 'VALIDATION_FAILED', 'A field has an invalid format'],
+  // Schema drift: the live database is missing a column this build expects, which happens when
+  // the migrations were not applied in order. Still a server fault, but naming it makes the
+  // condition diagnosable from the response alone instead of a bare 500.
+  '42703': [500, 'SCHEMA_OUT_OF_DATE', 'The database schema is missing a field this version expects'],
+  PGRST204: [500, 'SCHEMA_OUT_OF_DATE', 'The database schema is missing a field this version expects'],
 };
 
 /**

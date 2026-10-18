@@ -5,6 +5,14 @@
 -- against the live project before rebuilding anything from it:
 --   curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_ANON_KEY" | jq '.definitions | keys'
 -- Every statement is idempotent.
+--
+-- Ordering note for an existing project: probe before applying. `create table if not exists`
+-- never adds columns to a table that already exists, so a live schema that predates this file
+-- needs the dated migrations — but those are NOT idempotent (`ALTER TABLE ... ADD COLUMN` and
+-- `CREATE INDEX` without IF NOT EXISTS), so run each one only for what the probe reports
+-- missing. One exception to watch: 2025-10-10-create-settings-table.sql defines the same table
+-- with camelCase "createdAt"/"updatedAt" and a trigger whose body references `updatedat`, which
+-- does not match its own column — the lowercase definition here is the one the models query.
 
 create extension if not exists "uuid-ossp";
 

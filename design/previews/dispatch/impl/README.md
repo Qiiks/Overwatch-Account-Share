@@ -1,7 +1,20 @@
 # DISPATCH — implementation screenshots
 
 Captured from the production build (`next build` → `next start`, Node 26) on Chromium at
-`deviceScaleFactor: 2`, so every desktop file is 2880×1800 (1440×900 CSS).
+`deviceScaleFactor: 2`, so a 1440×900 CSS frame is 2880×1800 px, a 768×1024 one is
+1536×2048, and a 390×844 one is 780×1688.
+
+## Full route × viewport grid (9 routes × 3 viewports)
+
+`landing, login, register, privacy, terms, not-found, dashboard, accounts, admin` at
+`390x844`, `768x1024` and `1440x900` — every file named `<route>-<w>x<h>@2x.png`. All of them
+were captured with the API stubbed in-browser (see below); each capture is gated on rendered
+content and asserts the final path, and none reported horizontal overflow at any width.
+`<route>-768x1024@2x.png` and the 390-wide `privacy`/`terms`/`not-found` frames come from the
+verification pass, which also retook every other `<route>-<w>x<h>@2x.png` in this grid — so
+each named frame is current. The design pass's detail shots are untouched:
+`landing-hero`, `landing-1440x900-reduced-motion`, `dashboard-modal`, `accounts-revealed`,
+`register-rules-met`, `panel-relay-detail`.
 
 ## Real (no stubs)
 
@@ -32,7 +45,8 @@ hash differently). Measured on the element: sweep layer `display: none`, `docume
 the browser as `{ success: true, data: { allow_registration: true } }`. Writes nothing, changes
 no source. With the real API the route redirects to `/login` (registration closed).
 
-## Not mine
+The whole grid above is stubbed the same way — `/api/auth/me`, `/api/dashboard`,
+`/api/overwatch-accounts/all-public`, `/api/google-auth/accounts`, `/api/admin/*` — so the
+authenticated screens render without a database. `anonymous-redirect-1440x900@2x.png` is the
+one exception: it is a real behaviour capture (`/dashboard` → `/login`, no stubs).
 
-`accounts-*`, `admin-*`, `dashboard-*`, `privacy-*`, `terms-*`, `not-found-*`,
-`anonymous-redirect-*` are the sibling agent's captures of the inner screens.
