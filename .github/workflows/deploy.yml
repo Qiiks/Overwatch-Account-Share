@@ -160,4 +160,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # A slow run for an older commit must not reset the branch Coolify imports: when
+          # several runs overlap, the last one to finish used to win, which silently reverted
+          # compose fixes the deployment depends on. Only the current master head may push.
+          git fetch -q origin master
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/master)" ]; then
+            echo "superseded by origin/master; skipping deploy update"
+            exit 0
+          fi
           git push -f origin HEAD:deploy
