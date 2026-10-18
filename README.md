@@ -169,6 +169,25 @@ DNS: an `A` record for `overwatch.qiikzx.tech` pointing at the Coolify host's IP
 TLS (Let's Encrypt) enabled for the domain — the IP is the Coolify server's, so it comes from
 whoever runs that host.
 
+### Traps this deployment actually hit
+
+- **Traefik entrypoint names on Coolify are `http` and `https`.** Labels naming `web`/`websecure`
+  are dropped without an error, which leaves only Coolify's own router for the host answering
+  every path — the site renders perfectly while `/api/*` returns Next's HTML 404.
+- **Coolify injects its own router for the compose domain** (`Host(...) && PathPrefix('/')`) with
+  no `priority`, and Traefik then falls back to the rule's *length*. The routers here carry
+  explicit priorities (client 100, server 500) so `/api`, `/socket.io`, `/health` and `/ready`
+  reach the API. The injected router points at the container port, not 80, so it is a fallback
+  rather than a conflict.
+- **SR7 has no working HTTP entrypoint**: plain `http://` requests get Traefik's 404 and there is
+  no redirect to HTTPS. Use `https://`.
+- **Traefik only requests certificates when the router configuration is applied**, so a DNS fix
+  needs one deploy (or one container recreation) before the certificate appears; until then it
+  serves `TRAEFIK DEFAULT CERT`.
+- **The `deploy` branch is written by CI**, and overlapping runs used to let a slow build of an
+  older commit win. The workflow now refuses to update the branch unless the run is for the
+  current master head.
+
 **The OAuth user type decides how long the relay works.** `gmail.modify` is a restricted scope, so
 an app left in **Testing** expires each user's refresh token **7 days after consent** — the mailbox
 then parks as "reconnect required" and needs re-linking. **Production** requires Google's
