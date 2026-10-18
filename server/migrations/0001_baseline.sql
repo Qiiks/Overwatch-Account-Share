@@ -14,7 +14,11 @@
 -- what the probe reports missing. One conflict to watch: 2025-10-10-create-settings-table.sql
 -- defines the same table with camelCase "createdAt"/"updatedAt" and a trigger whose body
 -- references `updatedat`, which does not match its own column — the lowercase definition here is
--- the one the models query.
+-- the one the models query. Same reasoning for password_encryption_type: if the probe reports it
+-- missing, add it as defined below (default 'aes'), not via the dated file, which defaults it to
+-- 'bcrypt'. The app's own writes name the value explicitly (createOverwatchAccount and the
+-- password branch of updateOverwatchAccount both pass 'aes'), so the default only decides rows
+-- written by anything else — but a default that disagrees with what the code stores is a trap.
 
 create extension if not exists "uuid-ossp";
 
