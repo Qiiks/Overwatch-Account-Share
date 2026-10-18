@@ -36,11 +36,11 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm --prefix server start',
-      // localhost, not 127.0.0.1: on this host the IPv4 literal fails to reach the API while
-      // localhost answers, and a failed probe makes Playwright start a second copy that dies on
-      // EADDRINUSE while a healthy server is already listening. Run with PW_FRESH=1 to have
-      // Playwright own both processes outright, which is what CI does.
-      url: 'http://localhost:5001/health',
+      // /api/auth/csrf, not /health: the probe only needs a response, and /health reports the
+      // remote database's state, so a slow round trip made the probe fail and Playwright start a
+      // second server that died on EADDRINUSE while a healthy one was listening. This route
+      // answers from memory. localhost (not 127.0.0.1) matches this host's bind.
+      url: 'http://localhost:5001/api/auth/csrf',
       // Reuse an already-running stack by default (CI commonly exports CI=true, which must
       // not force a second copy); set PW_FRESH=1 to force Playwright to start its own.
       reuseExistingServer: process.env.PW_FRESH !== '1',

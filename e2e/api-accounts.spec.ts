@@ -4,6 +4,12 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
  * Account + credential behaviour against the real API. The round-trip test is the one that
  * proves the HTML-escaping-before-encryption bug stays fixed: a password containing
  * ' & < > # must come back byte-identical.
+ *
+ * The rate-limit case deliberately spends the per-IP credential budget (5/min, shared with
+ * /all-public and /:id/credentials), so a second full run inside the same minute 429s the
+ * round-trip above — observed in the API's own log, not theorised. The limiter's store is in
+ * memory: restart the API or wait out the window between runs. The budget is deliberately not
+ * raised for tests, since this case asserts the real limit.
  */
 const API = process.env.E2E_API_BASE_URL || 'http://localhost:5001';
 const OWNER = {
