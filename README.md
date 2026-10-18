@@ -168,3 +168,10 @@ Values to set when the app is created (secrets are placeholders — fill from yo
 DNS: an `A` record for `overwatch.qiikzx.tech` pointing at the Coolify host's IP, with Coolify's
 TLS (Let's Encrypt) enabled for the domain — the IP is the Coolify server's, so it comes from
 whoever runs that host.
+
+**The OAuth user type decides how long the relay works.** `gmail.modify` is a restricted scope, so
+an app left in **Testing** expires each user's refresh token **7 days after consent** — the mailbox
+then parks as "reconnect required" and needs re-linking. **Production** requires Google's
+verification plus a CASA security assessment for restricted scopes. **Internal** (Workspace) is
+exempt from both, but then only accounts inside that org can link a mailbox. Nothing in the code
+changes for any of them; the mode is a maintenance choice.
