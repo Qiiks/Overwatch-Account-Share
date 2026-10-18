@@ -86,26 +86,36 @@ test.describe('auth', () => {
       data: { email: ADMIN.email, password: ADMIN.password },
     });
 
-    const off = await request.post(`${API}/api/admin/toggle-registrations`, {
-      headers: { 'x-csrf-token': token },
-      data: { enabled: false },
-    });
-    expect(off.status()).toBe(200);
-    expect((await off.json()).data.enabled).toBe(false);
+    // Read the live value and restore *that* one, whatever happens. This case changes real
+    // configuration, and a failure between the two toggles previously left the project with
+    // registration closed until it was noticed by hand.
+    const status = await request.get(`${API}/api/admin/registration-status`);
+    expect(status.status()).toBe(200);
+    const before = (await status.json()).data.enabled as boolean;
+    expect(typeof before).toBe('boolean');
 
-    await page.goto('/register');
-    // Text, not role: GlassCardTitle renders a <div> (client/components/ui/GlassCard.tsx:39),
-    // so a heading locator would match nothing. The body says "currently disabled", so this
-    // exact string can only be the title.
-    await expect(page.getByText('Registration closed', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    });
+    const toggle = (enabled: boolean) =>
+      request.post(`${API}/api/admin/toggle-registrations`, {
+        headers: { 'x-csrf-token': token },
+        data: { enabled },
+      });
 
-    const on = await request.post(`${API}/api/admin/toggle-registrations`, {
-      headers: { 'x-csrf-token': token },
-      data: { enabled: true },
-    });
-    expect(on.status()).toBe(200);
-    expect((await on.json()).data.enabled).toBe(true);
+    try {
+      const off = await toggle(false);
+      expect(off.status()).toBe(200);
+      expect((await off.json()).data.enabled).toBe(false);
+
+      await page.goto('/register');
+      // Text, not role: GlassCardTitle renders a <div> (client/components/ui/GlassCard.tsx:39),
+      // so a heading locator would match nothing. The body says "currently disabled", so this
+      // exact string can only be the title.
+      await expect(page.getByText('Registration closed', { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+    } finally {
+      const on = await toggle(before);
+      expect(on.status()).toBe(200);
+      expect((await on.json()).data.enabled).toBe(before);
+    }
   });
 });
