@@ -3,7 +3,9 @@
  * Envelope completeness gate: every JSON API route must answer with
  * `{ success: boolean, ... }` — success or error, it must be the envelope.
  *
- *   NODE_ENV=test node server/scripts/smoke-envelope.js
+ *   NODE_ENV=test LOG_LEVEL=error node server/scripts/smoke-envelope.js
+ *   (with dummy values for the Supabase, JWT, encryption, OAuth-state and origin variables the
+ *    anonymous pass still exercises the middleware and controller paths)
  *
  * Two passes:
  *   1. anonymous  — proves the middleware chain answers in the envelope shape.
@@ -22,7 +24,13 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const request = require('supertest');
 const listEndpoints = require('express-list-endpoints');
 
-const EXEMPT = ['/health', '/ready', '/api/health'];
+const EXEMPT = [
+  '/health',
+  '/ready',
+  '/api/health',
+  // Browser redirect endpoint (Google OAuth callback) — not a JSON API.
+  '/api/google-auth/otp/callback',
+];
 const SAMPLE_ID = '00000000-0000-4000-8000-000000000000';
 
 const smokeEmail = process.env.SMOKE_EMAIL || 'dev-owner@example.com';
@@ -77,20 +85,33 @@ const main = async () => {
   const { app } = require('../server');
   const routes = collectRoutes(app);
 
-  const anonymousOffenders = await runPass(request(app), routes, 'anonymous');
+  // Prime the CSRF cookie+token on the agent, exactly as the browser does on first load,
+  // so non-GET requests in both passes get past csrfProtection and reach their handlers.
+  const primeAgent = async (agent) => {
+    const response = await agent.get('/api/auth/csrf');
+    return response.body && response.body.data && response.body.data.token;
+  };
+
+  const anonymousAgent = request.agent(app);
+  const anonymousToken = await primeAgent(anonymousAgent);
+  const anonymousOffenders = await runPass(anonymousAgent, routes, 'anonymous', anonymousToken);
 
   let authenticatedOffenders = [];
   let authenticated = false;
   const agent = request.agent(app);
 
+  // Prime the jar *before* building the request: supertest snapshots the agent's cookies
+  // when the request object is created, so a token fetched afterwards would not be sent.
+  const loginToken = await primeAgent(agent);
+
   const login = await agent
     .post('/api/auth/login')
+    .set('x-csrf-token', loginToken || '')
     .send({ email: smokeEmail, password: smokePassword });
 
   if (login.status === 200) {
     authenticated = true;
-    const csrfResponse = await agent.get('/api/auth/csrf');
-    const token = csrfResponse.body && csrfResponse.body.data && csrfResponse.body.data.token;
+    const token = await primeAgent(agent);
     authenticatedOffenders = await runPass(agent, routes, 'authenticated', token);
   } else {
     console.log(
