@@ -40,3 +40,6 @@ Thumbs.db
 
 # Design review artifacts: keep the mock sources and tokens, not the heavy PNG exports.
 design/previews/**/*.png
+
+# the app ships a real robots.txt (client/Dockerfile copies public/)
+!client/public/robots.txt
