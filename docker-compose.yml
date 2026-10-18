@@ -51,7 +51,6 @@ services:
         # Same-origin default: the client calls /api on its own host and the proxy
         # in front routes it to the server container.
         - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-/api}
-        - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
         - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
@@ -59,7 +58,6 @@ services:
       - NODE_ENV=production
       # Kept for reference; NEXT_PUBLIC_* values are baked in at build time.
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-/api}
-      - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
       - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL:-http://localhost:3000}
     depends_on:
       - server

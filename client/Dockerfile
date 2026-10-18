@@ -22,14 +22,14 @@ RUN npm ci
 COPY --chown=nodejs:nodejs . .
 
 # CRITICAL: Accept build arguments for Next.js environment variables
-# These MUST be available at build time for Next.js to embed them in the client bundle
+# These MUST be available at build time for Next.js to embed them in the client bundle.
+# Only variables the client actually reads belong here: every extra one is another
+# per-environment rebuild.
 ARG NEXT_PUBLIC_API_BASE_URL
-ARG NEXT_PUBLIC_FRONTEND_URL
 ARG NEXT_PUBLIC_WEBSITE_URL
 
 # Set them as environment variables for the build process
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
-ENV NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL}
 ENV NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL}
 
 # Build the app with the environment variables available
