@@ -17,9 +17,11 @@ services:
       server:
         condition: service_started
     healthcheck:
-      # Same probe as client/Dockerfile's HEALTHCHECK: node is in the image, while BusyBox's
-      # wget (this is node:20-alpine) rejects --no-verbose/--tries, so the old form could
-      # only ever report the container unhealthy.
+      # Same probe as client/Dockerfile's HEALTHCHECK: the node one-liner is guaranteed to
+      # exist in this image and it asks the route the client actually serves, so the compose
+      # service and the image can never disagree about what "healthy" means. (The previous
+      # BusyBox-wget form happened to work — BusyBox accepts and ignores --no-verbose/--tries
+      # and --spider is unconditional — it was just a second, subtly different definition.)
       test:
         [
           "CMD",
