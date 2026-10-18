@@ -210,18 +210,26 @@ class OTPService {
           this.lastError = error.message;
           this.lastErrorAt = new Date().toISOString();
 
-          // Auth errors and undecryptable tokens both mean this mailbox can never deliver
-          // again; park it so the linked-accounts UI can show it as needing a re-link.
+          // Only a real Google rejection means the grant is dead and the mailbox should be
+          // parked. A decrypt failure means *our* ENCRYPTION_SECRET is wrong — parking every
+          // mailbox on a config mistake would write to production rows and hide the cause, so
+          // that case is logged loudly and left alone.
           const isAuthError =
             error.response && [400, 401].includes(error.response.status);
           const isDecryptError = /decrypt|Unsupported state|unable to authenticate/i.test(
             error.message || "",
           );
-          if (isAuthError || isDecryptError) {
+          if (isAuthError) {
             logger.warn(
-              `[OTP Service] Deactivating Google account ${googleAccount.id} (${isAuthError ? "auth error" : "undecryptable token"})`,
+              `[OTP Service] Deactivating Google account ${googleAccount.id} (auth error)`,
             );
             await UserGoogleAccount.deactivate(googleAccount.id);
+          } else if (isDecryptError) {
+            logger.error(
+              `[OTP Service] Refusing to deactivate ${googleAccount.id} (${googleAccount.email}): ` +
+                "its stored token cannot be decrypted, which means ENCRYPTION_SECRET does not match " +
+                "the key this mailbox was linked with. Fix the key; do not delete the grant.",
+            );
           }
         }
       }

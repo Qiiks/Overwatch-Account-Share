@@ -15,6 +15,9 @@ const PG_ERRORS = {
   // condition diagnosable from the response alone instead of a bare 500.
   '42703': [500, 'SCHEMA_OUT_OF_DATE', 'The database schema is missing a field this version expects'],
   PGRST204: [500, 'SCHEMA_OUT_OF_DATE', 'The database schema is missing a field this version expects'],
+  // 205 is the table-level twin of 204: PostgREST reports a table it cannot see in its schema
+  // cache (admin_audit_logs and email_services are absent until the reconcile migration runs).
+  PGRST205: [500, 'SCHEMA_OUT_OF_DATE', 'The database schema is missing a table this version expects'],
 };
 
 /**
