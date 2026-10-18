@@ -121,8 +121,12 @@ jobs:
           labels: ${{ steps.meta-client.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # The API base is relative on purpose: Coolify's Traefik routes /api and /socket.io
+          # to the server container on the same host, so one image serves every environment
+          # and the session cookie stays first-party. NEXT_PUBLIC_WEBSITE_URL is absolute
+          # (canonical/OG metadata) and therefore a per-environment secret.
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            NEXT_PUBLIC_API_BASE_URL=/api
             NEXT_PUBLIC_WEBSITE_URL=${{ secrets.NEXT_PUBLIC_WEBSITE_URL }}
 
   # JOB 4: Trigger Deploy (GitOps)
