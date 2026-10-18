@@ -55,6 +55,7 @@ const { httpLogger, logger, performanceLogger, securityLogger } = require('./uti
 const { performanceMonitor, memoryMonitor } = require('./middleware/performanceMonitor');
 const { cache } = require('./utils/cache');
 const { AUTH_COOKIE } = require('./utils/cookies');
+const ApiError = require('./utils/ApiError');
 
 const app = express();
 
@@ -265,6 +266,13 @@ if (process.env.NODE_ENV !== 'production' && process.env.DEV_TOOLS === 'true') {
   app.use('/api/dev', require('./routes/dev'));
   logger.info('Dev tooling mounted at /api/dev');
 }
+
+// Unknown /api/* paths must still answer in the envelope. Without this they fall through to
+// Express's default HTML 404, and the smoke gate cannot catch that: it enumerates registered
+// routes only, so a bogus path was the one place the contract went untested.
+app.use('/api', (req, res, next) => {
+  next(new ApiError(404, 'NOT_FOUND', 'Endpoint not found'));
+});
 
 app.use(errorHandler);
 
