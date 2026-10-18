@@ -316,6 +316,20 @@ const adminAuditLogger = {
       timestamp: new Date().toISOString(),
     });
   },
+
+  /**
+   * Generic admin audit event (share account, force logout, cache clear, ...).
+   * Usage: adminAuditLogger.log('force_logout', adminId, { ...details })
+   */
+  log: (action, adminId, details = {}) => {
+    logger.info(`ADMIN AUDIT: ${action}`, {
+      event: "admin_audit",
+      action,
+      adminId,
+      ...details,
+      timestamp: new Date().toISOString(),
+    });
+  },
 };
 
 module.exports = {

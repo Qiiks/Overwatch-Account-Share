@@ -21,6 +21,26 @@ const {
   securityLogger,
 } = require("../utils/logger");
 const { extractAccountFields } = require("../utils/fieldNormalizer");
+const ApiError = require("../utils/ApiError");
+const { ok } = require("../utils/respond");
+
+// Validation failures are thrown, never returned: errorMiddleware owns the shape.
+const failValidation = (req) => {
+  const errors = validationResult(req);
+  if (errors.isEmpty()) return null;
+  const details = {};
+  for (const error of errors.array()) details[error.path] = error.msg;
+  return new ApiError(400, "VALIDATION_FAILED", "Validation failed", details);
+};
+
+// Accounts and dashboard payloads both cache per user; a mutation clears both.
+const invalidateUserCaches = (userIds) =>
+  Promise.all(
+    [...new Set(userIds)].flatMap((id) => [
+      cache.del(cacheKeys.accounts(id)),
+      cache.del(cacheKeys.dashboard(id)),
+    ]),
+  );
 
 exports.addAccount = [
   // Validate and sanitize inputs - accept both frontend field names and backend field names
@@ -30,8 +50,7 @@ exports.addAccount = [
     .notEmpty()
     .withMessage("Battletag is required")
     .isLength({ min: 3 })
-    .withMessage("Battletag must be at least 3 characters")
-    .escape(),
+    .withMessage("Battletag must be at least 3 characters"),
 
   body("accountTag")
     .if(body("accountTag").exists())
@@ -39,8 +58,7 @@ exports.addAccount = [
     .notEmpty()
     .withMessage("Battletag is required")
     .isLength({ min: 3 })
-    .withMessage("Battletag must be at least 3 characters")
-    .escape(),
+    .withMessage("Battletag must be at least 3 characters"),
 
   body("email")
     .if(body("email").exists())
@@ -66,8 +84,7 @@ exports.addAccount = [
     .notEmpty()
     .withMessage("Password is required")
     .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters")
-    .escape(),
+    .withMessage("Password must be at least 6 characters"),
 
   body("accountPassword")
     .if(body("accountPassword").exists())
@@ -75,8 +92,7 @@ exports.addAccount = [
     .notEmpty()
     .withMessage("Password is required")
     .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters")
-    .escape(),
+    .withMessage("Password must be at least 6 characters"),
 
   // Validate googleAccountId - optional but should be a valid UUID if provided
   body("googleAccountId")
@@ -86,44 +102,36 @@ exports.addAccount = [
     .withMessage("Invalid Google Account ID"),
 
   // Notes field - optional (not stored in DB currently)
-  body("notes").optional().trim().escape(),
+  body("notes").optional().trim(),
 
   // Process request after validation
   async (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      if (process.env.NODE_ENV !== "production") {
-        logger.debug("Validation errors:", errors.array());
-        logger.debug("Request body:", req.body);
-      }
-      return res.status(400).json({
-        success: false,
-        error: errors.array(),
-      });
-    }
-
-    // Use field normalizer for consistent field extraction with backward compatibility
-    const { accountTag, accountEmail, accountPassword } = extractAccountFields(
-      req.body,
-    );
-    const googleAccountId = req.body.googleAccountId;
-
-    logger.debug("Processing account creation", {
-      accountTag,
-      hasEmail: !!accountEmail,
-      hasGoogleAccount: !!googleAccountId,
-      owner_id: req.user.id,
-    });
-
     try {
+      const invalid = failValidation(req);
+      if (invalid) throw invalid;
+
+      // Use field normalizer for consistent field extraction with backward compatibility
+      const { accountTag, accountEmail, accountPassword } = extractAccountFields(
+        req.body,
+      );
+      const googleAccountId = req.body.googleAccountId;
+
+      logger.debug("Processing account creation", {
+        accountTag,
+        hasEmail: !!accountEmail,
+        hasGoogleAccount: !!googleAccountId,
+        owner_id: req.user.id,
+      });
+
       // Check for exact duplicates of accountTag
       const existingAccountByTag =
         await findOverwatchAccountByAccountTag(accountTag);
       if (existingAccountByTag) {
-        return res.status(400).json({
-          success: false,
-          error: [{ msg: "An account with this Battletag already exists" }],
-        });
+        throw new ApiError(
+          409,
+          "CONFLICT",
+          "An account with this Battletag already exists",
+        );
       }
 
       // Check for exact duplicates of accountEmail
@@ -132,10 +140,11 @@ exports.addAccount = [
       const existingAccountByEmail =
         await findOverwatchAccountByAccountEmail(accountEmail);
       if (existingAccountByEmail) {
-        return res.status(400).json({
-          success: false,
-          error: [{ msg: "An account with this email address already exists" }],
-        });
+        throw new ApiError(
+          409,
+          "CONFLICT",
+          "An account with this email address already exists",
+        );
       }
 
       const newAccount = await createOverwatchAccount({
@@ -146,6 +155,8 @@ exports.addAccount = [
         linked_google_account_id: googleAccountId || null, // Map to correct column name
       });
 
+      await invalidateUserCaches([req.user.id]);
+
       // Decrypt accountTag for response
       let decryptedAccountTag = newAccount.accounttag;
       try {
@@ -155,13 +166,14 @@ exports.addAccount = [
         decryptedAccountTag = newAccount.accounttag;
       }
 
-      res.status(201).json({
-        success: true,
-        data: {
+      return ok(
+        res,
+        {
           ...newAccount,
           accountTag: decryptedAccountTag,
         },
-      });
+        201,
+      );
     } catch (error) {
       // Pass error to centralized error handler
       next(error);
@@ -239,17 +251,10 @@ exports.getAccounts = async (req, res, next) => {
       req.user.id,
     );
 
-    res.status(200).json({
-      success: true,
-      data: accountsWithOwnership,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(filteredAccounts.length / limit),
-        totalItems: filteredAccounts.length,
-        itemsPerPage: limit,
-        hasNext: page * limit < filteredAccounts.length,
-        hasPrev: page > 1,
-      },
+    return ok(res, accountsWithOwnership, 200, {
+      total: filteredAccounts.length,
+      page,
+      pageSize: limit,
     });
   } catch (error) {
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
@@ -272,8 +277,7 @@ exports.updateAccount = [
     .optional()
     .trim()
     .isLength({ min: 3 })
-    .withMessage("Account tag must be at least 3 characters")
-    .escape(),
+    .withMessage("Account tag must be at least 3 characters"),
 
   body("accountEmail")
     .optional()
@@ -287,8 +291,7 @@ exports.updateAccount = [
     .optional()
     .trim()
     .isLength({ min: 3 })
-    .withMessage("Battletag must be at least 3 characters")
-    .escape(),
+    .withMessage("Battletag must be at least 3 characters"),
 
   body("email")
     .optional()
@@ -301,42 +304,33 @@ exports.updateAccount = [
     .optional()
     .trim()
     .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters")
-    .escape(),
+    .withMessage("Password must be at least 6 characters"),
 
   body("accountPassword")
     .optional()
     .trim()
     .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters")
-    .escape(),
+    .withMessage("Password must be at least 6 characters"),
 
   async (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: errors.array(),
-      });
-    }
-
-    const accountId = req.params.id;
-
     try {
+      const invalid = failValidation(req);
+      if (invalid) throw invalid;
+
+      const accountId = req.params.id;
+
       // Ensure the account exists and the requester is the owner
       const account = await findOverwatchAccountById(accountId);
       if (!account) {
-        return res.status(404).json({
-          success: false,
-          error: [{ msg: "Account not found" }],
-        });
+        throw new ApiError(404, "NOT_FOUND", "Account not found");
       }
 
       if (account.owner_id !== req.user.id) {
-        return res.status(403).json({
-          success: false,
-          error: [{ msg: "Not authorized to update this account" }],
-        });
+        throw new ApiError(
+          403,
+          "FORBIDDEN",
+          "Not authorized to update this account",
+        );
       }
 
       // Build update payload from allowed fields only
@@ -364,16 +358,19 @@ exports.updateAccount = [
       }
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: [{ msg: "No valid fields provided for update" }],
-        });
+        throw new ApiError(
+          400,
+          "VALIDATION_FAILED",
+          "No valid fields provided for update",
+        );
       }
 
       const updatedAccount = await updateOverwatchAccount(
         accountId,
         updateData,
       );
+
+      await invalidateUserCaches([req.user.id]);
 
       // Decrypt accountTag for response
       let decryptedAccountTag = updatedAccount.accounttag;
@@ -384,12 +381,9 @@ exports.updateAccount = [
         decryptedAccountTag = updatedAccount.accounttag;
       }
 
-      return res.status(200).json({
-        success: true,
-        data: {
-          ...updatedAccount,
-          accountTag: decryptedAccountTag,
-        },
+      return ok(res, {
+        ...updatedAccount,
+        accountTag: decryptedAccountTag,
       });
     } catch (error) {
       next(error);
@@ -406,18 +400,16 @@ exports.updateAccountAccess = async (req, res, next) => {
     const account = await findOverwatchAccountById(accountId);
 
     if (!account) {
-      return res.status(404).json({
-        success: false,
-        error: [{ msg: "Account not found" }],
-      });
+      throw new ApiError(404, "NOT_FOUND", "Account not found");
     }
 
     // Check if the user is the owner of the account
     if (account.owner_id !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        error: [{ msg: "Not authorized to update this account" }],
-      });
+      throw new ApiError(
+        403,
+        "FORBIDDEN",
+        "Not authorized to update this account",
+      );
     }
 
     // Get the list of previously allowed users before making changes
@@ -451,12 +443,12 @@ exports.updateAccountAccess = async (req, res, next) => {
       const invalidUserIds = userIds.filter((id) => !validUserIds.includes(id));
 
       if (invalidUserIds.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: [
-            { msg: `Invalid user IDs provided: ${invalidUserIds.join(", ")}` },
-          ],
-        });
+        throw new ApiError(
+          400,
+          "VALIDATION_FAILED",
+          "Invalid user IDs provided",
+          { userIds: invalidUserIds },
+        );
       }
     }
 
@@ -488,29 +480,14 @@ exports.updateAccountAccess = async (req, res, next) => {
       }
     }
 
-    // Cache invalidation: Determine all affected users
-    const newUserIds = userIds || [];
+    // Cache invalidation: owner plus every user who lost or gained access
     const allAffectedUserIds = new Set([
+      account.owner_id,
       ...oldUserIds, // Users who lost access
-      ...newUserIds, // Users who gained access
+      ...(userIds || []), // Users who gained access
     ]);
 
-    // Invalidate cache for the account owner
-    const ownerCacheKey = cacheKeys.accounts(account.owner_id);
-
-    // Create cache invalidation promises
-    const cacheInvalidationPromises = [
-      cache.del(ownerCacheKey), // Invalidate owner's cache
-    ];
-
-    // Invalidate cache for all affected users
-    for (const userId of allAffectedUserIds) {
-      const userCacheKey = cacheKeys.accounts(userId);
-      cacheInvalidationPromises.push(cache.del(userCacheKey));
-    }
-
-    // Execute all cache invalidations in parallel
-    await Promise.all(cacheInvalidationPromises);
+    await invalidateUserCaches(allAffectedUserIds);
 
     performanceLogger.logCache(
       "invalidate",
@@ -554,15 +531,12 @@ exports.updateAccountAccess = async (req, res, next) => {
       decryptedAccountTag = updatedAccount.accounttag;
     }
 
-    res.status(200).json({
-      success: true,
-      data: {
-        ...updatedAccount,
-        accountTag: decryptedAccountTag,
-        sharedUsers: sharedUserIds,
-        // Remove the raw overwatch_account_allowed_users from response
-        overwatch_account_allowed_users: undefined,
-      },
+    return ok(res, {
+      ...updatedAccount,
+      accountTag: decryptedAccountTag,
+      sharedUsers: sharedUserIds,
+      // Remove the raw overwatch_account_allowed_users from response
+      overwatch_account_allowed_users: undefined,
     });
   } catch (error) {
     logger.error("Error in updateAccountAccess:", error);
@@ -583,10 +557,7 @@ exports.getUsersForSharing = async (req, res, next) => {
       throw error;
     }
 
-    res.status(200).json({
-      success: true,
-      data: users,
-    });
+    return ok(res, users);
   } catch (error) {
     // Pass error to centralized error handler
     next(error);
@@ -598,26 +569,22 @@ exports.deleteAccount = async (req, res, next) => {
     const account = await findOverwatchAccountById(req.params.id);
 
     if (!account) {
-      return res.status(404).json({
-        success: false,
-        error: [{ msg: "Account not found" }],
-      });
+      throw new ApiError(404, "NOT_FOUND", "Account not found");
     }
 
     // Check if the user is the owner of the account
     if (account.owner_id !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        error: [{ msg: "Not authorized to delete this account" }],
-      });
+      throw new ApiError(
+        403,
+        "FORBIDDEN",
+        "Not authorized to delete this account",
+      );
     }
 
     await deleteOverwatchAccount(req.params.id);
+    await invalidateUserCaches([account.owner_id]);
 
-    res.status(200).json({
-      success: true,
-      message: "Account deleted successfully",
-    });
+    return ok(res, { message: "Account deleted successfully" });
   } catch (error) {
     // Pass error to centralized error handler
     next(error);
@@ -646,10 +613,7 @@ exports.getAccountCredentials = async (req, res, next) => {
     const account = await findOverwatchAccountById(accountId);
 
     if (!account) {
-      return res.status(404).json({
-        success: false,
-        error: "Account not found",
-      });
+      throw new ApiError(404, "NOT_FOUND", "Account not found");
     }
 
     // Critical authorization checks
@@ -690,16 +654,13 @@ exports.getAccountCredentials = async (req, res, next) => {
         decryptedAccountTag = account.accounttag;
       }
 
-      return res.status(200).json({
-        success: true,
-        data: {
-          accountTag: decryptedAccountTag,
-          accountEmail: generateCipherText("email"),
-          accountPassword: generateCipherText("password"),
-          otp: generateCipherText("otp"),
-          hasAccess: false,
-          accessType: "none",
-        },
+      return ok(res, {
+        accountTag: decryptedAccountTag,
+        accountEmail: generateCipherText("email"),
+        accountPassword: generateCipherText("password"),
+        otp: generateCipherText("otp"),
+        hasAccess: false,
+        accessType: "none",
       });
     }
 
@@ -731,16 +692,13 @@ exports.getAccountCredentials = async (req, res, next) => {
     }
 
     // Return real credentials for authorized users
-    res.status(200).json({
-      success: true,
-      data: {
-        accountTag: decryptedAccountTag,
-        accountEmail: account.accountemail,
-        accountPassword: decryptedPassword,
-        otp: account.otp || "--:--:--",
-        hasAccess: true,
-        accessType: isOwner ? "owner" : "shared",
-      },
+    return ok(res, {
+      accountTag: decryptedAccountTag,
+      accountEmail: account.accountemail,
+      accountPassword: decryptedPassword,
+      otp: account.otp || "--:--:--",
+      hasAccess: true,
+      accessType: isOwner ? "owner" : "shared",
     });
   } catch (error) {
     logger.error("[SECURITY] Error in getAccountCredentials", {
@@ -793,9 +751,8 @@ exports.shareAccountByEmail = async (req, res, next) => {
 
     // Validate email is provided
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: [{ msg: "Email is required" }],
+      throw new ApiError(400, "VALIDATION_FAILED", "Email is required", {
+        email: "Email is required",
       });
     }
 
@@ -807,34 +764,25 @@ exports.shareAccountByEmail = async (req, res, next) => {
       .single();
 
     if (userError || !targetUser) {
-      return res.status(404).json({
-        success: false,
-        error: [{ msg: "User with this email not found" }],
-      });
+      throw new ApiError(404, "NOT_FOUND", "User with this email not found");
     }
 
     // Find the account
     const account = await findOverwatchAccountById(accountId);
 
     if (!account) {
-      return res.status(404).json({
-        success: false,
-        error: [{ msg: "Account not found" }],
-      });
+      throw new ApiError(404, "NOT_FOUND", "Account not found");
     }
 
     // Verify that the requester is the owner of the account OR an admin
     const isAdmin = req.user.role === "admin" || req.user.isadmin === true;
 
     if (account.owner_id !== requesterId && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: [
-          {
-            msg: "You are not authorized to share this account. Only the owner or an admin can share.",
-          },
-        ],
-      });
+      throw new ApiError(
+        403,
+        "FORBIDDEN",
+        "You are not authorized to share this account. Only the owner or an admin can share.",
+      );
     }
 
     // Check if the account is already shared with this user
@@ -852,10 +800,11 @@ exports.shareAccountByEmail = async (req, res, next) => {
     }
 
     if (existingShare) {
-      return res.status(400).json({
-        success: false,
-        error: [{ msg: "This account is already shared with this user" }],
-      });
+      throw new ApiError(
+        409,
+        "CONFLICT",
+        "This account is already shared with this user",
+      );
     }
 
     // Insert new share record into junction table
@@ -871,29 +820,26 @@ exports.shareAccountByEmail = async (req, res, next) => {
       throw insertError;
     }
 
-    // Invalidate cache for both the account owner and the newly shared user
-    const ownerCacheKey = cacheKeys.accounts(account.owner_id);
-    const userCacheKey = cacheKeys.accounts(targetUser.id);
+    // Invalidate both cached payloads for the owner and the newly shared user
+    await invalidateUserCaches([account.owner_id, targetUser.id]);
 
-    await Promise.all([cache.del(ownerCacheKey), cache.del(userCacheKey)]);
-
-    performanceLogger.logCache("invalidate", ownerCacheKey, false);
+    performanceLogger.logCache(
+      "invalidate",
+      `owner-${account.owner_id}`,
+      false,
+    );
     logger.debug("[Cache] Invalidated cache for share operation", {
       ownerId: account.owner_id,
       sharedUserId: targetUser.id,
     });
 
-    // Return success message with user info
-    res.status(200).json({
-      success: true,
-      message: `Account successfully shared with ${targetUser.username}`,
-      data: {
-        accountId: accountId,
-        sharedWith: {
-          id: targetUser.id,
-          username: targetUser.username,
-          email: targetUser.email,
-        },
+    // Return the shared user's public info
+    return ok(res, {
+      accountId: accountId,
+      sharedWith: {
+        id: targetUser.id,
+        username: targetUser.username,
+        email: targetUser.email,
       },
     });
   } catch (error) {
@@ -986,10 +932,7 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
       }),
     );
 
-    res.status(200).json({
-      success: true,
-      data: processedAccounts,
-    });
+    return ok(res, processedAccounts);
   } catch (error) {
     next(error);
   }

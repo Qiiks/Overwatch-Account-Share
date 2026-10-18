@@ -4,6 +4,7 @@ const OverwatchAccount = require("../models/OverwatchAccount");
 const encryption = require("../utils/encryption");
 const { decrypt } = require("../utils/encryption");
 const { logger } = require("../utils/logger");
+const { supabase } = require("../config/db");
 
 const FETCH_INTERVAL_MS = parseInt(
   process.env.OTP_FETCH_INTERVAL_MS || "10000",
@@ -183,6 +184,8 @@ class OTPService {
       for (const googleAccount of googleAccounts) {
         try {
           await this.fetchOTPsFromGoogleAccount(googleAccount, io);
+          // Keeps last_otp_fetch / otp_fetch_count truthful for the linked-accounts panel.
+          await UserGoogleAccount.markFetched(googleAccount.id);
         } catch (error) {
           logger.error(
             `[OTP Service] Error fetching from Google account ${googleAccount.email}:`,
@@ -361,7 +364,7 @@ class OTPService {
     }
 
     // Emit real-time update via WebSocket
-    this.emitOTP(io, account, otp);
+    await this.emitOTP(io, account, otp);
   }
 
   /**
@@ -370,7 +373,7 @@ class OTPService {
    * @param {Object} account - The Overwatch account
    * @param {string} otp - The OTP code
    */
-  emitOTP(io, account, otp) {
+  async emitOTP(io, account, otp) {
     // Decrypt accountTag for client-side matching
     let decryptedAccountTag = account.accounttag;
     try {
@@ -391,19 +394,33 @@ class OTPService {
       timestamp: new Date().toISOString(),
     };
 
-    // Emit to owner's room
-    io.to(account.owner_id.toString()).emit("otp_update", payload);
+    // Only the owner and the users this account is shared with receive the code.
+    // (The previous global 'otp-updates' room exposed live codes to any socket.)
+    let recipientIds = [account.owner_id];
+    try {
+      const { data, error } = await supabase
+        .from("overwatch_account_allowed_users")
+        .select("user_id")
+        .eq("overwatch_account_id", account.id);
 
-    // Also emit to global 'otp' event for backward compatibility
-    io.to(account.owner_id.toString()).emit("otp", payload);
-    io.to("otp-updates").emit("otp_update", payload);
-    io.to("otp-updates").emit("otp", payload);
+      if (error) throw error;
+      recipientIds = [
+        ...new Set([account.owner_id, ...(data || []).map((row) => row.user_id)]),
+      ];
+    } catch (error) {
+      logger.error(
+        "[OTP Service] Failed to resolve shared recipients; notifying the owner only",
+        { error: error.message, accountId: account.id },
+      );
+    }
+
+    io.to(recipientIds.map(String)).emit("otp_update", payload);
 
     logger.info(
       `[OTP Service] Emitted OTP update for account ${decryptedAccountTag}`,
       {
         ownerId: account.owner_id,
-        accountTag: decryptedAccountTag,
+        recipients: recipientIds.length,
       },
     );
   }

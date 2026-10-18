@@ -3,7 +3,7 @@ const { cache } = require('../utils/cache');
 const { findEmailServiceByEmail } = require('./EmailService');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
 const { encrypt, decrypt } = require('../utils/encryption');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;

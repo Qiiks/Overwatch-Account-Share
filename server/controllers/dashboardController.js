@@ -3,6 +3,8 @@ const supabase = dbClient.supabase;
 const { cache, cacheKeys, CACHE_TTL } = require('../utils/cache');
 const { decrypt } = require('../utils/encryption');
 const { logger } = require('../utils/logger');
+const { ok } = require('../utils/respond');
+const ApiError = require('../utils/ApiError');
 
 // @desc    Get all data for the main dashboard
 // @route   GET /api/dashboard
@@ -20,11 +22,11 @@ const getDashboard = async (req, res) => {
             .single();
 
         if (userError || !user) {
-            return res.status(404).json({ message: 'User not found' });
+            throw new ApiError(404, 'NOT_FOUND', 'User not found');
         }
 
         // Check cache first for dashboard stats
-        const cacheKey = cacheKeys.accounts(req.user.id);
+        const cacheKey = cacheKeys.dashboard(req.user.id);
         let cachedData = await cache.get(cacheKey);
 
         let accounts = [], accountsOwned = 0, accountsShared = 0, queryDuration = 0;
@@ -158,7 +160,7 @@ const getDashboard = async (req, res) => {
         const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
         logger.debug(`[PERF] Dashboard request completed in ${totalDuration.toFixed(2)}ms`);
 
-        res.json({
+        ok(res, {
             user: {
                 id: user.id,
                 username: user.username,
@@ -180,7 +182,7 @@ const getDashboard = async (req, res) => {
             stack: error.stack,
             userId: req.user.id
         });
-        res.status(500).json({ message: 'Server error' });
+        throw error;
     }
 };
 

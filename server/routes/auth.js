@@ -5,9 +5,12 @@ const {
   login,
   logout,
   getMe,
+  updateProfile,
+  changePassword,
   createUserByAdmin,
   getRegistrationStatus,
   setRegistrationStatus,
+  getCsrfToken,
 } = require("../controllers/authController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
@@ -15,8 +18,13 @@ const adminMiddleware = require("../middleware/adminMiddleware");
 router.post("/register", register);
 router.post("/login", login);
 router.post("/logout", logout);
+router.get("/csrf", getCsrfToken);
+
 router.get("/me", protect, getMe);
-router.get("/admin", protect, authorize("Admin"), (req, res) => {
+router.patch("/me", protect, updateProfile);
+router.post("/change-password", protect, changePassword);
+
+router.get("/admin", protect, authorize("admin"), (req, res) => {
   res.status(200).json({ success: true, data: "Welcome Admin" });
 });
 
@@ -29,10 +37,5 @@ router.post(
   adminMiddleware,
   setRegistrationStatus
 );
-
-// Password reset endpoint
-// TODO: Implement resetPassword in authController
-// const { resetPassword } = require('../controllers/authController');
-// router.post('/reset-password', resetPassword);
 
 module.exports = router;

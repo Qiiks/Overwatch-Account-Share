@@ -54,6 +54,7 @@ const connectRedis = async () => {
 const cacheKeys = {
   user: (id) => `user:${id}`,
   accounts: (userId) => `accounts:${userId}`,
+  dashboard: (userId) => `dashboard:${userId}`,
   account: (id) => `account:${id}`,
   users: (page, limit) => `users:page:${page}:limit:${limit}`,
   emailService: (email) => `emailService:${email}`,

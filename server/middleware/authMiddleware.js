@@ -3,47 +3,44 @@ const { supabase } = require("../config/db");
 const { securityLogger } = require("../utils/logger");
 const Settings = require("../models/Settings");
 const { cache } = require("../utils/cache");
+const ApiError = require("../utils/ApiError");
+const { AUTH_COOKIE } = require("../utils/cookies");
+
+// Cookie first (browser clients), Bearer fallback for scripts and non-browser clients.
+const extractToken = (req) => {
+  if (req.cookies && req.cookies[AUTH_COOKIE]) {
+    return req.cookies[AUTH_COOKIE];
+  }
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) {
+    return header.split(" ")[1];
+  }
+  return null;
+};
 
 const authMiddleware = async (req, res, next) => {
-  let token = null;
+  const token = extractToken(req);
+  const email = (req.body && req.body.email) || null;
+  const userAgent = req.headers["user-agent"];
 
-  // Priority 1: Check httpOnly cookie (most secure)
-  if (req.cookies && req.cookies.auth_token) {
-    token = req.cookies.auth_token;
-  }
-  // Priority 2: Check Authorization header (backward compatibility)
-  else if (req.headers.authorization) {
-    // Check if Authorization header starts with "Bearer " (with space)
-    if (!req.headers.authorization.startsWith("Bearer ")) {
-      securityLogger.logAuthAttempt(
-        req.ip,
-        null,
-        false,
-        "Invalid token format",
-      );
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token format, authorization denied",
-      });
-    }
-    // Extract the token after "Bearer "
-    token = req.headers.authorization.split(" ")[1];
+  if (!token) {
+    securityLogger.logAuthAttempt(email, false, req.ip, userAgent);
+    return next(new ApiError(401, "UNAUTHENTICATED", "No token, authorization denied"));
   }
 
-  // No token found in either location
-  if (!token || token === "") {
-    securityLogger.logAuthAttempt(req.ip, null, false, "No token provided");
-    return res.status(401).json({
-      success: false,
-      message: "No token, authorization denied",
-    });
-  }
-
+  let decoded;
   try {
-    // Verify the JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    securityLogger.logAuthAttempt(email, false, req.ip, userAgent);
+    const message =
+      error.name === "TokenExpiredError" ? "Token expired" : "Invalid token";
+    return next(new ApiError(401, "UNAUTHENTICATED", message));
+  }
 
-    // Check for global logout (Force Logout)
+  // Past this point a failure is a database/config problem, not a bad token: it must
+  // surface as a logged 500, never as "401 on every protected route".
+  try {
     const minJwtIat = await cache.getOrSet(
       "min_jwt_issued_at",
       async () => {
@@ -51,77 +48,51 @@ const authMiddleware = async (req, res, next) => {
         return val ? Number(val) : 0;
       },
       60,
-    ); // Cache for 60 seconds
+    );
 
     if (minJwtIat && decoded.iat * 1000 < minJwtIat) {
-      securityLogger.logAuthAttempt(
-        req.ip,
-        decoded.id,
-        false,
-        "Token invalidated by global logout",
+      securityLogger.logAuthAttempt(email, false, req.ip, userAgent);
+      return next(
+        new ApiError(
+          401,
+          "UNAUTHENTICATED",
+          "Session expired due to security policy. Please login again.",
+        ),
       );
-      return res.status(401).json({
-        success: false,
-        message: "Session expired due to security policy. Please login again.",
-        code: "SESSION_INVALIDATED",
-      });
     }
 
-    // Fetch user from database
     const { data: user, error } = await supabase
       .from("users")
-      .select("*")
+      .select("id, username, email, role, isadmin, isapproved")
       .eq("id", decoded.id)
       .single();
 
-    if (error || !user) {
-      securityLogger.logAuthAttempt(
-        req.ip,
-        decoded.id,
-        false,
-        "User not found",
-      );
-      return res.status(401).json({
-        success: false,
-        message: "User not found, authorization denied",
-      });
+    if (error && error.code !== "PGRST116") {
+      throw error;
     }
 
-    // Map Supabase fields to common middleware fields
-    user.role = user.isadmin ? "admin" : "user";
-    user.id = user.id;
+    if (!user) {
+      securityLogger.logAuthAttempt(email, false, req.ip, userAgent);
+      return next(new ApiError(401, "UNAUTHENTICATED", "User not found, authorization denied"));
+    }
 
-    // Attach user to request object
+    user.role = user.isadmin ? "admin" : "user";
     req.user = user;
-    next();
+    return next();
   } catch (error) {
-    securityLogger.logAuthAttempt(
-      req.ip,
-      null,
-      false,
-      `JWT verification failed: ${error.message}`,
-    );
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token, authorization denied",
-    });
+    return next(error);
   }
 };
 
-const authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      const error = new Error(
-        `User role ${req.user.role} is not authorized to access this route`,
-      );
-      error.statusCode = 403;
-      return next(error);
-    }
-    next();
-  };
+const authorize = (...roles) => (req, res, next) => {
+  if (!req.user || !roles.includes(req.user.role)) {
+    return next(new ApiError(403, "FORBIDDEN", "You are not authorized to access this route"));
+  }
+  return next();
 };
 
 module.exports = {
   protect: authMiddleware,
   authorize,
+  extractToken,
 };

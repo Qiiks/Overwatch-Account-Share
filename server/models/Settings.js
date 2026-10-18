@@ -1,61 +1,64 @@
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
 
+// Single source of truth for the table name — the schema migration creates `settings`.
+const TABLE = 'settings';
+
 class Settings {
   static async findOne(query) {
-    let queryBuilder = getSupabase().from('system_settings').select('*');
-    
+    let queryBuilder = getSupabase().from(TABLE).select('*');
+
     if (query.key) {
       queryBuilder = queryBuilder.eq('key', query.key);
     }
-    if (query._id) {
-      queryBuilder = queryBuilder.eq('id', query._id);
+    if (query.id) {
+      queryBuilder = queryBuilder.eq('id', query.id);
     }
-    
+
     const { data, error } = await queryBuilder.single();
-    
+
     if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
       throw error;
     }
-    
+
     return data;
   }
-  
+
   static async findById(id) {
     const { data, error } = await getSupabase()
-      .from('system_settings')
+      .from(TABLE)
       .select('*')
       .eq('id', id)
       .single();
-    
+
     if (error && error.code !== 'PGRST116') {
       throw error;
     }
-    
+
     return data;
   }
-  
+
   static async find(query = {}) {
-    let queryBuilder = getSupabase().from('system_settings').select('*');
-    
+    let queryBuilder = getSupabase().from(TABLE).select('*');
+
     if (query.key) {
       queryBuilder = queryBuilder.eq('key', query.key);
     }
-    
+
     const { data, error } = await queryBuilder;
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data || [];
   }
-  
+
   static async findOneAndUpdate(query, update, options = {}) {
-    let queryBuilder = getSupabase().from('system_settings');
-    
+    let queryBuilder = getSupabase().from(TABLE);
+
     // Prepare the update data
     const updateData = {};
     if (update.value !== undefined) {
@@ -64,47 +67,47 @@ class Settings {
     if (update.key !== undefined) {
       updateData.key = update.key;
     }
-    
+
     queryBuilder = queryBuilder.update(updateData);
-    
-    if (query._id) {
-      queryBuilder = queryBuilder.eq('id', query._id);
+
+    if (query.id) {
+      queryBuilder = queryBuilder.eq('id', query.id);
     }
     if (query.key) {
       queryBuilder = queryBuilder.eq('key', query.key);
     }
-    
+
     const { data, error } = await queryBuilder.select().single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
-  
+
   static async deleteOne(query) {
-    let queryBuilder = getSupabase().from('system_settings').delete();
-    
-    if (query._id) {
-      queryBuilder = queryBuilder.eq('id', query._id);
+    let queryBuilder = getSupabase().from(TABLE).delete();
+
+    if (query.id) {
+      queryBuilder = queryBuilder.eq('id', query.id);
     }
     if (query.key) {
       queryBuilder = queryBuilder.eq('key', query.key);
     }
-    
+
     const { data, error } = await queryBuilder;
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
-  
+
   static async upsert(key, value) {
     const { data, error } = await getSupabase()
-      .from('system_settings')
+      .from(TABLE)
       .upsert({
         key: key,
         value: value
@@ -113,31 +116,29 @@ class Settings {
       })
       .select()
       .single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
-  
-  // Helper method to get a setting by name
+
+  /**
+   * Read a setting by key. Returns null only when the row does not exist;
+   * database failures propagate so callers never silently fall back to a default.
+   */
   static async getSetting(name) {
-    try {
-      const setting = await this.findOne({ key: name });
-      return setting ? setting.value : null;
-    } catch (error) {
-      logger.error(`Error getting setting ${name}:`, error);
-      return null;
-    }
+    const setting = await this.findOne({ key: name });
+    return setting ? setting.value : null;
   }
-  
+
   // Helper method to update a setting
   static async updateSetting(name, value) {
     try {
       // Try to update existing setting first
       const existing = await this.findOne({ key: name });
-      
+
       if (existing) {
         // Update existing setting
         const updated = await this.findOneAndUpdate(
@@ -155,27 +156,27 @@ class Settings {
       throw error;
     }
   }
-  
+
   constructor(data) {
     this.key = data.key;
     this.value = data.value;
-    this._id = data._id;
+    this.id = data.id;
   }
-  
+
   async save() {
     const { data, error } = await getSupabase()
-      .from('system_settings')
+      .from(TABLE)
       .insert({
         key: this.key,
         value: this.value
       })
       .select()
       .single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
 }

@@ -11,13 +11,4 @@ router.get('/otp/callback', googleAuthController.googleOTPCallback);
 router.get('/accounts', protect, googleAuthController.listGoogleAccounts);
 router.delete('/accounts/:id', protect, googleAuthController.deleteGoogleAccount);
 
-// Legacy routes (kept for backward compatibility)
-router.get('/auth', (req, res) => {
-  res.status(501).json({ message: 'Google OAuth not yet implemented' });
-});
-
-router.get('/callback', (req, res) => {
-  res.status(501).json({ message: 'Google OAuth callback not yet implemented' });
-});
-
 module.exports = router;

@@ -92,6 +92,25 @@ class EmailService {
     return data;
   }
   
+  static async create(data) {
+    const { data: row, error } = await getSupabase()
+      .from('email_services')
+      .insert({
+        email: data.email,
+        clientid: data.clientId,  // Database column is lowercase
+        clientsecret: data.clientSecret,  // Database column is lowercase
+        isactive: data.isActive !== undefined ? data.isActive : true  // Database column is lowercase
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return row;
+  }
+
   constructor(data) {
     this.email = data.email;
     this.clientId = data.clientId;

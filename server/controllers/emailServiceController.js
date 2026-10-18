@@ -1,5 +1,42 @@
 const EmailService = require('../models/EmailService');
 const asyncHandler = require('express-async-handler');
+const ApiError = require('../utils/ApiError');
+const { ok } = require('../utils/respond');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Newest first; rows lacking createdat sort as epoch — verified: no throw, order preserved when all rows lack it.
+const byCreatedAtDesc = (a, b) => new Date(b.createdat || 0) - new Date(a.createdat || 0);
+
+// Per-field error map; partial=true validates only the fields the caller supplied.
+const validateFields = ({ email, clientId, clientSecret }, partial = false) => {
+  const details = {};
+  if ((!partial || email !== undefined) && !EMAIL_RE.test(String(email || '').trim())) {
+    details.email = 'Must be a valid email address';
+  }
+  if ((!partial || clientId !== undefined) && !String(clientId || '').trim()) {
+    details.clientId = 'Required';
+  }
+  if ((!partial || clientSecret !== undefined) && !String(clientSecret || '').trim()) {
+    details.clientSecret = 'Required';
+  }
+  return details;
+};
+
+const assertFields = (body, partial = false) => {
+  const details = validateFields(body, partial);
+  if (Object.keys(details).length) {
+    throw new ApiError(400, 'VALIDATION_FAILED', 'Invalid email service configuration', details);
+  }
+};
+
+const findOr404 = async (id) => {
+  const emailService = await EmailService.findById(id);
+  if (!emailService) {
+    throw new ApiError(404, 'NOT_FOUND', 'Email service configuration not found');
+  }
+  return emailService;
+};
 
 // @desc    Add a new email service configuration
 // @route   POST /api/email-service
@@ -7,35 +44,30 @@ const asyncHandler = require('express-async-handler');
 const addEmailService = asyncHandler(async (req, res) => {
   const { email, clientId, clientSecret } = req.body;
 
-  // Check if email service already exists
-  const existingService = await EmailService.findOne({ email });
+  assertFields(req.body);
+
+  const address = email.trim();
+  const existingService = await EmailService.findOne({ email: address });
   if (existingService) {
-    res.status(400);
-    throw new Error('Email service configuration already exists');
+    throw new ApiError(409, 'CONFLICT', 'Email service configuration already exists');
   }
 
   const emailService = await EmailService.create({
-    email,
+    email: address,
     clientId,
     clientSecret
   });
 
-  res.status(201).json({
-    success: true,
-    data: emailService
-  });
+  return ok(res, emailService, 201);
 });
 
 // @desc    Get all email service configurations
 // @route   GET /api/email-service
 // @access  Private/Admin
 const getEmailServices = asyncHandler(async (req, res) => {
-  const emailServices = await EmailService.find({}).sort({ createdAt: -1 });
+  const emailServices = await EmailService.find({});
 
-  res.status(200).json({
-    success: true,
-    data: emailServices
-  });
+  return ok(res, emailServices.sort(byCreatedAtDesc));
 });
 
 // @desc    Update an email service configuration
@@ -45,35 +77,33 @@ const updateEmailService = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { email, clientId, clientSecret, isActive } = req.body;
 
-  const emailService = await EmailService.findById(id);
+  const emailService = await findOr404(id);
 
-  if (!emailService) {
-    res.status(404);
-    throw new Error('Email service configuration not found');
-  }
+  assertFields(req.body, true);
 
   // Check if email is being changed and if it already exists
-  if (email && email !== emailService.email) {
-    const existingService = await EmailService.findOne({ email });
+  const address = email !== undefined ? email.trim() : undefined;
+  if (address && address !== emailService.email) {
+    const existingService = await EmailService.findOne({ email: address });
     if (existingService) {
-      res.status(400);
-      throw new Error('Email service configuration with this email already exists');
+      throw new ApiError(409, 'CONFLICT', 'Email service configuration with this email already exists');
     }
   }
 
-  emailService.email = email || emailService.email;
-  emailService.clientId = clientId || emailService.clientId;
-  emailService.clientSecret = clientSecret || emailService.clientSecret;
-  if (typeof isActive === 'boolean') {
-    emailService.isActive = isActive;
+  // findOneAndUpdate takes raw column names, like save().
+  const update = {};
+  if (address !== undefined) update.email = address;
+  if (clientId !== undefined) update.clientid = clientId;
+  if (clientSecret !== undefined) update.clientsecret = clientSecret;
+  if (typeof isActive === 'boolean') update.isactive = isActive;
+
+  if (!Object.keys(update).length) {
+    throw new ApiError(400, 'VALIDATION_FAILED', 'No updatable fields provided');
   }
 
-  const updatedEmailService = await emailService.save();
+  const updatedEmailService = await EmailService.findOneAndUpdate({ _id: id }, update);
 
-  res.status(200).json({
-    success: true,
-    data: updatedEmailService
-  });
+  return ok(res, updatedEmailService);
 });
 
 // @desc    Delete an email service configuration
@@ -82,19 +112,10 @@ const updateEmailService = asyncHandler(async (req, res) => {
 const deleteEmailService = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const emailService = await EmailService.findById(id);
+  await findOr404(id);
+  await EmailService.deleteOne({ _id: id });
 
-  if (!emailService) {
-    res.status(404);
-    throw new Error('Email service configuration not found');
-  }
-
-  await emailService.remove();
-
-  res.status(200).json({
-    success: true,
-    message: 'Email service configuration deleted successfully'
-  });
+  return ok(res, { id, deleted: true });
 });
 
 // @desc    Toggle active status of an email service
@@ -103,32 +124,28 @@ const deleteEmailService = asyncHandler(async (req, res) => {
 const toggleEmailServiceStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const emailService = await EmailService.findById(id);
+  const emailService = await findOr404(id);
+  const updatedEmailService = await EmailService.findOneAndUpdate(
+    { _id: id },
+    { isactive: !emailService.isactive }
+  );
 
-  if (!emailService) {
-    res.status(404);
-    throw new Error('Email service configuration not found');
-  }
-
-  emailService.isActive = !emailService.isActive;
-  const updatedEmailService = await emailService.save();
-
-  res.status(200).json({
-    success: true,
-    data: updatedEmailService
-  });
+  return ok(res, updatedEmailService);
 });
 
 // @desc    Get all active email service configurations for regular users
 // @route   GET /api/email/services
 // @access  Private
 const getActiveEmailServices = asyncHandler(async (req, res) => {
-  const emailServices = await EmailService.find({ isActive: true }).sort({ createdAt: -1 });
+  const emailServices = await EmailService.find({ isActive: true });
 
-  res.status(200).json({
-    success: true,
-    data: emailServices
-  });
+  // Non-admin route: the OAuth client secret must not leave the admin surface.
+  return ok(
+    res,
+    emailServices
+      .sort(byCreatedAtDesc)
+      .map(({ clientsecret, ...service }) => service)
+  );
 });
 
 module.exports = {

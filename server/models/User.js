@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
@@ -71,6 +71,29 @@ class User {
     }
 
     return data;
+  }
+
+  /**
+   * Public projection of a user row — the single allowlist every response that
+   * returns a user goes through. Never includes the password hash.
+   */
+  static toPublic(user) {
+    if (!user) return null;
+    const isAdmin = !!(user.isadmin !== undefined ? user.isadmin : user.isAdmin);
+    const isApproved =
+      user.isapproved !== undefined
+        ? user.isapproved
+        : user.isApproved !== undefined
+          ? user.isApproved
+          : true;
+    return {
+      id: user.id || user._id,
+      username: user.username,
+      email: user.email,
+      role: isAdmin ? 'admin' : user.role || 'user',
+      isAdmin,
+      isApproved,
+    };
   }
 
   static async find(query = {}) {

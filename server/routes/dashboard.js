@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDashboard } = require('../controllers/dashboardController');
 const { protect } = require('../middleware/authMiddleware');
+const { ok } = require('../utils/respond');
 
 // @route   GET /api/dashboard
 // @desc    Get dashboard data
@@ -17,8 +18,8 @@ router.get('/online-users', protect, (req, res) => {
   const onlineUsers = req.app.get('onlineUsers');
   
   const count = onlineUsers ? onlineUsers.size : 0;
-  
-  res.json({
+
+  ok(res, {
     count: count,
     timestamp: new Date().toISOString()
   });

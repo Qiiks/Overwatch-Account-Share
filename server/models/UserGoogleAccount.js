@@ -113,6 +113,12 @@ class UserGoogleAccount {
     if (query.isPrimary !== undefined) {
       queryBuilder = queryBuilder.eq('is_primary', query.isPrimary);
     }
+    // The OTP poller queries with the DB's snake_case key; honour both spellings so a
+    // deactivated mailbox is never polled again.
+    const isActive = query.isActive !== undefined ? query.isActive : query.is_active;
+    if (isActive !== undefined) {
+      queryBuilder = queryBuilder.eq('is_active', isActive);
+    }
     
     const { data, error } = await queryBuilder;
     
@@ -212,48 +218,34 @@ class UserGoogleAccount {
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
-  
-  constructor(data) {
-    this.userId = data.userId;
-    this.googleEmail = data.googleEmail;
-    this.accountName = data.accountName;
-    this.refreshToken = data.refreshToken;
-    this.isPrimary = data.isPrimary || false;
-    this._id = data._id;
-  }
-  
-  async save() {
-    // If this is being set as primary, unset other primary accounts for this user
-    if (this.isPrimary && !this._id) {
-      await UserGoogleAccount.updateMany(
-        { userId: this.userId },
-        { is_primary: false }
-      );
-    }
-    
+
+  /**
+   * Mark a mailbox as used / record an OTP fetch. Kept here so the poller has one
+   * place that knows the column names.
+   */
+  static async markFetched(id) {
+    const account = await this.findById(id);
     const { data, error } = await getSupabase()
       .from('user_google_accounts')
-      .insert({
-        user_id: this.userId,
-        email: this.googleEmail,
-        account_name: this.accountName,
-        refresh_token: this.refreshToken,
-        is_primary: this.isPrimary
+      .update({
+        last_otp_fetch: new Date().toISOString(),
+        otp_fetch_count: (account && account.otp_fetch_count ? account.otp_fetch_count : 0) + 1,
       })
+      .eq('id', id)
       .select()
       .single();
-    
+
     if (error) {
       throw error;
     }
-    
+
     return data;
   }
 }

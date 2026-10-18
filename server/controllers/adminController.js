@@ -1,18 +1,38 @@
 const User = require("../models/User");
 const OverwatchAccount = require("../models/OverwatchAccount");
 const Settings = require("../models/Settings");
-const { body, check, validationResult } = require("express-validator");
+const { check, validationResult } = require("express-validator");
 const { cache, CACHE_TTL } = require("../utils/cache");
+const ApiError = require("../utils/ApiError");
+const { ok } = require("../utils/respond");
 const {
   logger,
   performanceLogger,
   adminAuditLogger,
 } = require("../utils/logger");
 
+// Validation failures are thrown, never returned: errorMiddleware owns the shape.
+const failValidation = (req) => {
+  const errors = validationResult(req);
+  if (errors.isEmpty()) return null;
+  const details = {};
+  for (const error of errors.array()) details[error.path] = error.msg;
+  return new ApiError(400, "VALIDATION_FAILED", "Validation failed", details);
+};
+
+// PostgREST filters interpolate this value, so anything outside the allowlist is rejected.
+const sanitizeSearchTerm = (value) => {
+  const term = typeof value === "string" ? value.trim() : "";
+  if (!/^[A-Za-z0-9 _.\-@]{2,64}$/.test(term)) {
+    throw new ApiError(400, "VALIDATION_FAILED", "Invalid search query");
+  }
+  return term.replace(/[,()]/g, "");
+};
+
 // @desc    Get high-level statistics
 // @route   GET /api/admin/stats
 // @access  Admin
-const getStats = async (req, res) => {
+const getStats = async (req, res, next) => {
   const startTime = process.hrtime.bigint();
   logger.debug("[PERF] Admin stats request started");
 
@@ -81,7 +101,7 @@ const getStats = async (req, res) => {
         totalUsers: totalUsersRaw,
         totalAccounts: totalAccountsRaw,
       });
-      return res.status(500).json({ message: "Invalid data from database" });
+      throw new ApiError(500, "INTERNAL", "Invalid data from database");
     }
 
     // TODO: Implement activeUsers and flaggedActivities
@@ -100,21 +120,21 @@ const getStats = async (req, res) => {
       flaggedActivities,
     };
 
-    res.json(responseData);
+    return ok(res, responseData);
   } catch (error) {
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
     logger.error(
       `[PERF] Admin stats request failed after ${totalDuration.toFixed(2)}ms:`,
       error,
     );
-    res.status(500).json({ message: "Server error retrieving stats" });
+    next(error);
   }
 };
 
 // @desc    Get all users (listUsers)
 // @route   GET /api/admin/users
 // @access  Admin
-const listUsers = async (req, res) => {
+const listUsers = async (req, res, next) => {
   try {
     const supabase = global.supabase;
 
@@ -138,35 +158,29 @@ const listUsers = async (req, res) => {
     }
 
     // Format users for frontend
-    const formattedUsers = users.map((user) => {
-      return {
-        _id: user.id,
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.isadmin ? "admin" : "user",
-        isadmin: user.isadmin || false,
-        isapproved: user.isapproved !== false,
-        createdat: user.createdat || null,
-        joinDate: user.createdat
-          ? new Date(user.createdat).toLocaleDateString()
-          : "N/A",
-        accountsOwned: user.overwatch_accounts?.[0]?.count || 0,
-        status: user.isapproved ? "active" : "suspended",
-        lastLogin: user.updatedat
-          ? new Date(user.updatedat).toLocaleDateString()
-          : "Never",
-        isAdmin: user.isadmin || false,
-      };
-    });
+    const formattedUsers = users.map((user) => ({
+      ...User.toPublic(user),
+      _id: user.id,
+      isadmin: user.isadmin || false,
+      isapproved: user.isapproved !== false,
+      createdat: user.createdat || null,
+      joinDate: user.createdat
+        ? new Date(user.createdat).toLocaleDateString()
+        : "N/A",
+      accountsOwned: user.overwatch_accounts?.[0]?.count || 0,
+      status: user.isapproved ? "active" : "suspended",
+      lastLogin: user.updatedat
+        ? new Date(user.updatedat).toLocaleDateString()
+        : "Never",
+    }));
 
-    res.json({
+    return ok(res, {
       users: formattedUsers,
       totalPages: 1,
     });
   } catch (error) {
     logger.error("Error in listUsers:", error);
-    res.status(500).json({ message: "Server error fetching users" });
+    next(error);
   }
 };
 
@@ -198,23 +212,17 @@ const updateUserRoleValidation = [
 // @desc    Update a user's status
 // @route   PATCH /api/admin/users/:id/status
 // @access  Admin
-const updateUserStatus = async (req, res) => {
+const updateUserStatus = async (req, res, next) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: errors.array(),
-      });
-    }
+    const invalid = failValidation(req);
+    if (invalid) throw invalid;
 
     const { status } = req.body;
 
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id, "-password");
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      throw new ApiError(404, "NOT_FOUND", "User not found");
     }
 
     // Prevent admin from suspending themselves
@@ -222,10 +230,11 @@ const updateUserStatus = async (req, res) => {
       (user.id || user._id).toString() === req.user.id &&
       (status === "suspended" || status === "pending")
     ) {
-      return res.status(400).json({
-        message: "Cannot suspend or set your own account to pending",
-        code: "SELF_ACTION_PREVENTED",
-      });
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "Cannot suspend or set your own account to pending",
+      );
     }
 
     // Map status string to isApproved boolean and update in database
@@ -256,11 +265,8 @@ const updateUserStatus = async (req, res) => {
     }
 
     const formattedUser = {
+      ...User.toPublic(user),
       _id: user.id || user._id,
-      id: user.id || user._id,
-      username: user.username,
-      email: user.email,
-      role: user.isadmin || user.isAdmin ? "admin" : "user",
       status: (
         user.isapproved !== undefined ? user.isapproved : user.isApproved
       )
@@ -292,44 +298,39 @@ const updateUserStatus = async (req, res) => {
       status,
     );
 
-    res.json({
+    return ok(res, {
       message: `User status updated to ${status}`,
       user: formattedUser,
     });
   } catch (error) {
     logger.error("Error in updateUserStatus:", error);
-    res.status(500).json({ message: "Server error updating user status" });
+    next(error);
   }
 };
 
 // @desc    Update a user's role
 // @route   PATCH /api/admin/users/:id/role
 // @access  Admin
-const updateUserRole = async (req, res) => {
+const updateUserRole = async (req, res, next) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: errors.array(),
-      });
-    }
+    const invalid = failValidation(req);
+    if (invalid) throw invalid;
 
     const { role } = req.body;
 
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id, "-password");
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      throw new ApiError(404, "NOT_FOUND", "User not found");
     }
 
     // Prevent admin from changing their own role
     if ((user.id || user._id).toString() === req.user.id) {
-      return res.status(400).json({
-        message: "Cannot change your own role",
-        code: "SELF_ACTION_PREVENTED",
-      });
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "Cannot change your own role",
+      );
     }
 
     // Map role string to isAdmin boolean and update in database
@@ -360,11 +361,8 @@ const updateUserRole = async (req, res) => {
     }
 
     const formattedUser = {
+      ...User.toPublic(user),
       _id: user.id || user._id,
-      id: user.id || user._id,
-      username: user.username,
-      email: user.email,
-      role: user.isadmin || user.isAdmin ? "admin" : "user",
       status: (
         user.isapproved !== undefined ? user.isapproved : user.isApproved
       )
@@ -392,33 +390,34 @@ const updateUserRole = async (req, res) => {
       role,
     );
 
-    res.json({
+    return ok(res, {
       message: `User role updated to ${role}`,
       user: formattedUser,
     });
   } catch (error) {
     logger.error("Error in updateUserRole:", error);
-    res.status(500).json({ message: "Server error updating user role" });
+    next(error);
   }
 };
 
 // @desc    Delete a user
 // @route   DELETE /api/admin/users/:id
 // @access  Admin
-const deleteUser = async (req, res) => {
+const deleteUser = async (req, res, next) => {
   try {
-    const userToDelete = await User.findById(req.params.id);
+    const userToDelete = await User.findById(req.params.id, "-password");
 
     if (!userToDelete) {
-      return res.status(404).json({ message: "User not found" });
+      throw new ApiError(404, "NOT_FOUND", "User not found");
     }
 
     // Prevent admin from deleting themselves
     if ((userToDelete.id || userToDelete._id).toString() === req.user.id) {
-      return res.status(400).json({
-        message: "Cannot delete your own account",
-        code: "SELF_ACTION_PREVENTED",
-      });
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "Cannot delete your own account",
+      );
     }
 
     // Check if this is the last admin (optional safety check)
@@ -435,10 +434,11 @@ const deleteUser = async (req, res) => {
       }
 
       if (adminCount <= 1) {
-        return res.status(400).json({
-          message: "Cannot delete the last admin account",
-          code: "LAST_ADMIN_PROTECTED",
-        });
+        throw new ApiError(
+          400,
+          "VALIDATION_FAILED",
+          "Cannot delete the last admin account",
+        );
       }
     }
 
@@ -517,24 +517,23 @@ const deleteUser = async (req, res) => {
       userToDelete.username,
     );
 
-    res.json({
+    return ok(res, {
       message: "User deleted successfully",
       deletedUser: {
-        username: userToDelete.username,
-        email: userToDelete.email,
-        accountsDeleted: accountsDeleted,
+        ...User.toPublic(userToDelete),
+        accountsDeleted,
       },
     });
   } catch (error) {
     logger.error("Error in deleteUser:", error);
-    res.status(500).json({ message: "Error deleting user" });
+    next(error);
   }
 };
 
 // @desc    Get recent system-wide activity logs
 // @route   GET /api/admin/logs
 // @access  Admin
-const getLogs = async (req, res) => {
+const getLogs = async (req, res, next) => {
   try {
     const supabase = global.supabase;
     const { data: logs, error } = await supabase
@@ -544,14 +543,14 @@ const getLogs = async (req, res) => {
       .limit(50);
 
     if (error) throw error;
-    res.json(logs || []);
+    return ok(res, logs || []);
   } catch (error) {
     logger.error("Error in getLogs:", error);
-    res.status(500).json({ message: "Server error fetching logs" });
+    next(error);
   }
 };
 
-const getAdminDashboard = async (req, res) => {
+const getAdminDashboard = async (req, res, next) => {
   try {
     const supabase = global.supabase;
 
@@ -624,7 +623,7 @@ const getAdminDashboard = async (req, res) => {
 
     if (logsError) logger.error("Error fetching admin logs:", logsError);
 
-    res.json({
+    return ok(res, {
       stats: {
         totalUsers: totalUsers || 0,
         activeUsers,
@@ -633,49 +632,45 @@ const getAdminDashboard = async (req, res) => {
         flaggedActivities,
         systemHealth,
       },
-      users: users || [],
+      users: (users || []).map((user) => User.toPublic(user)),
       logs,
     });
   } catch (error) {
     logger.error("Error in getAdminDashboard:", error);
-    res.status(500).json({ message: "Server error retrieving dashboard data" });
+    next(error);
   }
 };
 
 // @desc    Get current registration status
 // @route   GET /api/admin/registration-status
 // @access  Admin
-const getRegistrationStatus = async (req, res) => {
+const getRegistrationStatus = async (req, res, next) => {
   try {
-    const setting = await Settings.findOne({ key: "registrationsEnabled" });
-    const enabled = setting ? setting.value : true; // Default to true if not set
-    res.json({ allowed: enabled });
+    // A missing row means registration is open, matching the auth middleware's `!== false` rule.
+    const enabled =
+      (await Settings.getSetting("allow_registration")) !== false;
+    return ok(res, { enabled });
   } catch (error) {
     logger.error("Error in getRegistrationStatus:", error);
-    res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
 // @desc    Toggle user registrations on/off
 // @route   POST /api/admin/toggle-registrations
 // @access  Admin
-const toggleRegistrations = async (req, res) => {
+const toggleRegistrations = async (req, res, next) => {
   try {
-    let { enabled } = req.body;
+    const { enabled } = req.body || {};
 
-    // If enabled is not provided (e.g. from Quick Actions), toggle the current status
-    if (enabled === undefined) {
-      const setting = await Settings.findOne({ key: "registrationsEnabled" });
-      const currentStatus = setting ? setting.value : true;
-      enabled = !currentStatus;
-    } else if (typeof enabled !== "boolean") {
-      return res
-        .status(400)
-        .json({ message: "Enabled must be a boolean value" });
+    if (typeof enabled !== "boolean") {
+      throw new ApiError(400, "VALIDATION_FAILED", "enabled must be a boolean", {
+        enabled: "must be a boolean",
+      });
     }
 
     // Update or create the setting using the helper method that handles upsert
-    await Settings.updateSetting("registrationsEnabled", enabled);
+    await Settings.updateSetting("allow_registration", enabled);
 
     // Audit log the registration toggle
     adminAuditLogger.logRegistrationToggled(
@@ -684,49 +679,49 @@ const toggleRegistrations = async (req, res) => {
       enabled,
     );
 
-    res.json({
-      message: `User registrations ${
-        enabled ? "enabled" : "disabled"
-      } successfully`,
-      enabled,
-    });
+    return ok(res, { enabled });
   } catch (error) {
     logger.error("Error in toggleRegistrations:", error);
-    res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
 // @desc    Create a new user
 // @route   POST /api/admin/users
 // @access  Admin
-const createUser = async (req, res) => {
+const createUser = async (req, res, next) => {
   try {
-    const { username, email, password, role = "user" } = req.body;
+    const { username, email, password, role = "user" } = req.body || {};
 
     // Validation
     if (!username || !email || !password) {
-      return res.status(400).json({
-        message: "Username, email, and password are required",
-      });
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "Username, email, and password are required",
+      );
     }
 
     // Validate role
     const validRoles = ["user", "admin"];
     const normalizedRole = role.toLowerCase();
     if (!validRoles.includes(normalizedRole)) {
-      return res.status(400).json({
-        message: 'Role must be either "user" or "admin"',
-      });
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        'Role must be either "user" or "admin"',
+      );
     }
 
-    // Check if user already exists
+    // Check if user already exists. Both terms are interpolated into a PostgREST
+    // filter, so they go through the same allowlist as the search endpoint.
     const supabase = global.supabase;
+    const emailTerm = sanitizeSearchTerm(email).toLowerCase();
+    const usernameTerm = sanitizeSearchTerm(username).toLowerCase();
     const { data: existingUsers, error: searchError } = await supabase
       .from("users")
       .select("email, username")
-      .or(
-        `email.eq.${email.toLowerCase()},username.eq.${username.toLowerCase()}`,
-      );
+      .or(`email.eq.${emailTerm},username.eq.${usernameTerm}`);
 
     if (searchError) {
       logger.error("Error checking existing users:", searchError);
@@ -735,11 +730,12 @@ const createUser = async (req, res) => {
 
     if (existingUsers && existingUsers.length > 0) {
       const existingUser = existingUsers[0];
-      const field =
-        existingUser.email === email.toLowerCase() ? "email" : "username";
-      return res.status(400).json({
-        message: `User with this ${field} already exists`,
-      });
+      const field = existingUser.email === emailTerm ? "email" : "username";
+      throw new ApiError(
+        409,
+        "CONFLICT",
+        `User with this ${field} already exists`,
+      );
     }
 
     // Create user instance and save (password will be hashed)
@@ -756,18 +752,14 @@ const createUser = async (req, res) => {
 
     // Format user to match frontend expectations
     const formattedUser = {
+      ...User.toPublic(user),
       _id: user.id,
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.isadmin ? "admin" : "user",
       joinDate: user.createdat
         ? new Date(user.createdat).toLocaleDateString()
         : "N/A",
       accountsOwned: 0,
       status: "active", // Admin-created users are active by default
       lastLogin: "Never",
-      isAdmin: user.isadmin || false,
     };
 
     // Audit log the user creation
@@ -779,25 +771,33 @@ const createUser = async (req, res) => {
       user.email,
     );
 
-    res.status(201).json({
-      message: `User ${username} created successfully`,
-      user: formattedUser,
-    });
+    return ok(
+      res,
+      {
+        message: `User ${username} created successfully`,
+        user: formattedUser,
+      },
+      201,
+    );
   } catch (error) {
     logger.error("Error in createUser:", error);
     if (error.code === 11000) {
-      return res.status(400).json({
-        message: "User with this email or username already exists",
-      });
+      return next(
+        new ApiError(
+          409,
+          "CONFLICT",
+          "User with this email or username already exists",
+        ),
+      );
     }
-    res.status(500).json({ message: "Server error creating user" });
+    next(error);
   }
 };
 
 // @desc    Export user data (GDPR compliance)
 // @route   GET /api/admin/users/:id/export
 // @access  Admin
-const exportUserData = async (req, res) => {
+const exportUserData = async (req, res, next) => {
   try {
     const targetUserId = req.params.id;
     const supabase = global.supabase;
@@ -812,7 +812,7 @@ const exportUserData = async (req, res) => {
       .single();
 
     if (userError || !user) {
-      return res.status(404).json({ message: "User not found" });
+      throw new ApiError(404, "NOT_FOUND", "User not found");
     }
 
     // Fetch user's Overwatch accounts (owned)
@@ -917,24 +917,26 @@ const exportUserData = async (req, res) => {
       }.json"`,
     );
 
-    res.json(exportData);
+    return ok(res, exportData);
   } catch (error) {
     logger.error("Error in exportUserData:", error);
-    res.status(500).json({ message: "Server error exporting user data" });
+    next(error);
   }
 };
 
 // @desc    Grant account access to a specific user (Admin override)
 // @route   POST /api/admin/share-account
 // @access  Admin
-const shareAccountAccess = async (req, res) => {
+const shareAccountAccess = async (req, res, next) => {
   try {
-    const { accountId, targetUserId } = req.body;
+    const { accountId, targetUserId } = req.body || {};
 
     if (!accountId || !targetUserId) {
-      return res
-        .status(400)
-        .json({ message: "Account ID and Target User ID are required" });
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "Account ID and Target User ID are required",
+      );
     }
 
     const supabase = global.supabase;
@@ -947,7 +949,7 @@ const shareAccountAccess = async (req, res) => {
       .single();
 
     if (accountError || !account) {
-      return res.status(404).json({ message: "Overwatch account not found" });
+      throw new ApiError(404, "NOT_FOUND", "Overwatch account not found");
     }
 
     // Check if target user exists
@@ -958,7 +960,7 @@ const shareAccountAccess = async (req, res) => {
       .single();
 
     if (userError || !targetUser) {
-      return res.status(404).json({ message: "Target user not found" });
+      throw new ApiError(404, "NOT_FOUND", "Target user not found");
     }
 
     // Insert into allowed users
@@ -972,47 +974,48 @@ const shareAccountAccess = async (req, res) => {
     if (shareError) {
       // Check for duplicate key error
       if (shareError.code === "23505") {
-        return res
-          .status(400)
-          .json({ message: "User already has access to this account" });
+        throw new ApiError(
+          409,
+          "CONFLICT",
+          "User already has access to this account",
+        );
       }
       logger.error("Error sharing account:", shareError);
       throw shareError;
     }
 
     // Audit log
-    adminAuditLogger.log(
-      "ACCOUNT_SHARED_BY_ADMIN",
-      req.user.id,
-      {
-        adminUsername: req.user.username,
-        targetUserId: targetUser.id,
-        targetUsername: targetUser.username,
-        accountId: account.id,
-        accountTag: account.accounttag,
-      },
-      req,
-    );
+    adminAuditLogger.log("share_account", req.user.id, {
+      adminUsername: req.user.username,
+      targetUserId: targetUser.id,
+      targetUsername: targetUser.username,
+      accountId: account.id,
+      accountTag: account.accounttag,
+    });
 
-    res.json({
+    return ok(res, {
       message: `Access to ${account.accounttag} granted to ${targetUser.username}`,
     });
   } catch (error) {
     logger.error("Error in shareAccountAccess:", error);
-    res.status(500).json({ message: "Server error sharing account" });
+    next(error);
   }
 };
 
 // @desc    Search accounts or users for admin tools
 // @route   GET /api/admin/search
 // @access  Admin
-const searchAccountsUsers = async (req, res) => {
+const searchAccountsUsers = async (req, res, next) => {
   try {
     const { query, type } = req.query;
 
     if (!query || query.length < 2) {
-      return res.json([]);
+      return ok(res, []);
     }
+
+    // Interpolated into the PostgREST `.or()` filters below — anything outside
+    // the allowlist is rejected before it reaches the query string.
+    const term = sanitizeSearchTerm(query);
 
     const supabase = global.supabase;
     let results = [];
@@ -1021,7 +1024,7 @@ const searchAccountsUsers = async (req, res) => {
       const { data, error } = await supabase
         .from("users")
         .select("id, username, email")
-        .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
+        .or(`username.ilike.%${term}%,email.ilike.%${term}%`)
         .limit(10);
 
       if (error) throw error;
@@ -1035,7 +1038,7 @@ const searchAccountsUsers = async (req, res) => {
       const { data, error } = await supabase
         .from("overwatch_accounts")
         .select("id, accounttag, accountemail")
-        .or(`accounttag.ilike.%${query}%,accountemail.ilike.%${query}%`)
+        .or(`accounttag.ilike.%${term}%,accountemail.ilike.%${term}%`)
         .limit(10);
 
       if (error) throw error;
@@ -1047,73 +1050,63 @@ const searchAccountsUsers = async (req, res) => {
       }));
     }
 
-    res.json(results);
+    return ok(res, results);
   } catch (error) {
     logger.error("Error in searchAccountsUsers:", error);
-    res.status(500).json({ message: "Search failed" });
+    next(error);
   }
 };
 
 // @desc    Force logout all users (except current admin)
 // @route   POST /api/admin/force-logout
 // @access  Admin
-const forceLogoutAll = async (req, res) => {
+const forceLogoutAll = async (req, res, next) => {
   try {
     const timestamp = Date.now();
     await Settings.updateSetting("min_jwt_issued_at", timestamp);
 
     // Audit log
-    adminAuditLogger.log(
-      "FORCE_LOGOUT_ALL",
-      req.user.id,
-      {
-        adminUsername: req.user.username,
-        timestamp,
-      },
-      req,
-    );
+    adminAuditLogger.log("force_logout", req.user.id, {
+      adminUsername: req.user.username,
+      timestamp,
+    });
 
-    res.json({ message: "All users have been forced to log out." });
+    return ok(res, { message: "All users have been forced to log out." });
   } catch (error) {
     logger.error("Error in forceLogoutAll:", error);
-    res.status(500).json({ message: "Server error forcing logout" });
+    next(error);
   }
 };
 
 // @desc    Clear system cache
 // @route   POST /api/admin/clear-cache
 // @access  Admin
-const performSystemMaintenance = async (req, res) => {
+const performSystemMaintenance = async (req, res, next) => {
   try {
     await cache.clear();
 
     // Audit log
-    adminAuditLogger.log(
-      "SYSTEM_CACHE_CLEARED",
-      req.user.id,
-      {
-        adminUsername: req.user.username,
-      },
-      req,
-    );
+    adminAuditLogger.log("clear_cache", req.user.id, {
+      adminUsername: req.user.username,
+    });
 
-    res.json({ message: "System cache cleared successfully" });
+    return ok(res, { message: "System cache cleared successfully" });
   } catch (error) {
     logger.error("Error in performSystemMaintenance:", error);
-    res.status(500).json({ message: "Server error clearing cache" });
+    next(error);
   }
 };
 
 // @desc    Export all users as CSV
 // @route   GET /api/admin/export-users
 // @access  Admin
-const exportAllUsers = async (req, res) => {
+const exportAllUsers = async (req, res, next) => {
   try {
     const supabase = global.supabase;
     const { data: users, error } = await supabase
       .from("users")
       .select(
-        "id, username, email, role, isadmin, isapproved, createdat, last_login",
+        "id, username, email, role, isadmin, isapproved, createdat, updatedat",
       );
 
     if (error) throw error;
@@ -1126,7 +1119,7 @@ const exportAllUsers = async (req, res) => {
       "role",
       "status",
       "joined_at",
-      "last_login",
+      "updatedat",
     ];
     const csvRows = [fields.join(",")];
 
@@ -1136,8 +1129,8 @@ const exportAllUsers = async (req, res) => {
       const joined = user.createdat
         ? new Date(user.createdat).toISOString()
         : "";
-      const lastLogin = user.last_login
-        ? new Date(user.last_login).toISOString()
+      const lastLogin = user.updatedat
+        ? new Date(user.updatedat).toISOString()
         : "";
 
       const row = [
@@ -1159,7 +1152,7 @@ const exportAllUsers = async (req, res) => {
     return res.send(csvString);
   } catch (error) {
     logger.error("Error in exportAllUsers:", error);
-    res.status(500).json({ message: "Server error exporting users" });
+    next(error);
   }
 };
 

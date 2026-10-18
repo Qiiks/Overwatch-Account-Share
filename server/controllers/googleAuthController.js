@@ -3,24 +3,29 @@ const crypto = require('crypto');
 const encryption = require('../utils/encryption');
 const UserGoogleAccount = require('../models/UserGoogleAccount');
 const { logger } = require('../utils/logger');
+const ApiError = require('../utils/ApiError');
+const { ok } = require('../utils/respond');
 
 // Validate OAUTH_STATE_SECRET is set
 if (!process.env.OAUTH_STATE_SECRET) {
   throw new Error('OAUTH_STATE_SECRET environment variable is required but not set');
 }
 
-const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET;
+// sha256-derived key: any secret length works, and it matches utils/encryption.js.
+const STATE_KEY = crypto
+  .createHash('sha256')
+  .update(String(process.env.OAUTH_STATE_SECRET))
+  .digest();
 
 const resolveRedirectUri = () => {
   const configured = process.env.GOOGLE_REDIRECT_URI;
-  
+
   if (!configured || configured.trim() === '') {
     logger.error('CRITICAL: GOOGLE_REDIRECT_URI is not set in environment variables');
     throw new Error('Google OAuth redirect URI is not configured on the server.');
   }
-  
+
   try {
-    // Validate that it's a proper URL
     return new URL(configured).toString();
   } catch (err) {
     logger.error('CRITICAL: GOOGLE_REDIRECT_URI is not a valid URL', { value: configured });
@@ -28,27 +33,36 @@ const resolveRedirectUri = () => {
   }
 };
 
-// A simple state encryption for this step.
+// Where the browser is bounced back to. One name for it, with FRONTEND_URL as the legacy alias.
+const clientUrl = () =>
+  (process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+/**
+ * The OAuth state carries the user id, so it is authenticated (AES-256-GCM):
+ * a forged state would otherwise bind the callback to an attacker-chosen user.
+ */
 const encryptState = (data) => {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(OAUTH_STATE_SECRET.padEnd(32, '0')), iv);
-    let encrypted = cipher.update(data);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', STATE_KEY, iv);
+  let encrypted = cipher.update(data, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return `${iv.toString('hex')}:${cipher.getAuthTag().toString('hex')}:${encrypted}`;
 };
 
 const decryptState = (text) => {
-    const textParts = text.split(':');
-    const iv = Buffer.from(textParts.shift(), 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(OAUTH_STATE_SECRET.padEnd(32, '0')), iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
+  const parts = String(text).split(':');
+  if (parts.length !== 3) {
+    throw new Error('Invalid state format');
+  }
+  const [ivHex, tagHex, encrypted] = parts;
+  const decipher = crypto.createDecipheriv('aes-256-gcm', STATE_KEY, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
 };
 
-
-exports.initGoogleOTPAuth = async (req, res) => {
+exports.initGoogleOTPAuth = async (req, res, next) => {
   try {
     const { redirectUrl } = req.body;
     const userId = req.user.id;
@@ -58,15 +72,15 @@ exports.initGoogleOTPAuth = async (req, res) => {
       userId,
       redirectUrl: redirectUrl || '/dashboard',
       timestamp: Date.now(),
-      nonce: crypto.randomBytes(16).toString('hex')
+      nonce: crypto.randomBytes(16).toString('hex'),
     };
-    
+
     const state = encryptState(JSON.stringify(stateData));
 
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      redirectUri
+      redirectUri,
     );
 
     const authUrl = oauth2Client.generateAuthUrl({
@@ -74,40 +88,36 @@ exports.initGoogleOTPAuth = async (req, res) => {
       scope: [
         'https://www.googleapis.com/auth/gmail.modify',
         'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/userinfo.profile'
+        'https://www.googleapis.com/auth/userinfo.profile',
       ],
       state,
       prompt: 'consent',
-      redirectUri
+      redirectUri,
     });
 
-    res.json({ authUrl });
+    return ok(res, { authUrl });
   } catch (error) {
-    logger.error('Error initiating Google OAuth:', error);
-    res.status(500).json({ message: 'Failed to initiate Google account linking.' });
+    next(error);
   }
 };
 
 exports.googleOTPCallback = async (req, res) => {
   const { code, state, error } = req.query;
-  
+
   let stateData;
   try {
     stateData = JSON.parse(decryptState(state));
-    if (Date.now() - stateData.timestamp > 600000) { // 10 minute expiry
+    if (Date.now() - stateData.timestamp > 600000) {
+      // 10 minute expiry
       throw new Error('OAuth state expired');
     }
   } catch (err) {
     logger.error('OAuth state error:', { error: err.message });
-    // Validate CLIENT_URL is set
-    if (!process.env.CLIENT_URL) {
-      throw new Error('CLIENT_URL environment variable is required but not set');
-    }
-    return res.redirect(`${process.env.CLIENT_URL}/dashboard?oauth_error=invalid_state`);
+    return res.redirect(`${clientUrl()}/dashboard?oauth_error=invalid_state`);
   }
 
   if (error) {
-    return res.redirect(`${process.env.CLIENT_URL}${stateData.redirectUrl}?oauth_error=${error}`);
+    return res.redirect(`${clientUrl()}${stateData.redirectUrl}?oauth_error=${error}`);
   }
 
   try {
@@ -115,7 +125,7 @@ exports.googleOTPCallback = async (req, res) => {
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      redirectUri
+      redirectUri,
     );
 
     const { tokens } = await oauth2Client.getToken(code);
@@ -123,15 +133,19 @@ exports.googleOTPCallback = async (req, res) => {
 
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const { data: userInfo } = await oauth2.userinfo.get();
-    
+
     if (!tokens.refresh_token) {
-        // This can happen if the user has already granted consent and is not re-prompted.
-        // We need the refresh token for long-term access.
-        return res.redirect(`${process.env.CLIENT_URL}${stateData.redirectUrl}?oauth_error=no_refresh_token`);
+      // Happens when the user already granted consent and was not re-prompted;
+      // long-term OTP access needs the refresh token.
+      return res.redirect(
+        `${clientUrl()}${stateData.redirectUrl}?oauth_error=no_refresh_token`,
+      );
     }
 
     const encryptedRefreshToken = encryption.encrypt(tokens.refresh_token);
-    const encryptedAccessToken = tokens.access_token ? encryption.encrypt(tokens.access_token) : null;
+    const encryptedAccessToken = tokens.access_token
+      ? encryption.encrypt(tokens.access_token)
+      : null;
 
     await UserGoogleAccount.upsert({
       user_id: stateData.userId,
@@ -140,51 +154,49 @@ exports.googleOTPCallback = async (req, res) => {
       refresh_token: encryptedRefreshToken,
       access_token: encryptedAccessToken,
       token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-      scopes: tokens.scope.split(' ')
+      scopes: tokens.scope.split(' '),
     });
 
-    // Validate FRONTEND_URL is set
-    if (!process.env.FRONTEND_URL) {
-      throw new Error('FRONTEND_URL environment variable is required but not set');
-    }
-    res.redirect(`${process.env.FRONTEND_URL}/accounts?oauth_success=true`);
+    return res.redirect(`${clientUrl()}/accounts?oauth_success=true`);
   } catch (err) {
     logger.error('OAuth callback error:', err);
-    res.redirect(`${process.env.CLIENT_URL}${stateData.redirectUrl}?oauth_error=authentication_failed`);
+    return res.redirect(
+      `${clientUrl()}${stateData.redirectUrl}?oauth_error=authentication_failed`,
+    );
   }
 };
 
-exports.listGoogleAccounts = async (req, res) => {
-    try {
-        const accounts = await UserGoogleAccount.findByUserId(req.user.id);
-        
-        // Map the database field names to what the frontend expects
-        const mappedAccounts = accounts.map(account => ({
-            id: account.id,
-            google_email: account.email,  // Map 'email' to 'google_email'
-            is_primary: account.is_primary,
-            display_name: account.display_name,
-            is_active: account.is_active,
-            last_used: account.last_used,
-            last_otp_fetch: account.last_otp_fetch,
-            otp_fetch_count: account.otp_fetch_count
-        }));
-        
-        res.json({ accounts: mappedAccounts });
-    } catch (error) {
-        logger.error('Error listing Google accounts:', error);
-        res.status(500).json({ message: 'Failed to retrieve linked accounts.' });
-    }
+exports.listGoogleAccounts = async (req, res, next) => {
+  try {
+    const accounts = await UserGoogleAccount.findByUserId(req.user.id);
+
+    const mappedAccounts = accounts.map((account) => ({
+      id: account.id,
+      google_email: account.email,
+      is_primary: account.is_primary,
+      display_name: account.display_name,
+      is_active: account.is_active,
+      last_used: account.last_used,
+      last_otp_fetch: account.last_otp_fetch,
+      otp_fetch_count: account.otp_fetch_count,
+    }));
+
+    return ok(res, { accounts: mappedAccounts });
+  } catch (error) {
+    next(error);
+  }
 };
 
-exports.deleteGoogleAccount = async (req, res) => {
-    try {
-        const { id } = req.params;
-        // The model function ensures the user can only delete their own accounts.
-        await UserGoogleAccount.deleteById(id, req.user.id);
-        res.json({ success: true, message: 'Google account unlinked successfully.' });
-    } catch (error) {
-        logger.error('Error deleting Google account:', error);
-        res.status(500).json({ message: 'Failed to unlink account.' });
+exports.deleteGoogleAccount = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    // The model function ensures the user can only delete their own accounts.
+    const deleted = await UserGoogleAccount.deleteById(id, req.user.id);
+    if (!deleted) {
+      throw new ApiError(404, 'NOT_FOUND', 'Linked account not found');
     }
+    return ok(res, {});
+  } catch (error) {
+    next(error);
+  }
 };

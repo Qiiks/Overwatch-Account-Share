@@ -1,62 +1,45 @@
 const Settings = require('../models/Settings');
-const logger = require('../utils/logger');
+const ApiError = require('../utils/ApiError');
+const { ok } = require('../utils/respond');
 
-// Get public settings (accessible to all users)
-const getPublicSettings = async (req, res) => {
+/**
+ * Admin view of system settings. Deliberately a whitelist: this endpoint is the
+ * only place internal settings (e.g. min_jwt_issued_at) are exposed, and only to admins.
+ */
+const getSettings = async (req, res, next) => {
   try {
-    // Get the allow_registration setting
     const allowRegistration = await Settings.getSetting('allow_registration');
-    
-    // Return the setting value, default to true if not set
-    res.status(200).json({
-      success: true,
-      data: {
-        allow_registration: allowRegistration !== null ? allowRegistration : true
-      }
+    const minJwtIssuedAt = await Settings.getSetting('min_jwt_issued_at');
+
+    return ok(res, {
+      allow_registration: allowRegistration !== false,
+      min_jwt_issued_at: minJwtIssuedAt,
     });
   } catch (error) {
-    logger.error('Error fetching public settings:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch settings'
-    });
+    next(error);
   }
 };
 
-// Update registration setting (admin only)
-const updateRegistrationSetting = async (req, res) => {
+const updateRegistrationSetting = async (req, res, next) => {
   try {
     const { allow_registration } = req.body;
-    
-    // Validate the input
     if (typeof allow_registration !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: 'allow_registration must be a boolean value'
-      });
+      throw new ApiError(
+        400,
+        'VALIDATION_FAILED',
+        'allow_registration must be a boolean',
+        { allow_registration: 'must be a boolean' },
+      );
     }
-    
-    // Update the setting using the Settings model
-    const updatedSetting = await Settings.updateSetting('allow_registration', allow_registration);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        key: 'allow_registration',
-        value: updatedSetting.value
-      },
-      message: `Registration has been ${allow_registration ? 'enabled' : 'disabled'}`
-    });
+
+    await Settings.updateSetting('allow_registration', allow_registration);
+    return ok(res, { allow_registration });
   } catch (error) {
-    logger.error('Error updating registration setting:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update registration setting'
-    });
+    next(error);
   }
 };
 
 module.exports = {
-  getPublicSettings,
-  updateRegistrationSetting
+  getSettings,
+  updateRegistrationSetting,
 };

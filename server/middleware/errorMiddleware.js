@@ -1,63 +1,73 @@
+const ApiError = require('../utils/ApiError');
 const { logger } = require('../utils/logger');
 
+// PostgREST / PostgreSQL error codes we translate into the closed API code set.
+const PG_ERRORS = {
+  23505: [409, 'CONFLICT', 'A record with that value already exists'],
+  23503: [409, 'CONFLICT', 'A related record constraint was violated'],
+  PGRST116: [404, 'NOT_FOUND', 'Resource not found'],
+};
+
+/**
+ * Single normaliser for every error: { success: false, error: { message, code, details? } }.
+ * Never echoes upstream messages, SQL text or stacks outside development.
+ */
+// eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
-  // Log the error using winston
-  logger.error(err.message, {
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
+  const isDev = process.env.NODE_ENV !== 'production';
+  let status = 500;
+  let code = 'INTERNAL';
+  let message = 'Internal server error';
+  let details;
+  let loud = false;
+
+  if (err instanceof ApiError) {
+    status = err.status;
+    code = err.code;
+    message = err.message;
+    details = err.details;
+  } else if (err && err.type === 'entity.parse.failed') {
+    status = 400;
+    code = 'VALIDATION_FAILED';
+    message = 'Malformed JSON body';
+  } else if (err && err.type === 'entity.too.large') {
+    status = 413;
+    code = 'PAYLOAD_TOO_LARGE';
+    message = 'Request body too large';
+  } else if (err && err.name === 'JsonWebTokenError') {
+    status = 401;
+    code = 'UNAUTHENTICATED';
+    message = 'Invalid token';
+  } else if (err && err.name === 'TokenExpiredError') {
+    status = 401;
+    code = 'UNAUTHENTICATED';
+    message = 'Token expired';
+  } else if (err && Object.prototype.hasOwnProperty.call(PG_ERRORS, err.code)) {
+    [status, code, message] = PG_ERRORS[err.code];
+  } else if (err && err.code === '42P01') {
+    // undefined_table — almost always a schema/migration problem, never the caller's fault.
+    loud = true;
+    message = 'Database schema is missing a required table';
+  } else if (err && (err.status || err.statusCode)) {
+    status = err.status || err.statusCode;
+    message = err.message || message;
+    if (status === 403) code = 'FORBIDDEN';
+    else if (status === 401) code = 'UNAUTHENTICATED';
+    else if (status === 404) code = 'NOT_FOUND';
+  }
+
+  logger.error(`${req.method} ${req.originalUrl} -> ${status} ${code}`, {
+    stack: err && err.stack,
+    upstreamCode: err && err.code,
+    userId: req.user && req.user.id,
+    loud,
   });
-  
-  // Default error
-  let error = {
-    message: err.message || 'Server Error',
-    statusCode: err.statusCode || 500
-  };
 
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError') {
-    const message = 'Resource not found';
-    error = { message, statusCode: 404 };
-  }
+  const body = { message, code };
+  if (details !== undefined) body.details = details;
+  if (isDev && err && err.stack) body.details = { ...(body.details || {}), stack: err.stack };
 
-  // Mongoose duplicate key
-  if (err.code === 11000) {
-    const message = 'Duplicate field value entered';
-    error = { message, statusCode: 400 };
-  }
-
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message);
-    error = { message, statusCode: 400 };
-  }
-
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    const message = 'Invalid token';
-    error = { message, statusCode: 401 };
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    const message = 'Token expired';
-    error = { message, statusCode: 401 };
-  }
-
-  // Prepare response based on environment
-  const response = {
-    success: false,
-    message: error.message || 'Server Error'
-  };
-
-  // In production, sanitize error responses to avoid leaking internal details
-  if (process.env.NODE_ENV === 'production') {
-    response.stack = '🥞';
-  } else {
-    // In development, include full stack trace for debugging
-    response.stack = err.stack;
-  }
-
-  res.status(error.statusCode).json(response);
+  return res.status(status).json({ success: false, error: body });
 };
 
 module.exports = errorHandler;

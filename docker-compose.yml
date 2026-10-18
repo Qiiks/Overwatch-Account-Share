@@ -10,15 +10,21 @@ services:
       - PORT=5001
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
       - OAUTH_STATE_SECRET=${OAUTH_STATE_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
-      # Add CORS-specific environment variables for production
-      - FRONTEND_URL=https://overwatch.qiikzx.dev
-      - ALLOWED_ORIGINS=https://overwatch.qiikzx.dev,https://bwgg4wow8kggc48kko0g080c.qiikzx.dev
+      # CORS / cookie policy
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
+      - HSTS_INCLUDE_SUBDOMAINS=${HSTS_INCLUDE_SUBDOMAINS:-false}
+      # OTP poller
+      - OTP_FETCH_INTERVAL_MS=${OTP_FETCH_INTERVAL_MS:-10000}
       # Redis configuration (optional, will use in-memory if not available)
       - REDIS_URL=${REDIS_URL:-}
       - REDIS_HOST=${REDIS_HOST:-}
@@ -42,18 +48,19 @@ services:
       context: ./client
       # CRITICAL: Build arguments must be passed at build time for Next.js
       args:
-        # Use environment variables with defaults for flexibility
-        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://bwgg4wow8kggc48kko0g080c.qiikzx.dev}
-        - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-https://overwatch.qiikzx.dev}
+        # Same-origin default: the client calls /api on its own host and the proxy
+        # in front routes it to the server container.
+        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-/api}
+        - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
+        - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # These runtime env vars are not used by Next.js client-side code
-      # but kept for reference and potential server-side usage
-      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://bwgg4wow8kggc48kko0g080c.qiikzx.dev}
-      - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-https://overwatch.qiikzx.dev}
-      - INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL:-http://server:5001}
+      # Kept for reference; NEXT_PUBLIC_* values are baked in at build time.
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-/api}
+      - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL:-http://localhost:3000}
     depends_on:
       - server
     restart: unless-stopped
