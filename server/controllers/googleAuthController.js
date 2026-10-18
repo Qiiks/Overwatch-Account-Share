@@ -62,6 +62,19 @@ const decryptState = (text) => {
   return decrypted;
 };
 
+/**
+ * The return path comes from the client, so it is a same-app path or nothing: absolute
+ * URLs, protocol-relative "//host" and backslash tricks all fall back to the dashboard
+ * rather than being concatenated onto the client origin in the callback redirect.
+ */
+const safeRedirectPath = (value) => {
+  const path = typeof value === 'string' ? value.trim() : '';
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+    return '/dashboard';
+  }
+  return path;
+};
+
 exports.initGoogleOTPAuth = async (req, res, next) => {
   try {
     const { redirectUrl } = req.body;
@@ -70,7 +83,7 @@ exports.initGoogleOTPAuth = async (req, res, next) => {
 
     const stateData = {
       userId,
-      redirectUrl: redirectUrl || '/dashboard',
+      redirectUrl: safeRedirectPath(redirectUrl),
       timestamp: Date.now(),
       nonce: crypto.randomBytes(16).toString('hex'),
     };
@@ -157,7 +170,11 @@ exports.googleOTPCallback = async (req, res) => {
       scopes: tokens.scope.split(' '),
     });
 
-    return res.redirect(`${clientUrl()}/accounts?oauth_success=true`);
+    // Back to the page the flow started on (the mailbox list lives on /dashboard), not a
+    // hardcoded /accounts — otherwise a successful link lands somewhere the result is invisible.
+    return res.redirect(
+      `${clientUrl()}${stateData.redirectUrl}?oauth_success=true`,
+    );
   } catch (err) {
     logger.error('OAuth callback error:', err);
     return res.redirect(

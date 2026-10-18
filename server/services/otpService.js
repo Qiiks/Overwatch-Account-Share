@@ -392,8 +392,9 @@ class OTPService {
       throw new Error("Failed to update account with OTP");
     }
 
-    // Emit real-time update via WebSocket
-    await this.emitOTP(io, account, otp);
+    // Emit real-time update via WebSocket. Pass the updated row: the code written above is
+    // what carries the fresh otp_expires_at, the pre-update row still holds the old one.
+    await this.emitOTP(io, updatedAccount, otp);
   }
 
   /**
@@ -420,6 +421,10 @@ class OTPService {
       otp,
       accountTag: decryptedAccountTag,
       accountEmail: account.accountemail,
+      // Unconditional here: this push only fires for a code that was just written, so the
+      // expiry is live by construction. (The list endpoints must instead null it out when
+      // freshOtp returns the placeholder, or the readout pairs 00:00 with --:--:--.)
+      otpExpiresAt: account.otp_expires_at ?? null,
       timestamp: new Date().toISOString(),
     };
 

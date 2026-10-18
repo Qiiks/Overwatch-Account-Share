@@ -38,7 +38,7 @@ test.describe('accounts', () => {
     });
     expect(created.status()).toBe(201);
     const createdBody = await created.json();
-    const accountId = createdBody.data.account.id;
+    const accountId = createdBody.data.id;
 
     const credentials = await request.get(
       `${API}/api/overwatch-accounts/${accountId}/credentials`,
@@ -47,13 +47,36 @@ test.describe('accounts', () => {
 
     const body = await credentials.json();
     expect(body.success).toBe(true);
-    expect(body.data.credentials.accountPassword).toBe(TRICKY_PASSWORD);
+    expect(body.data.accountPassword).toBe(TRICKY_PASSWORD);
 
     // Clean up so repeated runs stay idempotent.
     const removed = await request.delete(`${API}/api/overwatch-accounts/${accountId}`, {
       headers: { 'x-csrf-token': token },
     });
     expect([200, 204]).toContain(removed.status());
+  });
+
+  test('the account list answers 200 and ships no credential ciphertext', async ({ request }) => {
+    const token = await freshSession(request);
+    expect(token).toBeTruthy();
+
+    // Every other account surface is covered elsewhere; this route had no test at all, which
+    // is how it shipped a 500 on the bare call (an undeclared variable) plus the raw table row.
+    const list = await request.get(`${API}/api/overwatch-accounts`);
+    expect(list.status()).toBe(200);
+
+    const body = await list.json();
+    expect(body.success).toBe(true);
+    expect(Array.isArray(body.data)).toBe(true);
+
+    for (const row of body.data as Record<string, unknown>[]) {
+      expect(row).not.toHaveProperty('accountpassword');
+      expect(row).not.toHaveProperty('accounttag');
+      expect(row).not.toHaveProperty('normalized_account_email');
+      expect(row).not.toHaveProperty('password_encryption_type');
+      expect(row).toHaveProperty('accountTag');
+      expect(row).toHaveProperty('otpExpiresAt');
+    }
   });
 
   test('the credential endpoint is rate limited', async ({ request }) => {

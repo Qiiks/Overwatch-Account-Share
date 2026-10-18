@@ -12,11 +12,9 @@ services:
     environment:
       - NODE_ENV=production
       # NEXT_PUBLIC_* are baked into the bundle at image build time (see the workflow
-      # build-args); the copies here are documentation only. INTERNAL_API_BASE_URL is
-      # read at runtime by the container healthcheck route.
+      # build-args); the copies here are documentation only.
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
       - NEXT_PUBLIC_WEBSITE_URL=${NEXT_PUBLIC_WEBSITE_URL}
-      - INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL:-http://server:5001}
     depends_on:
       server:
         condition: service_started

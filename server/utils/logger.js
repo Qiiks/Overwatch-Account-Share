@@ -199,6 +199,12 @@ const adminAuditLogger = {
       targetEmail: newUserEmail,
       timestamp: new Date().toISOString(),
     });
+    adminAuditLogger.persist("admin_user_created", adminId, {
+      adminUsername,
+      targetUserId: newUserId,
+      targetUsername: newUsername,
+      targetEmail: newUserEmail,
+    });
   },
 
   /**
@@ -215,12 +221,25 @@ const adminAuditLogger = {
         adminid: adminId ? String(adminId) : null,
         details,
       })
-    ).catch((error) => {
-      logger.warn("ADMIN AUDIT: failed to persist audit event", {
-        action,
-        error: error && error.message,
+    )
+      // PostgREST answers a refused insert by resolving with { error } and rejects only on
+      // transport faults, so both paths need inspecting — otherwise an RLS denial or a bad
+      // column drops the audit row without a trace.
+      .then((result) => {
+        const error = result && result.error;
+        if (error) {
+          logger.warn("ADMIN AUDIT: failed to persist audit event", {
+            action,
+            error: error.message,
+          });
+        }
+      })
+      .catch((error) => {
+        logger.warn("ADMIN AUDIT: failed to persist audit event", {
+          action,
+          error: error && error.message,
+        });
       });
-    });
   },
 
   /**
@@ -263,6 +282,13 @@ const adminAuditLogger = {
       newStatus,
       timestamp: new Date().toISOString(),
     });
+    adminAuditLogger.persist("admin_user_status_changed", adminId, {
+      adminUsername,
+      targetUserId,
+      targetUsername,
+      oldStatus,
+      newStatus,
+    });
   },
 
   /**
@@ -285,6 +311,13 @@ const adminAuditLogger = {
       oldRole,
       newRole,
       timestamp: new Date().toISOString(),
+    });
+    adminAuditLogger.persist("admin_user_role_changed", adminId, {
+      adminUsername,
+      targetUserId,
+      targetUsername,
+      oldRole,
+      newRole,
     });
   },
 
@@ -309,27 +342,6 @@ const adminAuditLogger = {
   },
 
   /**
-   * Log settings change by admin
-   */
-  logSettingsChanged: (
-    adminId,
-    adminUsername,
-    settingKey,
-    oldValue,
-    newValue
-  ) => {
-    logger.info(`ADMIN AUDIT: Setting changed`, {
-      event: "admin_settings_changed",
-      adminId,
-      adminUsername,
-      settingKey,
-      oldValue,
-      newValue,
-      timestamp: new Date().toISOString(),
-    });
-  },
-
-  /**
    * Log data export request (GDPR)
    */
   logDataExport: (
@@ -345,6 +357,11 @@ const adminAuditLogger = {
       targetUserId,
       targetUsername,
       timestamp: new Date().toISOString(),
+    });
+    adminAuditLogger.persist("data_export_requested", requesterId, {
+      requesterUsername,
+      targetUserId,
+      targetUsername,
     });
   },
 

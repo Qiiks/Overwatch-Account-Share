@@ -540,11 +540,21 @@ const getAdminDashboard = async (req, res, next) => {
     if (sharedError)
       logger.error("Error counting shared credentials:", sharedError);
 
-    // Get flagged activities (e.g., failed logins or admin overrides)
+    // Flagged activity = admin overrides in the last 24 h. The previous query matched
+    // '%FAILED%' against action, but no persisted action carries that token, so the tile
+    // was structurally unable to leave zero. Deliberately not credential_reveal: owners
+    // revealing their own password is ordinary use and would light the card permanently.
+    const flaggedSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { count: flaggedActivities, error: flaggedError } = await supabase
       .from("admin_audit_logs")
       .select("*", { count: "exact", head: true })
-      .ilike("action", "%FAILED%");
+      .in("action", [
+        "admin_user_deleted",
+        "admin_user_role_changed",
+        "admin_user_status_changed",
+        "force_logout",
+      ])
+      .gte("createdat", flaggedSince);
 
     if (flaggedError)
       logger.error("Error counting flagged activities:", flaggedError);
@@ -628,7 +638,11 @@ const toggleRegistrations = async (req, res, next) => {
 // @access  Admin
 const createUser = async (req, res, next) => {
   try {
-    const { username, email, password, role = "user" } = req.body || {};
+    const { username, email: rawEmail, password, role = "user" } = req.body || {};
+    // Same canonical form registration stores (normalizeEmail lowercases): sharing looks
+    // users up case-insensitively, and a mixed-case row is otherwise easy to miss.
+    const email =
+      typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
 
     // Validation
     if (!username || !email || !password) {

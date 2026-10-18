@@ -7,7 +7,7 @@ import { errorMessage } from "@/lib/errors";
 import { connectSocket } from "@/lib/socket";
 import { useAuth } from "@/context/AuthContext";
 import { CyberpunkCredentialDisplay } from "./CyberpunkCredentialDisplay";
-import { Shield, Users, User, Lock, Unlock, Share2 } from "lucide-react";
+import { Lock, Eye, EyeOff, Share2 } from "lucide-react";
 import { ShareAccountDialog } from "./ShareAccountDialog";
 
 interface AccountOwner {
@@ -26,6 +26,8 @@ interface OverwatchAccount {
   hasAccess: boolean;
   accessType: "owner" | "shared" | "none";
   otp?: string;
+  /** Live expiry of the pushed code, shipped by the list endpoints and the socket push. */
+  otpExpiresAt?: string;
 }
 
 interface Credentials {
@@ -55,6 +57,7 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [newOtpAccounts, setNewOtpAccounts] = useState<Set<string>>(new Set());
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [shareDialog, setShareDialog] = useState<ShareDialogState>({
     isOpen: false,
     accountId: "",
@@ -109,7 +112,7 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
 
   // OTP pushes are addressed to the account owner and its shared users; match on the account tag.
   const handleOtpUpdate = useCallback(
-    (data: { accountTag: string; otp: string }) => {
+    (data: { accountTag: string; otp: string; otpExpiresAt?: string }) => {
       toast.success(`🔐 NEW OTP DETECTED: ${data.accountTag}`, {
         duration: 5000,
         position: "top-right",
@@ -128,10 +131,16 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
         }, 5000);
       }
 
+      // Carry the pushed expiry too: without it the readout only starts counting down after
+      // the next refetch, so a code that arrives over the socket shows no time left.
       setAccounts((prevAccounts) =>
         prevAccounts.map((account) =>
           account.accountTag === data.accountTag
-            ? { ...account, otp: data.otp }
+            ? {
+                ...account,
+                otp: data.otp,
+                otpExpiresAt: data.otpExpiresAt ?? account.otpExpiresAt,
+              }
             : account,
         ),
       );
@@ -172,173 +181,104 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
     setShareDialog((prev) => ({ ...prev, isOpen: false }));
   };
 
+  const toggleReveal = (account: OverwatchAccount) => {
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(account.id)) next.delete(account.id);
+      else next.add(account.id);
+      return next;
+    });
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-          <p className="text-cyan-400 terminal-text">Loading accounts...</p>
-        </div>
+      <div className="flex items-center justify-center py-16">
+        <span className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+          Loading accounts…
+        </span>
       </div>
     );
   }
 
+  const accessible = accounts.filter((a) => a.hasAccess).length;
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between items-start md:items-center mb-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">
-            Overwatch Accounts
+    <div className="space-y-4">
+      <section className="rounded-lg border border-line bg-panel">
+        <header className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
+          <h1 className="font-mono text-2xs tracking-label text-ink-2 uppercase">
+            Account ledger
           </h1>
-          <p className="text-sm text-gray-400">
-            All accounts are visible • Credentials require authorization
-          </p>
-        </div>
-      </div>
+          <span className="font-mono text-2xs text-ink-3">
+            {accounts.length} in view
+          </span>
+          <span className="ml-auto hidden font-mono text-2xs tracking-[0.06em] text-ink-3 uppercase sm:inline">
+            {accessible} accessible · {accounts.length - accessible} locked
+          </span>
+        </header>
 
-      {/* Accounts Grid */}
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-        {accounts.length > 0 ? (
-          accounts.map((account) => (
-            <div
-              key={account.id}
-              className={`account-card bg-black/60 backdrop-blur-md border border-cyan-500/30 rounded-lg p-6 relative overflow-hidden ${newOtpAccounts.has(account.id) ? "glitch-pulse" : ""}`}
-            >
-              {/* Account Header */}
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-cyan-300 flex items-center gap-2">
-                    {account.accountTag}
-                    {account.hasAccess && account.accessType === "owner" && (
-                      <span title="Owner">
-                        <Shield size={16} className="text-green-400" />
-                      </span>
-                    )}
-                    {account.hasAccess && account.accessType === "shared" && (
-                      <span title="Shared Access">
-                        <Users size={16} className="text-blue-400" />
-                      </span>
-                    )}
-                  </h3>
-                  <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                    <User size={12} />
-                    Owner: {account.owner?.username || "Unknown"}
-                  </p>
-                  {account.rank && (
-                    <p className="text-sm text-purple-400 mt-1">
-                      Rank: {account.rank}
-                    </p>
-                  )}
-                </div>
-
-                {/* Access Badge */}
-                <div className="flex gap-2">
-                  {account.hasAccess ? (
-                    <span className="px-3 py-1 bg-green-500/20 border border-green-500/50 rounded text-xs text-green-400 flex items-center gap-1">
-                      <Unlock size={12} />
-                      {account.accessType === "owner" ? "OWNER" : "SHARED"}
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-red-500/20 border border-red-500/50 rounded text-xs text-red-400 flex items-center gap-1">
-                      <Lock size={12} />
-                      LOCKED
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Credentials Display */}
-              <div className="space-y-4">
-                <CyberpunkCredentialDisplay
-                  label="Battle.net Email"
-                  value={
-                    credentials[account.id]?.accountEmail ||
-                    account.accountEmail
-                  }
-                  isEncrypted={!account.hasAccess}
-                  hasAccess={account.hasAccess}
-                  onDecrypt={() => fetchCredentials(account.id)}
-                />
-
-                <CyberpunkCredentialDisplay
-                  label="Password"
-                  value={
-                    credentials[account.id]?.accountPassword ||
-                    account.accountPassword
-                  }
-                  isEncrypted={!account.hasAccess}
-                  hasAccess={account.hasAccess}
-                  onDecrypt={() => fetchCredentials(account.id)}
-                />
-
-                <CyberpunkCredentialDisplay
-                  label="OTP Code"
-                  value={
-                    credentials[account.id]?.otp ||
-                    account.otp ||
-                    (account.hasAccess ? "--:--:--" : "CIPHER::OTP::LOCKED")
-                  }
-                  isEncrypted={!account.hasAccess}
-                  hasAccess={account.hasAccess}
-                  onDecrypt={() => fetchCredentials(account.id)}
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-6 flex gap-3">
-                {(account.accessType === "owner" ||
-                  ((user?.role === "admin" || user?.isAdmin) &&
-                    account.hasAccess)) && (
-                  <button
-                    onClick={() => openShareDialog(account)}
-                    className="flex-1 px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded text-sm text-purple-300 hover:bg-purple-500/30 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    Share Access
-                  </button>
-                )}
-              </div>
-
-              {/* Main Heroes Display */}
-              {account.mainHeroes && account.mainHeroes.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-cyan-500/20">
-                  <p className="text-xs text-gray-400 mb-2">Main Heroes:</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {account.mainHeroes.map((hero, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded text-xs text-cyan-400"
-                      >
-                        {hero}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Scan line effect */}
-              <div className="scan-line"></div>
-            </div>
-          ))
-        ) : (
-          <div className="col-span-2 text-center py-12">
-            <Lock size={48} className="mx-auto mb-4 text-gray-600" />
-            <p className="text-gray-400">
+        {accounts.length === 0 ? (
+          <div className="px-3.5 py-14 text-center">
+            <Lock size={28} className="mx-auto mb-3 text-ink-3" />
+            <p className="font-mono text-xs text-ink-3">
               No Overwatch accounts found in the database.
             </p>
           </div>
-        )}
-      </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="px-3.5 pt-2.5 pb-1.5 text-left font-mono text-2xs font-medium tracking-label text-ink-3 uppercase">
+                    Account
+                  </th>
+                  <th className="hidden px-3.5 pt-2.5 pb-1.5 text-left font-mono text-2xs font-medium tracking-label text-ink-3 uppercase sm:table-cell">
+                    Owner
+                  </th>
+                  <th className="hidden px-3.5 pt-2.5 pb-1.5 text-left font-mono text-2xs font-medium tracking-label text-ink-3 uppercase md:table-cell">
+                    Access
+                  </th>
+                  <th className="hidden px-3.5 pt-2.5 pb-1.5 text-left font-mono text-2xs font-medium tracking-label text-ink-3 uppercase sm:table-cell">
+                    Relay
+                  </th>
+                  <th className="px-3.5 pt-2.5 pb-1.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((account) => {
+                  const isOpen = revealed.has(account.id);
+                  const creds = credentials[account.id];
+                  // A code is "ready" when the socket pushed one, or when the ledger already carries a live code.
+                  const relayed =
+                    newOtpAccounts.has(account.id) ||
+                    Boolean(account.hasAccess && (creds?.otp || account.otp));
+                  const ownerName = account.owner?.username || "Unknown";
 
-      {/* Footer Stats */}
-      <div className="mt-8 pt-8 border-t border-cyan-500/20 text-center">
-        <p className="text-xs text-gray-500">
-          Total Accounts: {accounts.length} • Accessible:{" "}
-          {accounts.filter((a) => a.hasAccess).length} • Locked:{" "}
-          {accounts.filter((a) => !a.hasAccess).length}
-        </p>
-      </div>
+                  return (
+                    <FragmentRow
+                      key={account.id}
+                      account={account}
+                      isOpen={isOpen}
+                      relayed={relayed}
+                      creds={creds}
+                      ownerName={ownerName}
+                      canShare={
+                        account.accessType === "owner" ||
+                        (Boolean(user?.role === "admin" || user?.isAdmin) &&
+                          account.hasAccess)
+                      }
+                      onToggleReveal={() => toggleReveal(account)}
+                      onFetchCredentials={() => fetchCredentials(account.id)}
+                      onShare={() => openShareDialog(account)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <ShareAccountDialog
         isOpen={shareDialog.isOpen}
         onClose={closeShareDialog}
@@ -350,5 +290,159 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
         }}
       />
     </div>
+  );
+}
+
+interface FragmentRowProps {
+  account: OverwatchAccount;
+  isOpen: boolean;
+  relayed: boolean;
+  creds?: Credentials;
+  ownerName: string;
+  canShare: boolean;
+  onToggleReveal: () => void;
+  onFetchCredentials: () => void;
+  onShare: () => void;
+}
+
+function FragmentRow({
+  account,
+  isOpen,
+  relayed,
+  creds,
+  ownerName,
+  canShare,
+  onToggleReveal,
+  onFetchCredentials,
+  onShare,
+}: FragmentRowProps) {
+  return (
+    <>
+      <tr className="transition-colors duration-150 ease-standard hover:bg-white/[0.025]">
+        <td className="border-t border-line px-3.5 py-2.5 align-middle">
+          <span className="font-mono text-sm font-medium text-ink">
+            {account.accountTag}
+          </span>
+          <span className="mt-0.5 block font-mono text-2xs tracking-[0.12em] text-ink-3">
+            {account.hasAccess ? "password ••••••••••••" : "password •••• locked"}
+          </span>
+          {account.rank && (
+            <span className="mt-0.5 block font-mono text-2xs tracking-[0.08em] text-ink-3 uppercase">
+              {account.rank}
+            </span>
+          )}
+        </td>
+        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle font-mono text-xs text-ink-2 sm:table-cell">
+          {ownerName}
+        </td>
+        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle md:table-cell">
+          {account.hasAccess ? (
+            <span className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-ink-2 uppercase">
+              {account.accessType === "owner" ? "Owner" : "Shared"}
+            </span>
+          ) : (
+            <span className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-ink-3 uppercase">
+              Locked
+            </span>
+          )}
+        </td>
+        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle sm:table-cell">
+          {relayed ? (
+            <span className="inline-flex items-center gap-1.5 rounded-sm bg-signal px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-signal-ink uppercase">
+              <span className="size-1.5 bg-signal-ink animate-led motion-reduce:animate-none" />
+              Code ready
+            </span>
+          ) : (
+            <span className="font-mono text-2xs tracking-[0.08em] text-ink-3 uppercase">
+              Idle
+            </span>
+          )}
+        </td>
+        <td className="border-t border-line px-3.5 py-2.5 align-middle">
+          <div className="flex flex-none items-center justify-end gap-1.5">
+            {account.hasAccess && (
+              <button
+                onClick={onToggleReveal}
+                aria-label={isOpen ? "Hide credentials" : "Reveal credentials"}
+                title={isOpen ? "Hide credentials" : "Reveal credentials"}
+                className="grid size-[26px] place-items-center rounded-md border border-line-2 text-ink-3 transition-colors duration-150 ease-standard hover:text-ink"
+              >
+                {isOpen ? <EyeOff size={13} /> : <Eye size={13} />}
+              </button>
+            )}
+            {account.hasAccess && (creds?.otp || account.otp) && (
+              <button
+                onClick={onToggleReveal}
+                className="rounded-md border border-line-2 px-2 py-1 font-mono text-2xs tracking-[0.06em] whitespace-nowrap text-ink-2 uppercase transition-colors duration-150 ease-standard hover:bg-white/5 hover:text-ink"
+              >
+                {isOpen ? "Hide code" : "Show code"}
+              </button>
+            )}
+            {canShare && (
+              <button
+                onClick={onShare}
+                className="rounded-md border border-line-2 px-2 py-1 font-mono text-2xs tracking-[0.06em] whitespace-nowrap text-ink-2 uppercase transition-colors duration-150 ease-standard hover:bg-white/5 hover:text-ink"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Share2 size={12} />
+                  Share
+                </span>
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+
+      {isOpen && (
+        <tr className="bg-panel-2">
+          <td colSpan={5} className="border-t border-line px-3.5 py-3">
+            <div className="grid gap-2.5 lg:grid-cols-3">
+              <CyberpunkCredentialDisplay
+                label="Battle.net email"
+                value={creds?.accountEmail || account.accountEmail}
+                isEncrypted={!account.hasAccess}
+                hasAccess={account.hasAccess}
+                onDecrypt={onFetchCredentials}
+              />
+              <CyberpunkCredentialDisplay
+                label="Password"
+                value={creds?.accountPassword || account.accountPassword}
+                isEncrypted={!account.hasAccess}
+                hasAccess={account.hasAccess}
+                onDecrypt={onFetchCredentials}
+              />
+              <CyberpunkCredentialDisplay
+                label="Login code"
+                variant="readout"
+                expiresAt={account.otpExpiresAt}
+                value={
+                  creds?.otp ||
+                  account.otp ||
+                  (account.hasAccess ? "—" : "CIPHER::OTP::LOCKED")
+                }
+                isEncrypted={!account.hasAccess}
+                hasAccess={account.hasAccess}
+                onDecrypt={onFetchCredentials}
+              />
+            </div>
+            {account.mainHeroes && account.mainHeroes.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-3">
+                <span className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+                  Mains
+                </span>
+                {account.mainHeroes.map((hero) => (
+                  <span
+                    key={hero}
+                    className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs text-ink-2"
+                  >
+                    {hero}
+                  </span>
+                ))}
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

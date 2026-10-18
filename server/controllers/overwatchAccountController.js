@@ -34,6 +34,42 @@ const freshOtp = (account) => {
   return account.otp;
 };
 
+// Legacy rows hold plaintext, current ones hold AES-GCM ciphertext; a failed decrypt means
+// "already plaintext", never an error.
+const decryptSafe = (value) => {
+  try {
+    return decrypt(value);
+  } catch (error) {
+    return value;
+  }
+};
+
+// The models hand back whole rows, which carry credential ciphertext (accountpassword,
+// normalized_account_email), the ciphertext accounttag next to its decrypted form, and a
+// stored otp/otp_expires_at pair that bypasses the freshness gate above. No endpoint may
+// spread one, so every account response is built here.
+const publicAccount = (account, { isOwner = false } = {}) => {
+  const otp = freshOtp(account);
+  return {
+    id: account.id,
+    accountTag: decryptSafe(account.accounttag),
+    accountEmail: account.accountemail,
+    rank: account.rank,
+    mainHeroes: account.mainheroes,
+    lastUsed: account.lastused,
+    status: account.status,
+    sharingStatus: account.sharingstatus,
+    owner_id: account.owner_id,
+    isOwner,
+    otp,
+    // Only a live code has an expiry worth showing: pairing the placeholder with a stale
+    // timestamp renders "expires 00:00" beside "--:--:--".
+    otpExpiresAt: otp === OTP_PLACEHOLDER ? null : account.otp_expires_at ?? null,
+    createdAt: account.createdat,
+    updatedAt: account.updatedat,
+  };
+};
+
 // Validation failures are thrown, never returned: errorMiddleware owns the shape.
 const failValidation = (req) => {
   const errors = validationResult(req);
@@ -186,23 +222,7 @@ exports.addAccount = [
 
       await invalidateUserCaches([req.user.id]);
 
-      // Decrypt accountTag for response
-      let decryptedAccountTag = newAccount.accounttag;
-      try {
-        decryptedAccountTag = decrypt(newAccount.accounttag);
-      } catch (error) {
-        // If decryption fails, assume it's already plaintext
-        decryptedAccountTag = newAccount.accounttag;
-      }
-
-      return ok(
-        res,
-        {
-          ...newAccount,
-          accountTag: decryptedAccountTag,
-        },
-        201,
-      );
+      return ok(res, publicAccount(newAccount, { isOwner: true }), 201);
     } catch (error) {
       // Pass error to centralized error handler
       next(error);
@@ -223,16 +243,12 @@ exports.getAccounts = async (req, res, next) => {
     const allAccounts = await getAccessibleAccounts(req.user.id);
 
     // Apply search filter. accounttag is ciphertext, so the comparison runs against the
-    // decrypted value (and the plaintext email column).
+    // decrypted value (and the plaintext email column). The declaration below is
+    // load-bearing: assigning without it creates a process-wide implicit global, so an
+    // unsearched request would read the previous caller's rows (and 500 on the first one).
+    let filteredAccounts = allAccounts;
     if (req.query.search) {
       const needle = String(req.query.search).toLowerCase();
-      const decryptSafe = (value) => {
-        try {
-          return decrypt(value);
-        } catch (error) {
-          return value;
-        }
-      };
 
       filteredAccounts = allAccounts.filter((account) => {
         const tag = (decryptSafe(account.accounttag) || "").toLowerCase();
@@ -242,9 +258,12 @@ exports.getAccounts = async (req, res, next) => {
       logger.debug("[PERF] Search query applied", { query: req.query.search });
     }
 
-    // Apply sorting
-    const sortOption = req.query.sort || "-createdAt";
-    const sortField = sortOption.replace("-", "");
+    // Apply sorting. Column names are lowercase in the database, so a camelCase sort key
+    // (the default, or whatever the client sends) has to be lowered before it can index a
+    // row — otherwise every comparison is undefined vs undefined and the order degrades to
+    // whatever the database returned, which makes paging non-deterministic.
+    const sortOption = req.query.sort || "-createdat";
+    const sortField = sortOption.replace("-", "").toLowerCase();
     const sortDirection = sortOption.startsWith("-") ? -1 : 1;
 
     filteredAccounts.sort((a, b) => {
@@ -258,25 +277,9 @@ exports.getAccounts = async (req, res, next) => {
     // Apply pagination
     const paginatedAccounts = filteredAccounts.slice(skip, skip + limit);
 
-    // Add isOwner field to each account and map accounttag to accountTag with decryption
-    const accountsWithOwnership = paginatedAccounts.map((account) => {
-      const isOwner = account.owner_id === req.user.id;
-
-      // Decrypt accountTag if it's encrypted
-      let decryptedAccountTag = account.accounttag;
-      try {
-        decryptedAccountTag = decrypt(account.accounttag);
-      } catch (error) {
-        // If decryption fails, assume it's already plaintext (old data)
-        decryptedAccountTag = account.accounttag;
-      }
-
-      return {
-        ...account,
-        accountTag: decryptedAccountTag,
-        isOwner,
-      };
-    });
+    const accountsWithOwnership = paginatedAccounts.map((account) =>
+      publicAccount(account, { isOwner: account.owner_id === req.user.id }),
+    );
 
     const totalDuration = Number(process.hrtime.bigint() - startTime) / 1000000;
     performanceLogger.logApiCall(
@@ -408,19 +411,12 @@ exports.updateAccount = [
 
       await invalidateUserCaches([req.user.id]);
 
-      // Decrypt accountTag for response
-      let decryptedAccountTag = updatedAccount.accounttag;
-      try {
-        decryptedAccountTag = decrypt(updatedAccount.accounttag);
-      } catch (error) {
-        // If decryption fails, assume it's already plaintext
-        decryptedAccountTag = updatedAccount.accounttag;
-      }
-
-      return ok(res, {
-        ...updatedAccount,
-        accountTag: decryptedAccountTag,
-      });
+      return ok(
+        res,
+        publicAccount(updatedAccount, {
+          isOwner: updatedAccount.owner_id === req.user.id,
+        }),
+      );
     } catch (error) {
       next(error);
     }
@@ -558,21 +554,11 @@ exports.updateAccountAccess = async (req, res, next) => {
       ? updatedAccount.overwatch_account_allowed_users.map((u) => u.user_id)
       : [];
 
-    // Decrypt accountTag for response
-    let decryptedAccountTag = updatedAccount.accounttag;
-    try {
-      decryptedAccountTag = decrypt(updatedAccount.accounttag);
-    } catch (error) {
-      // If decryption fails, assume it's already plaintext
-      decryptedAccountTag = updatedAccount.accounttag;
-    }
-
     return ok(res, {
-      ...updatedAccount,
-      accountTag: decryptedAccountTag,
+      ...publicAccount(updatedAccount, {
+        isOwner: updatedAccount.owner_id === req.user.id,
+      }),
       sharedUsers: sharedUserIds,
-      // Remove the raw overwatch_account_allowed_users from response
-      overwatch_account_allowed_users: undefined,
     });
   } catch (error) {
     logger.error("Error in updateAccountAccess:", error);
@@ -740,11 +726,13 @@ exports.getAccountCredentials = async (req, res, next) => {
     }
 
     // Return real credentials for authorized users
+    const otp = freshOtp(account);
     return ok(res, {
       accountTag: decryptedAccountTag,
       accountEmail: account.accountemail,
       accountPassword: decryptedPassword,
-      otp: freshOtp(account),
+      otp,
+      otpExpiresAt: otp === OTP_PLACEHOLDER ? null : account.otp_expires_at ?? null,
       hasAccess: true,
       accessType: isOwner ? "owner" : "shared",
     });
@@ -804,11 +792,19 @@ exports.shareAccountByEmail = async (req, res, next) => {
       });
     }
 
-    // Find the user by email
+    // Find the user by email. Registration stores emails lowercase (express-validator's
+    // normalizeEmail), but admin-created rows were stored verbatim, so the match is
+    // case-insensitive. The pattern is escaped — a "%" or "_" in a local part must not widen
+    // it — and bounded to one row, since the unique index is case-sensitive and a table may
+    // hold both "Foo@x.com" and "foo@x.com".
+    const targetEmail = String(email).trim();
+    const escapedEmail = targetEmail.replace(/[\\%_]/g, (ch) => `\\${ch}`);
     const { data: targetUser, error: userError } = await supabase
       .from("users")
       .select("id, username, email")
-      .eq("email", email)
+      .ilike("email", escapedEmail)
+      .order("createdat", { ascending: true })
+      .limit(1)
       .single();
 
     if (userError || !targetUser) {
@@ -965,14 +961,19 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
             decryptedPassword = "[Legacy - Update Required]";
           }
 
+          const otp = freshOtp(account);
           responseData.accountEmail = account.accountemail;
           responseData.accountPassword = decryptedPassword;
-          responseData.otp = freshOtp(account);
+          responseData.otp = otp;
+          // Same rule as the list endpoint: only a live code has an expiry worth showing.
+          responseData.otpExpiresAt =
+            otp === OTP_PLACEHOLDER ? null : (account.otp_expires_at ?? null);
         } else {
           // Show cipher text for unauthorized users
           responseData.accountEmail = generateCipherText("email");
           responseData.accountPassword = generateCipherText("password");
           responseData.otp = generateCipherText("otp");
+          responseData.otpExpiresAt = null;
         }
 
         return responseData;

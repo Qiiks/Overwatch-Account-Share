@@ -65,6 +65,12 @@ const collectRoutes = (app) =>
     );
 
 const checkBody = (method, url, status, body, offenders) => {
+  // A 5xx is the failure this gate exists to catch: errorMiddleware answers it with
+  // { success: false, error }, so an envelope-only assertion passes a broken handler.
+  if (typeof status === 'number' && status >= 500) {
+    offenders.push({ method, url, status, detail: 'server error' });
+    return;
+  }
   if (!body || typeof body.success !== 'boolean') {
     offenders.push({
       method,
@@ -150,6 +156,12 @@ const main = async () => {
         `(${JSON.stringify(login.body)}). Seed a dev user (ALLOW_DEV_SEED=1 node scripts/seed-dev.js) ` +
         'or set SMOKE_EMAIL/SMOKE_PASSWORD.',
     );
+    // An anonymous-only pass cannot say anything about authenticated handlers, so a green
+    // exit here would be a false claim. Opt out explicitly when that is really what you want.
+    if (process.env.SMOKE_ALLOW_ANON_ONLY !== '1') {
+      console.log('[authenticated] failing: set SMOKE_ALLOW_ANON_ONLY=1 to accept an anonymous-only pass.');
+      process.exit(1);
+    }
   }
 
   const offenders = [...anonymousOffenders, ...authenticatedOffenders];

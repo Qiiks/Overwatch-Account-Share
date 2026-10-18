@@ -108,6 +108,28 @@ const getDashboard = async (req, res, next) => {
                 }
             }
             
+            // Owner labels for shared rows: one query for the distinct owners instead of a
+            // join per row. The dashboard client renders `owner.username` and previously fell
+            // back to the literal "another user" for every account that was shared with you.
+            const ownerIds = [
+                ...new Set(allAccounts.map((acc) => acc.owner_id).filter(Boolean)),
+            ];
+            const ownerUsernames = {};
+            if (ownerIds.length > 0) {
+                const { data: owners, error: ownersError } = await supabase
+                    .from('users')
+                    .select('id, username')
+                    .in('id', ownerIds);
+
+                if (ownersError) {
+                    logger.error('Error fetching account owners:', ownersError);
+                } else {
+                    (owners || []).forEach((owner) => {
+                        ownerUsernames[owner.id] = owner.username;
+                    });
+                }
+            }
+
             // Map account fields to frontend expectations
             accounts = allAccounts.map(account => {
                 // Decrypt accounttag with fallback for legacy unencrypted data
@@ -136,6 +158,14 @@ const getDashboard = async (req, res, next) => {
                     sharedWith: accountSharedUsers[account.id] || [], // Array of objects with {id, email}
                     status: account.status,
                     owner_id: account.owner_id,  // CRITICAL: Include owner_id for proper categorization
+                    // Only meaningful for rows owned by someone else; the client renders
+                    // "me" for its own rows and would otherwise print a username there.
+                    owner:
+                        account.owner_id &&
+                        account.owner_id !== req.user.id &&
+                        ownerUsernames[account.owner_id]
+                            ? { username: ownerUsernames[account.owner_id] }
+                            : null,
                     createdAt: account.createdat,
                     updatedAt: account.updatedat,
                     // include any other fields as needed
