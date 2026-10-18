@@ -94,14 +94,21 @@ which carries only the missing columns and tables and touches no existing row �
   shared with — never broadcast. Suspending a user or forcing a logout also drops their live sockets.
 - Rate limits: per-route limits on auth (plus a per origin+account failure counter), credential reads
   and the account browse list.
-- The OTP relay's health is exposed at `GET /health` under `services.otpRelay`; a mailbox that Google
-  rejects is deactivated and shown as "reconnect required" in the app.
+- The OTP relay's health is exposed at `GET /health` under `services.otpRelay`. Only a real Google
+  rejection (400/401) parks a mailbox, and the app then shows it as "reconnect required"; a token
+  that fails to *decrypt* means `ENCRYPTION_SECRET` does not match the key the mailbox was linked
+  with, so it is logged loudly and nothing is written — the grants stay intact, fix the key.
 
 ## Testing
 
 ```bash
 npm run test:e2e        # Playwright (e2e/) against a running client+server pair
 ```
+
+The suite starts both processes itself unless they are already up, and the admin cases need
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` (they self-skip otherwise, which reads as green without them).
+Set `PW_CHROMIUM_PATH=/usr/bin/brave` to drive a Chromium already installed on the host instead of
+Playwright's bundled build — useful where the download cannot unpack, and the same engine either way.
 
 ## Deployment
 

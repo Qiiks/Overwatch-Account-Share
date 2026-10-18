@@ -23,6 +23,12 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'off',
+    // Drive a Chromium already on the host (Brave, Chrome, a system chromium) when one is
+    // named, instead of Playwright's own download: this machine's bundled build has never
+    // finished unpacking, and a host browser is the same engine. Unset ⇒ Playwright's default.
+    launchOptions: process.env.PW_CHROMIUM_PATH
+      ? { executablePath: process.env.PW_CHROMIUM_PATH }
+      : {},
   },
 
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
