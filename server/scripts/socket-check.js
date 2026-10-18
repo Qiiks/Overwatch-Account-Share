@@ -77,7 +77,14 @@ const main = async () => {
   if (!Array.isArray(accounts) || accounts.length === 0) {
     fail(`no accounts to push a code for (GET /api/overwatch-accounts -> ${list.status})`);
   }
-  const accountId = accounts[0].id;
+  // The list is everything the caller can *access* — owned and shared — and the dev harness
+  // only lets the owner push. Picking the first row would emit for someone else's account and
+  // fail 403, which would read as a socket bug.
+  const owned = accounts.find((account) => account.isOwner || account.accessType === 'owner');
+  if (!owned) {
+    fail(`the owner has no account of their own to push a code for (${accounts.length} accessible row(s), all shared)`);
+  }
+  const accountId = owned.id;
 
   const ownerEvents = [];
   const anonEvents = [];
