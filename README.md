@@ -101,7 +101,26 @@ npm run test:e2e        # Playwright (e2e/) against a running client+server pair
 
 ## Deployment
 
-CI (`.github/workflows/deploy.yml`) builds both images, pushes them to GHCR, and updates the `deploy`
-branch, which Coolify watches; `.coolify-prebuilt.yml` describes the Coolify stack (client on `/`,
-API on `/api` + `/socket.io`). Set every server variable above in the Coolify environment, and set the
-three `NEXT_PUBLIC_*` values as build args/secrets so they are baked into the client bundle.
+CI (`.github/workflows/deploy.yml`) builds both images, pushes them to GHCR (tagged `latest` and
+`:sha-<commit>` for rollback), and updates the `deploy` branch, which Coolify watches.
+
+**Topology: one host.** `.coolify-prebuilt.yml` serves the app and the API from the same domain —
+Traefik routes `Host(<domain>) && (PathPrefix('/api') || PathPrefix('/socket.io'))` to the server
+container (priority 10) and everything else to the client. The client's
+`NEXT_PUBLIC_API_BASE_URL` is the relative `/api`, so the browser stays same-origin and the
+`SameSite=Lax` session cookie is sent.
+
+- Set the app domain in Coolify and make sure the server service carries the higher-priority
+  routers above; verify with `curl -i https://<domain>/api/health` (a 404 there means something
+  stripped the `/api` prefix — do not use Coolify's per-resource "Path" field for that reason).
+- Fallback if path routing is unavailable: put the API on a sibling subdomain
+  (`api.<domain>`) of the same registrable domain, keep `COOKIE_SAMESITE=lax` (siblings are
+  same-site), and rebuild the client with an absolute `NEXT_PUBLIC_API_BASE_URL=https://api.<domain>`
+  — one rebuild per environment.
+- Server env: every variable in `server/.env.example` must be set in Coolify, including
+  `NODE_ENV=production` (the server refuses to boot without it, and it is what sets the session
+  cookie's `Secure` flag) and `ALLOWED_ORIGINS=https://<domain>`.
+- Client build args: `NEXT_PUBLIC_API_BASE_URL=/api` and `NEXT_PUBLIC_WEBSITE_URL=https://<domain>`
+  (the only two the client reads; both are baked at image build time).
+- Health: the client container probes its own `/api/health` (liveness); point an external check at
+  the API's `/ready` for a real dependency signal.
