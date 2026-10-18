@@ -332,6 +332,14 @@ function FragmentRow({
   onFetchCredentials,
   onShare,
 }: FragmentRowProps) {
+  // The code, its expiry and its liveness all come from ONE source: once the reveal has
+  // answered, that response is authoritative — it may legitimately say "no live code" —
+  // and mixing it with the roster's copy is exactly what would put a placeholder beside a
+  // live countdown.
+  const code = creds ? creds.otp : account.otp;
+  const codeExpiresAt = creds ? creds.otpExpiresAt : account.otpExpiresAt;
+  const codeIsLive = account.hasAccess && hasLiveCode(code, codeExpiresAt);
+
   return (
     <>
       <tr className="transition-colors duration-150 ease-standard hover:bg-white/[0.025]">
@@ -430,19 +438,9 @@ function FragmentRow({
               <CyberpunkCredentialDisplay
                 label="Login code"
                 variant="readout"
-                expiresAt={creds?.otpExpiresAt ?? account.otpExpiresAt}
-                live={
-                  account.hasAccess &&
-                  hasLiveCode(
-                    creds?.otp ?? account.otp,
-                    creds?.otpExpiresAt ?? account.otpExpiresAt,
-                  )
-                }
-                value={
-                  creds?.otp ||
-                  account.otp ||
-                  (account.hasAccess ? "—" : "CIPHER::OTP::LOCKED")
-                }
+                expiresAt={codeExpiresAt}
+                live={codeIsLive}
+                value={code || (account.hasAccess ? "—" : "CIPHER::OTP::LOCKED")}
                 isEncrypted={!account.hasAccess}
                 hasAccess={account.hasAccess}
                 onDecrypt={onFetchCredentials}

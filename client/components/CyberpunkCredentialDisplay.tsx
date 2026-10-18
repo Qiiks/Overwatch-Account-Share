@@ -124,7 +124,7 @@ export function CyberpunkCredentialDisplay({
             <div className="h-full origin-left bg-signal animate-countdown motion-reduce:animate-none" />
           </div>
         )}
-        {expires && (
+        {live && expires && (
           <p className="mt-2 font-mono text-2xs tracking-[0.05em] text-ink-3 uppercase">
             expires <b className="font-medium text-ink-2">{expires}</b> · pushed over
             socket
