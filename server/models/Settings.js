@@ -3,8 +3,10 @@ const { logger } = require('../utils/logger');
 // Get Supabase client from global scope (set in config/db.js)
 const getSupabase = () => global.supabase;
 
-// Single source of truth for the table name — the schema migration creates `settings`.
-const TABLE = 'settings';
+// Single source of truth for the table name. The live project's key/value store is
+// `system_settings` (id, key, value, createdat, updatedat) — its `settings` table is a
+// per-user preferences table (id, user_id, preferences, created_at) and must not be touched.
+const TABLE = 'system_settings';
 
 class Settings {
   static async findOne(query) {

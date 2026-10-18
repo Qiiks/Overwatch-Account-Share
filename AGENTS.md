@@ -39,8 +39,10 @@ npm --prefix server run setup-admin   # first admin (ADMIN_EMAIL/ADMIN_PASSWORD)
   `{ success: false, error: { message, code, details? } }` (thrown as `ApiError`, normalised by
   `server/middleware/errorMiddleware.js`). Health probes (`/health`, `/ready`, `/api/health`) are the
   only bare responses.
-- **Database**: lowercase columns, camelCase in API responses. Table `settings` holds
-  `allow_registration` and `min_jwt_issued_at`. `models/` are thin PostgREST wrappers.
+- **Database**: lowercase columns, camelCase in API responses. Table `system_settings` holds
+  `allow_registration` and `min_jwt_issued_at` (the live project's own `settings` table is
+  per-user preferences — `id, user_id, preferences, created_at` — and the app never touches it).
+  `models/` are thin PostgREST wrappers.
 - **Client data access**: only through `client/lib/api.ts` (`apiGet/apiPost/apiPut/apiPatch/apiDelete`);
   never `fetch` directly from components or pages.
 - **Auth state in components**: `useAuth()` from `client/context/AuthContext.tsx`.

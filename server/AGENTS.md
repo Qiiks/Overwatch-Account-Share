@@ -43,7 +43,7 @@ using the service-role key server-side (RLS is bypassed by design; every access 
 `ALLOWED_ORIGINS` (comma-separated) or `FRONTEND_URL`. Optional: `PORT` (5001), `NODE_ENV`,
 `CLIENT_URL`, `COOKIE_SAMESITE`, `HSTS_INCLUDE_SUBDOMAINS`, `OTP_FETCH_INTERVAL_MS`,
 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `REGISTRATION_OPEN` is no longer
-read — registration is controlled by the `settings.allow_registration` row.
+read — registration is controlled by the `system_settings.allow_registration` row.
 
 ## Testing
 

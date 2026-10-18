@@ -57,7 +57,10 @@ class User {
   static async findById(id, projection = '') {
     let selectFields = '*';
     if (projection === '-password') {
-      selectFields = 'id,username,email,role,isadmin,isapproved,googleid,createdat,updatedat';
+      // `googleid` is deliberately not selected: nothing reads it (toPublic exposes
+      // id/username/email/role/isAdmin/isApproved), and the live project's users table predates
+      // the column — selecting it made every GET /api/auth/me answer 42703.
+      selectFields = 'id,username,email,role,isadmin,isapproved,createdat,updatedat';
     }
 
     const { data, error } = await getSupabase()

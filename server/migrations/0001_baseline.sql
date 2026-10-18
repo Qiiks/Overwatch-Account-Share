@@ -11,10 +11,11 @@
 -- may need the dated migrations. Three of the four are safe to re-run; the exception is
 -- 2025-10-09-add-otp-and-normalization-to-accounts.sql, whose bare `ALTER TABLE ... ADD COLUMN`
 -- and `CREATE INDEX` (no IF NOT EXISTS) fail on a table that already has them — run it only for
--- what the probe reports missing. One conflict to watch: 2025-10-10-create-settings-table.sql
--- defines the same table with camelCase "createdAt"/"updatedAt" and a trigger whose body
--- references `updatedat`, which does not match its own column — the lowercase definition here is
--- the one the models query. Same reasoning for password_encryption_type: if the probe reports it
+-- what the probe reports missing. For the *live* project specifically, use
+-- 2025-10-18-reconcile-live-schema.sql instead: it carries only the deltas that project needs
+-- (it already has every other table, but its users table lacks `googleid` and its
+-- overwatch_accounts lacks the rank/heroes/timestamp columns) and it leaves the live
+-- `settings` table — per-user preferences, not this key/value store — untouched. Same reasoning for password_encryption_type: if the probe reports it
 -- missing, add it as defined below (default 'aes'), not via the dated file, which defaults it to
 -- 'bcrypt'. The app's own writes name the value explicitly (createOverwatchAccount and the
 -- password branch of updateOverwatchAccount both pass 'aes'), so the default only decides rows
@@ -116,16 +117,19 @@ create table if not exists admin_audit_logs (
 create index if not exists idx_admin_audit_logs_createdat on admin_audit_logs(createdat desc);
 
 -- Settings (key/value) ------------------------------------------------------
-create table if not exists settings (
+-- Named system_settings to match the live project, whose own `settings` table is per-user
+-- preferences (id, user_id, preferences, created_at) and is left alone. Settings.js reads
+-- this table exclusively.
+create table if not exists system_settings (
     id uuid primary key default uuid_generate_v4(),
     key text unique not null,
     value jsonb,
     createdat timestamptz default now(),
     updatedat timestamptz default now()
 );
-create index if not exists idx_settings_key on settings(key);
+create index if not exists idx_system_settings_key on system_settings(key);
 
-insert into settings (key, value) values
+insert into system_settings (key, value) values
     ('allow_registration', 'true'::jsonb),
     ('require_email_verification', 'false'::jsonb),
     ('max_accounts_per_user', '10'::jsonb),

@@ -67,9 +67,13 @@ ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='...' npm --prefix server run setup-a
 ## Database
 
 Supabase (PostgreSQL). Tables: `users`, `overwatch_accounts`, `overwatch_account_allowed_users`,
-`user_google_accounts`, `email_services`, `settings`. The authoritative schema for a fresh project is
-`server/migrations/0001_baseline.sql` (verify column names against the live project's PostgREST
-OpenAPI document before rebuilding anything from it).
+`user_google_accounts`, `system_settings` (the key/value store the app reads; the live project's
+`settings` table is per-user preferences and is unused), `admin_audit_logs`, `email_services`.
+The authoritative schema for a fresh project is `server/migrations/0001_baseline.sql` (verify
+column names against the live project's PostgREST OpenAPI document before rebuilding anything
+from it). An existing project is brought forward with `server/migrations/2025-10-18-reconcile-live-schema.sql`,
+which carries only the missing columns and tables and touches no existing row — note the live
+`email_service` table (per-user verified email) is a different feature from `email_services`.
 
 ## Security model
 
