@@ -86,7 +86,10 @@ const corsOptions = {
       attemptedOrigin: origin,
       allowedOrigins: uniqueOrigins,
     });
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    // Deny the CORS headers without throwing: a thrown error here would surface as a 500.
+    // State-changing requests from a foreign origin are then rejected by csrfProtection
+    // (403 CSRF_ORIGIN_REJECTED), which is the correct, envelope-shaped answer.
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
