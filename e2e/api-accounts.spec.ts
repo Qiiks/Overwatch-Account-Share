@@ -46,20 +46,24 @@ test.describe('accounts', () => {
     const createdBody = await created.json();
     const accountId = createdBody.data.id;
 
-    const credentials = await request.get(
-      `${API}/api/overwatch-accounts/${accountId}/credentials`,
-    );
-    expect(credentials.status()).toBe(200);
+    // The row exists from here on, so its removal belongs in a finally: when the credentials
+    // call below answered 429 the test aborted before the old trailing delete and left a
+    // fixture account — encrypted under whatever key this run used — in the live project.
+    try {
+      const credentials = await request.get(
+        `${API}/api/overwatch-accounts/${accountId}/credentials`,
+      );
+      expect(credentials.status()).toBe(200);
 
-    const body = await credentials.json();
-    expect(body.success).toBe(true);
-    expect(body.data.accountPassword).toBe(TRICKY_PASSWORD);
-
-    // Clean up so repeated runs stay idempotent.
-    const removed = await request.delete(`${API}/api/overwatch-accounts/${accountId}`, {
-      headers: { 'x-csrf-token': token },
-    });
-    expect([200, 204]).toContain(removed.status());
+      const body = await credentials.json();
+      expect(body.success).toBe(true);
+      expect(body.data.accountPassword).toBe(TRICKY_PASSWORD);
+    } finally {
+      const removed = await request.delete(`${API}/api/overwatch-accounts/${accountId}`, {
+        headers: { 'x-csrf-token': token },
+      });
+      expect([200, 204]).toContain(removed.status());
+    }
   });
 
   test('the account list answers 200 and ships no credential ciphertext', async ({ request }) => {
@@ -80,41 +84,45 @@ test.describe('accounts', () => {
     expect(created.status()).toBe(201);
     const accountId = (await created.json()).data.id as string;
 
-    // The bare GET must answer from its own query, not from whatever a previous request left
-    // behind: the original defect (an implicit global) served the earlier caller's filtered
-    // rows here, so a filtered miss must not narrow the unfiltered list.
-    const missed = await request.get(
-      `${API}/api/overwatch-accounts?search=${encodeURIComponent(`no-such-tag-${Date.now()}`)}`,
-    );
-    expect(missed.status()).toBe(200);
-    expect((await missed.json()).data).toEqual([]);
+    // Same as the round-trip: the row exists, so its removal is in a finally. The live project
+    // is the owner's, and a failed assertion must not leave a fixture behind.
+    try {
+      // The bare GET must answer from its own query, not from whatever a previous request left
+      // behind: the original defect (an implicit global) served the earlier caller's filtered
+      // rows here, so a filtered miss must not narrow the unfiltered list.
+      const missed = await request.get(
+        `${API}/api/overwatch-accounts?search=${encodeURIComponent(`no-such-tag-${Date.now()}`)}`,
+      );
+      expect(missed.status()).toBe(200);
+      expect((await missed.json()).data).toEqual([]);
 
-    // Every other account surface is covered elsewhere; this route had no test at all, which
-    // is how it shipped a 500 on the bare call (an undeclared variable) plus the raw table row.
-    const list = await request.get(`${API}/api/overwatch-accounts`);
-    expect(list.status()).toBe(200);
+      // Every other account surface is covered elsewhere; this route had no test at all, which
+      // is how it shipped a 500 on the bare call (an undeclared variable) plus the raw table row.
+      const list = await request.get(`${API}/api/overwatch-accounts`);
+      expect(list.status()).toBe(200);
 
-    const body = await list.json();
-    expect(body.success).toBe(true);
-    expect(Array.isArray(body.data)).toBe(true);
+      const body = await list.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
 
-    const rows = body.data as Record<string, unknown>[];
-    const mine = rows.find((row) => row.id === accountId);
-    expect(mine, 'the account just created must appear in the list').toBeTruthy();
+      const rows = body.data as Record<string, unknown>[];
+      const mine = rows.find((row) => row.id === accountId);
+      expect(mine, 'the account just created must appear in the list').toBeTruthy();
 
-    for (const row of rows) {
-      expect(row).not.toHaveProperty('accountpassword');
-      expect(row).not.toHaveProperty('accounttag');
-      expect(row).not.toHaveProperty('normalized_account_email');
-      expect(row).not.toHaveProperty('password_encryption_type');
-      expect(row).toHaveProperty('accountTag');
-      expect(row).toHaveProperty('otpExpiresAt');
+      for (const row of rows) {
+        expect(row).not.toHaveProperty('accountpassword');
+        expect(row).not.toHaveProperty('accounttag');
+        expect(row).not.toHaveProperty('normalized_account_email');
+        expect(row).not.toHaveProperty('password_encryption_type');
+        expect(row).toHaveProperty('accountTag');
+        expect(row).toHaveProperty('otpExpiresAt');
+      }
+    } finally {
+      const removed = await request.delete(`${API}/api/overwatch-accounts/${accountId}`, {
+        headers: { 'x-csrf-token': token },
+      });
+      expect([200, 204]).toContain(removed.status());
     }
-
-    const removed = await request.delete(`${API}/api/overwatch-accounts/${accountId}`, {
-      headers: { 'x-csrf-token': token },
-    });
-    expect([200, 204]).toContain(removed.status());
   });
 
   test('the credential endpoint is rate limited', async ({ request }) => {
