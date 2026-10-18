@@ -48,7 +48,10 @@ services:
       - "traefik.http.routers.overwatch-client.entrypoints=websecure"
       - "traefik.http.routers.overwatch-client.tls=true"
       - "traefik.http.routers.overwatch-client.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.overwatch-client.priority=1"
+      # Coolify injects its own router for the same host (rule "Host(...) && PathPrefix(`/`)")
+      # with no priority, and Traefik falls back to the *rule length* then — which beats a small
+      # explicit number and would send /api to the client container. These clear that bar.
+      - "traefik.http.routers.overwatch-client.priority=100"
       - "traefik.http.services.overwatch-client.loadbalancer.server.port=3000"
       - "traefik.http.routers.overwatch-client-http.rule=Host(`overwatch.qiikzx.tech`)"
       - "traefik.http.routers.overwatch-client-http.entrypoints=web"
@@ -109,7 +112,7 @@ services:
       - "traefik.http.routers.overwatch-server.entrypoints=websecure"
       - "traefik.http.routers.overwatch-server.tls=true"
       - "traefik.http.routers.overwatch-server.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.overwatch-server.priority=10"
+      - "traefik.http.routers.overwatch-server.priority=500"
       - "traefik.http.services.overwatch-server.loadbalancer.server.port=5001"
       - "traefik.http.routers.overwatch-server-http.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
       - "traefik.http.routers.overwatch-server-http.entrypoints=web"
