@@ -60,6 +60,12 @@ const DESTRUCTIVE_ADMIN_PATHS = [
   '/api/admin/users',
 ];
 
+// Routes that end the session under test: logout clears the auth cookie and change-password
+// rotates the credential. Sweeping them mid-run 401s every later request — and stays green
+// while doing it, because a 401 is a perfectly valid envelope. The caller re-proves the session
+// before and after the sweep so this cannot pass silently again.
+const SESSION_BREAKING_PATHS = ['/api/auth/logout', '/api/auth/change-password'];
+
 const smokeEmail = process.env.SMOKE_EMAIL || 'dev-owner@example.com';
 const smokePassword = process.env.SMOKE_PASSWORD || 'DevPassw0rd!';
 
@@ -106,6 +112,12 @@ const checkBody = (method, url, status, body, offenders) => {
 const runPass = async (agent, routes, label, csrfToken, options = {}) => {
   const offenders = [];
   for (const { method, url } of routes) {
+    if (
+      options.authenticated &&
+      SESSION_BREAKING_PATHS.some((prefix) => url.startsWith(prefix))
+    ) {
+      continue;
+    }
     if (
       options.skipDestructiveAdmin &&
       method !== 'GET' &&
@@ -159,17 +171,18 @@ const main = async () => {
 
   if (login.status === 200) {
     authenticated = true;
-    // Positive control before trusting the pass: a route that answers 401 with a valid error
-    // envelope is indistinguishable from one that ran, so the session itself must be proven.
-    const sessionProbe = await agent.get('/api/auth/me');
-    if (sessionProbe.status !== 200) {
+    const token = await primeAgent(agent);
+    // Prove the session at the moment the sweep starts. An earlier placement — right after
+    // login, before the CSRF fetch — passed while the sweep itself ran anonymously, so it
+    // proved nothing about the requests that followed.
+    const sessionBefore = await agent.get('/api/auth/me');
+    if (sessionBefore.status !== 200) {
       console.log(
-        `[authenticated] failing: the session did not take — GET /api/auth/me answered ${sessionProbe.status} ` +
-          `(${JSON.stringify(sessionProbe.body)}).`,
+        `[authenticated] failing: the session did not take — GET /api/auth/me answered ${sessionBefore.status} ` +
+          `(${JSON.stringify(sessionBefore.body)}).`,
       );
       process.exit(1);
     }
-    const token = await primeAgent(agent);
     const asAdmin = process.env.SMOKE_ADMIN === '1';
     if (asAdmin) {
       console.log(
@@ -178,7 +191,18 @@ const main = async () => {
     }
     authenticatedOffenders = await runPass(agent, routes, 'authenticated', token, {
       skipDestructiveAdmin: asAdmin,
+      authenticated: true,
     });
+    // And prove it survived the sweep: a route that ends the session would otherwise turn the
+    // rest of the run into anonymous 401s that still count as valid envelopes.
+    const sessionAfter = await agent.get('/api/auth/me');
+    if (sessionAfter.status !== 200) {
+      console.log(
+        '[authenticated] failing: the sweep ended the session — every request after that point ' +
+          'answered as an anonymous caller, which the envelope check cannot detect.',
+      );
+      process.exit(1);
+    }
   } else {
     console.log(
       `[authenticated] skipped — login for ${smokeEmail} answered ${login.status} ` +
