@@ -459,10 +459,8 @@ class OTPService {
    */
   async cleanupExpiredOTPs() {
     try {
-      const expiredAccounts = await OverwatchAccount.clearExpiredOTPs();
-      const cleaned = Array.isArray(expiredAccounts)
-        ? expiredAccounts.length
-        : Number(expiredAccounts) || 0;
+      // clearExpiredOTPs resolves to a count (number), not a row list.
+      const cleaned = Number(await OverwatchAccount.clearExpiredOTPs()) || 0;
       if (cleaned > 0) {
         logger.info(`[OTP Service] Cleaned up ${cleaned} expired OTPs`);
       }
