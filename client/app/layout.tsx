@@ -4,6 +4,7 @@ import { Outfit, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Suspense } from "react";
 import { SettingsProvider } from "@/context/SettingsContext";
+import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -25,10 +26,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "SecureVault - Credential & OTP Sharing Platform",
+  title: "Overwatch Share — Account & OTP Sharing",
   description:
-    "Secure credential and OTP sharing platform for teams and individuals",
-  generator: "v0.app",
+    "Share Overwatch accounts safely: owners choose who has access, and Battle.net login codes are relayed automatically from the linked mailbox.",
 };
 
 export default function RootLayout({
@@ -41,12 +41,14 @@ export default function RootLayout({
       <body
         className={`font-sans ${outfit.variable} ${inter.variable} antialiased bg-[#0a0a0a] text-white`}
       >
-        <SettingsProvider>
-          <Suspense fallback={null}>
-            {children}
-            <Toaster richColors theme="dark" />
-          </Suspense>
-        </SettingsProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <Suspense fallback={null}>
+              {children}
+              <Toaster richColors theme="dark" />
+            </Suspense>
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

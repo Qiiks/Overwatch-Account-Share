@@ -3,7 +3,6 @@ import {
   Eye,
   EyeOff,
   Lock,
-  Unlock,
   Copy,
   Shield,
   AlertTriangle,
@@ -16,7 +15,6 @@ interface CyberpunkCredentialDisplayProps {
   isEncrypted: boolean;
   hasAccess: boolean;
   onDecrypt?: () => void;
-  accountId?: string;
 }
 
 export function CyberpunkCredentialDisplay({
@@ -25,7 +23,6 @@ export function CyberpunkCredentialDisplay({
   isEncrypted,
   hasAccess,
   onDecrypt,
-  accountId,
 }: CyberpunkCredentialDisplayProps) {
   const [showValue, setShowValue] = useState(false);
   const [glitchText, setGlitchText] = useState(value);
@@ -38,7 +35,7 @@ export function CyberpunkCredentialDisplay({
       const interval = setInterval(() => {
         const randomGlitch = value
           .split("")
-          .map((char, i) =>
+          .map((char) =>
             Math.random() > 0.7
               ? glitchChars[Math.floor(Math.random() * glitchChars.length)]
               : char,
@@ -70,7 +67,7 @@ export function CyberpunkCredentialDisplay({
 
       // Reset copied state
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       toast.error("Failed to copy to clipboard");
     }
   };

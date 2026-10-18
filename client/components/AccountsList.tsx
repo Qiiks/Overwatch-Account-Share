@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { io } from "socket.io-client";
-import { apiGet, apiPost, getStoredAuthSession } from "@/lib/api";
+import { apiGet } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
+import { connectSocket } from "@/lib/socket";
+import { useAuth } from "@/context/AuthContext";
 import { CyberpunkCredentialDisplay } from "./CyberpunkCredentialDisplay";
-import { GlassCard } from "./ui/GlassCard";
 import { Shield, Users, User, Lock, Unlock, Share2 } from "lucide-react";
 import { ShareAccountDialog } from "./ShareAccountDialog";
 
@@ -47,13 +48,13 @@ interface ShareDialogState {
 }
 
 export function AccountsList({ onDataChange }: AccountsListProps = {}) {
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<OverwatchAccount[]>([]);
   const [credentials, setCredentials] = useState<Record<string, Credentials>>(
     {},
   );
   const [isLoading, setIsLoading] = useState(true);
   const [newOtpAccounts, setNewOtpAccounts] = useState<Set<string>>(new Set());
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [shareDialog, setShareDialog] = useState<ShareDialogState>({
     isOpen: false,
     accountId: "",
@@ -62,109 +63,58 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
   // Create a map of accountTag to accountId for OTP updates
   const accountTagToIdMapRef = useRef<Record<string, string>>({});
 
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const response = await apiGet<
+        OverwatchAccount[] | { accounts: OverwatchAccount[] }
+      >("/api/overwatch-accounts/all-public");
+      const accountsData = [
+        ...(Array.isArray(response) ? response : response?.accounts ?? []),
+      ];
+      setAccounts(accountsData);
+
+      // Update the accountTag to accountId mapping
+      accountTagToIdMapRef.current = accountsData.reduce(
+        (map, account) => {
+          map[account.accountTag] = account.id;
+          return map;
+        },
+        {} as Record<string, string>,
+      );
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to fetch accounts"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Fetch credentials for a specific account
   const fetchCredentials = async (accountId: string) => {
     try {
-      const response = await apiGet(
+      const fetched = await apiGet<Credentials | { credentials: Credentials }>(
         `/api/overwatch-accounts/${accountId}/credentials`,
       );
-      setCredentials((prev) => ({
-        ...prev,
-        [accountId]: response.data,
-      }));
+      const data = "credentials" in fetched ? fetched.credentials : fetched;
+      setCredentials((prev) => ({ ...prev, [accountId]: data }));
       toast.success("Credentials fetched successfully");
-    } catch (error: any) {
-      console.error("Error fetching credentials:", error);
-      toast.error(error.message || "Failed to fetch credentials");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to fetch credentials"));
     }
   };
 
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      try {
-        // Use the apiGet utility which now goes through the proxy
-        const response = await apiGet("/api/overwatch-accounts/all-public");
-        const accountsData = response.data || [];
-        setAccounts(accountsData);
+  const refreshAll = useCallback(async () => {
+    await fetchAccounts();
+    await onDataChange?.();
+  }, [fetchAccounts, onDataChange]);
 
-        // Update the accountTag to accountId mapping
-        accountTagToIdMapRef.current = accountsData.reduce(
-          (map: Record<string, string>, account: OverwatchAccount) => {
-            map[account.accountTag] = account.id;
-            return map;
-          },
-          {} as Record<string, string>,
-        );
-      } catch (error: any) {
-        console.error("Error fetching accounts:", error);
-        toast.error(error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAccounts();
-
-    // Get current user info for permission checks
-    const { user } = getStoredAuthSession();
-    if (user) {
-      setCurrentUser(user);
-    }
-
-    // Establish WebSocket connection with authentication
-    // Validate NEXT_PUBLIC_API_BASE_URL is set for WebSocket connections
-    if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
-      throw new Error(
-        "NEXT_PUBLIC_API_BASE_URL environment variable is required but not set",
-      );
-    }
-    const socketUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-    const { token, expired } = getStoredAuthSession();
-
-    if (expired) {
-      toast.error("Your session has expired. Please sign in again.");
-      return;
-    }
-
-    const newSocket = io(socketUrl, {
-      transports: ["websocket", "polling"], // Allow both transports
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      auth: {
-        token: token || undefined, // Send token if available
-      },
-    });
-
-    // Connection event handlers
-    newSocket.on("connect", () => {
-      console.log("WebSocket connected for OTP updates");
-      newSocket.emit("subscribeToOTP");
-      console.log("Subscribed to OTP updates");
-    });
-
-    newSocket.on("connect_error", (error) => {
-      console.error("WebSocket connection error:", error.message);
-    });
-
-    // Debug socket events
-    newSocket.onAny((event, ...args) => {
-      if (event.includes("otp")) {
-        console.log("Received OTP-related socket event:", event, args);
-      }
-    });
-
-    // Listen for OTP events
-    const handleOtpUpdate = (data: { accountTag: string; otp: string }) => {
-      console.log("Received OTP update:", data);
-
-      // Show toast notification
+  // OTP pushes are addressed to the account owner and its shared users; match on the account tag.
+  const handleOtpUpdate = useCallback(
+    (data: { accountTag: string; otp: string }) => {
       toast.success(`🔐 NEW OTP DETECTED: ${data.accountTag}`, {
         duration: 5000,
         position: "top-right",
       });
 
-      // Trigger visual pulse effect
       const accountId = accountTagToIdMapRef.current[data.accountTag];
       if (accountId) {
         setNewOtpAccounts((prev) => new Set(prev).add(accountId));
@@ -178,46 +128,36 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
         }, 5000);
       }
 
-      // Update the accounts state with the new OTP
-      setAccounts((prevAccounts) => {
-        const updatedAccounts = prevAccounts.map((account) =>
+      setAccounts((prevAccounts) =>
+        prevAccounts.map((account) =>
           account.accountTag === data.accountTag
             ? { ...account, otp: data.otp }
             : account,
+        ),
+      );
+
+      if (accountId) {
+        setCredentials((prev) =>
+          prev[accountId]
+            ? { ...prev, [accountId]: { ...prev[accountId], otp: data.otp } }
+            : prev,
         );
-        console.log("Updated accounts state:", updatedAccounts);
-        return updatedAccounts;
-      });
-
-      // Update credentials if we have them cached - use the accountTag to accountId mapping
-      setCredentials((prev) => {
-        const updatedCreds = { ...prev };
-        const accountId = accountTagToIdMapRef.current[data.accountTag];
-        console.log("Account ID for tag:", data.accountTag, "is:", accountId);
-        console.log("Current credentials keys:", Object.keys(updatedCreds));
-        if (accountId && updatedCreds[accountId]) {
-          updatedCreds[accountId].otp = data.otp;
-          console.log("Updated credentials for account ID:", accountId);
-        } else {
-          console.log("No credentials cached for account ID:", accountId);
-        }
-        return updatedCreds;
-      });
-    };
-
-    newSocket.on("otp", handleOtpUpdate);
-    newSocket.on("otp_update", handleOtpUpdate);
-
-    // Cleanup function to disconnect socket when component unmounts
-    return () => {
-      if (newSocket) {
-        console.log("Disconnecting WebSocket");
-        newSocket.off("otp", handleOtpUpdate);
-        newSocket.off("otp_update", handleOtpUpdate);
-        newSocket.disconnect();
       }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void fetchAccounts();
+
+    const socket = connectSocket();
+    socket.on("otp_update", handleOtpUpdate);
+
+    return () => {
+      socket.off("otp_update", handleOtpUpdate);
+      socket.disconnect();
     };
-  }, []);
+  }, [fetchAccounts, handleOtpUpdate]);
 
   // Share account access with another user
   const openShareDialog = (account: OverwatchAccount) => {
@@ -319,7 +259,6 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
                   isEncrypted={!account.hasAccess}
                   hasAccess={account.hasAccess}
                   onDecrypt={() => fetchCredentials(account.id)}
-                  accountId={account.id}
                 />
 
                 <CyberpunkCredentialDisplay
@@ -331,7 +270,6 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
                   isEncrypted={!account.hasAccess}
                   hasAccess={account.hasAccess}
                   onDecrypt={() => fetchCredentials(account.id)}
-                  accountId={account.id}
                 />
 
                 <CyberpunkCredentialDisplay
@@ -344,21 +282,13 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
                   isEncrypted={!account.hasAccess}
                   hasAccess={account.hasAccess}
                   onDecrypt={() => fetchCredentials(account.id)}
-                  accountId={account.id}
                 />
-                {process.env.NODE_ENV !== "production" && (
-                  <div className="text-xs text-gray-500">
-                    Debug: OTP from credentials:{" "}
-                    {credentials[account.id]?.otp || "none"}, from account:{" "}
-                    {account.otp || "none"}
-                  </div>
-                )}
               </div>
 
               {/* Action Buttons */}
               <div className="mt-6 flex gap-3">
                 {(account.accessType === "owner" ||
-                  ((currentUser?.role === "admin" || currentUser?.isAdmin) &&
+                  ((user?.role === "admin" || user?.isAdmin) &&
                     account.hasAccess)) && (
                   <button
                     onClick={() => openShareDialog(account)}
@@ -416,8 +346,7 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
         accountTag={shareDialog.accountTag}
         onShareSuccess={() => {
           closeShareDialog();
-          // Refresh accounts/data
-          onDataChange?.();
+          void refreshAll();
         }}
       />
     </div>

@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 import { apiPost } from "@/lib/api"
+import { errorMessage } from "@/lib/errors"
 
 interface User {
   id: string
@@ -24,6 +25,19 @@ interface User {
   role: "user" | "admin"
   status: "active" | "suspended" | "pending"
   lastLogin: string
+  accountsOwned?: number
+  joinDate?: string
+}
+
+/** Shape of `user` in the POST /api/admin/users response. */
+interface CreatedUser {
+  id?: string
+  _id?: string
+  username?: string
+  email?: string
+  role?: string
+  status?: User["status"]
+  lastLogin?: string
   accountsOwned?: number
   joinDate?: string
 }
@@ -80,10 +94,10 @@ export function CreateUserModal({ open, onClose, onUserCreated }: CreateUserModa
     setIsLoading(true)
 
     try {
-      const data = await apiPost<{ user: any; message: string }>('/api/admin/users', formData)
-      
+      const data = await apiPost<{ user?: CreatedUser; message?: string }>('/admin/users', formData)
+
       // Create a user object that matches the expected format
-      const newUser: User = {
+      const newUser: Partial<User> = {
         id: data.user?.id || data.user?._id || "",
         username: data.user?.username || formData.username,
         email: data.user?.email || formData.email,
@@ -94,9 +108,8 @@ export function CreateUserModal({ open, onClose, onUserCreated }: CreateUserModa
         joinDate: data.user?.joinDate || new Date().toLocaleDateString(),
       }
 
-      onUserCreated(newUser)
+      onUserCreated(newUser as User)
       toast.success(data.message || "User created successfully")
-      
       // Reset form
       setFormData({
         username: "",
@@ -106,16 +119,15 @@ export function CreateUserModal({ open, onClose, onUserCreated }: CreateUserModa
       })
       setErrors({})
       onClose()
-    } catch (error: any) {
-      console.error("Failed to create user:", error)
-      const errorMessage = error.message || "Failed to create user"
-      toast.error(errorMessage)
-      
-      // Handle specific field errors
-      if (errorMessage.includes("email")) {
-        setErrors({ email: errorMessage })
-      } else if (errorMessage.includes("username")) {
-        setErrors({ username: errorMessage })
+    } catch (error) {
+      const message = errorMessage(error, "Failed to create user")
+      toast.error(message)
+
+      // Conflicts come back as "User with this <field> already exists".
+      if (message.includes("email")) {
+        setErrors({ email: message })
+      } else if (message.includes("username")) {
+        setErrors({ username: message })
       }
     } finally {
       setIsLoading(false)

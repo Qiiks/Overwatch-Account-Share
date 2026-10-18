@@ -1,14 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { apiGet } from '@/lib/api';
 
 interface Settings {
   allow_registration: boolean;
-  registration_enabled_by?: string;
-  registration_enabled_at?: string;
-  registration_disabled_by?: string;
-  registration_disabled_at?: string;
 }
 
 interface SettingsContextType {
@@ -25,58 +21,31 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await apiGet<
-        | Settings
-        | { data: Settings }
-        | { success?: boolean; data?: Settings }
-      >('/api/settings');
-
-      const parsedSettings = (() => {
-        if (!response) {
-          return null;
-        }
-
-        if (typeof (response as Settings).allow_registration === 'boolean') {
-          return response as Settings;
-        }
-
-        if (response && typeof (response as { data?: Settings }).data?.allow_registration === 'boolean') {
-          return (response as { data: Settings }).data;
-        }
-
-        return null;
-      })();
-
-      if (!parsedSettings) {
-        throw new Error('Received unexpected settings payload');
-      }
-
-      setSettings(parsedSettings);
+      // Public route: GET /api/auth/registration-status -> { allow_registration }
+      const data = await apiGet<{ allow_registration?: boolean }>('/auth/registration-status');
+      setSettings({ allow_registration: data?.allow_registration === true });
     } catch (err) {
-      console.error('Error fetching settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch settings');
-      // Set default settings on error to allow the app to function
-      setSettings({ allow_registration: true });
+      // Fail closed: never advertise an open registration gate we could not confirm.
+      setSettings({ allow_registration: false });
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchSettings();
   }, []);
 
-  const refetchSettings = async () => {
-    await fetchSettings();
-  };
+  useEffect(() => {
+    void fetchSettings();
+  }, [fetchSettings]);
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, error, refetchSettings }}>
+    <SettingsContext.Provider
+      value={{ settings, loading, error, refetchSettings: fetchSettings }}
+    >
       {children}
     </SettingsContext.Provider>
   );

@@ -3,17 +3,10 @@
 import { useState, useEffect } from "react";
 import { GlassCard, GlassCardContent } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
-import { GlassInput } from "@/components/ui/GlassInput";
+import { ConfirmationDialog } from "@/components/admin/ConfirmationDialog";
 import { apiGet, apiPatch, apiDelete, apiPost } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"; // We might need to create this if it doesn't exist or use standard table
 import {
   MoreVertical,
   Shield,
@@ -53,19 +46,21 @@ interface User {
   isadmin: boolean;
   isapproved: boolean;
   last_login: string | null;
-  createdat: string;
+  createdat: string | null;
 }
 
 interface UserManagementProps {
   onUsersChange: () => void;
 }
 
+const PAGE_SIZE = 10;
+
 export function UserManagement({ onUsersChange }: UserManagementProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   // Create User State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -78,30 +73,46 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, search]);
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Assuming the API supports pagination and search
-      // Adjust endpoint if necessary based on server implementation
-      const data = await apiGet<{ users: User[]; totalPages: number }>(
-        `/api/admin/users?page=${page}&limit=10&search=${search}`,
-      );
-      setUsers(data.users);
-      setTotalPages(data.totalPages || 1);
+      // The endpoint returns the full list; search and paging happen here.
+      const data = await apiGet<{ users: User[] }>("/admin/users");
+      setUsers(data.users ?? []);
     } catch (error) {
-      console.error("Failed to fetch users", error);
-      toast.error("Failed to load user list");
+      toast.error("Failed to load user list", {
+        description: errorMessage(error),
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const term = search.trim().toLowerCase();
+  const filteredUsers = term
+    ? users.filter(
+        (user) =>
+          user.username.toLowerCase().includes(term) ||
+          user.email.toLowerCase().includes(term),
+      )
+    : users;
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageUsers = filteredUsers.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   const handleStatusChange = async (userId: string, currentStatus: boolean) => {
     try {
       const newStatus = currentStatus ? "suspended" : "active";
-      await apiPatch(`/api/admin/users/${userId}/status`, {
+      await apiPatch(`/admin/users/${userId}/status`, {
         status: newStatus,
       });
       toast.success(
@@ -110,34 +121,39 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
       fetchUsers();
       onUsersChange();
     } catch (error) {
-      toast.error("Failed to update status");
+      toast.error("Failed to update status", {
+        description: errorMessage(error),
+      });
     }
   };
 
   const handleRoleChange = async (userId: string, currentRole: string) => {
     const newRole = currentRole === "admin" ? "user" : "admin"; // Simple toggle for now
     try {
-      await apiPatch(`/api/admin/users/${userId}/role`, {
+      await apiPatch(`/admin/users/${userId}/role`, {
         role: newRole,
       });
       toast.success(`User role updated to ${newRole}`);
       fetchUsers();
       onUsersChange();
     } catch (error) {
-      toast.error("Failed to update role");
+      toast.error("Failed to update role", {
+        description: errorMessage(error),
+      });
     }
   };
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm("Are you sure? This action cannot be undone.")) return;
-
+  const handleDelete = async (user: User) => {
+    setUserToDelete(null);
     try {
-      await apiDelete(`/api/admin/users/${userId}`);
+      await apiDelete(`/admin/users/${user.id}`);
       toast.success("User deleted");
       fetchUsers();
       onUsersChange();
     } catch (error) {
-      toast.error("Failed to delete user");
+      toast.error("Failed to delete user", {
+        description: errorMessage(error),
+      });
     }
   };
 
@@ -145,14 +161,14 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
     e.preventDefault();
     setIsCreating(true);
     try {
-      await apiPost("/api/admin/users", newUser);
+      await apiPost("/admin/users", newUser);
       toast.success("User created successfully");
       setIsCreateOpen(false);
       setNewUser({ username: "", email: "", password: "" });
       fetchUsers();
       onUsersChange();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create user");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to create user"));
     } finally {
       setIsCreating(false);
     }
@@ -268,7 +284,7 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
                     Loading users...
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : pageUsers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
@@ -278,7 +294,7 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                pageUsers.map((user) => (
                   <tr
                     key={user.id}
                     className="hover:bg-white/5 transition-colors"
@@ -314,7 +330,9 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
                       )}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
-                      {new Date(user.createdat).toLocaleDateString()}
+                      {user.createdat
+                        ? new Date(user.createdat).toLocaleDateString()
+                        : "N/A"}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <DropdownMenu>
@@ -363,7 +381,7 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-white/10" />
                           <DropdownMenuItem
-                            onClick={() => handleDelete(user.id)}
+                            onClick={() => setUserToDelete(user)}
                             className="text-red-500 focus:text-red-500 hover:bg-red-500/10"
                           >
                             <UserX className="w-4 h-4 mr-2" /> Delete Account
@@ -381,19 +399,19 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
         {/* Pagination - Simple Implementation */}
         <div className="p-4 border-t border-white/5 flex justify-end gap-2">
           <GlassButton
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={currentPage <= 1 || loading}
+            onClick={() => setPage(currentPage - 1)}
             variant="ghost"
             className="text-xs"
           >
             Previous
           </GlassButton>
           <span className="flex items-center px-2 text-sm text-gray-500">
-            Page {page} of {totalPages}
+            Page {currentPage} of {totalPages}
           </span>
           <GlassButton
-            disabled={page >= totalPages || loading}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={currentPage >= totalPages || loading}
+            onClick={() => setPage(currentPage + 1)}
             variant="ghost"
             className="text-xs"
           >
@@ -401,6 +419,18 @@ export function UserManagement({ onUsersChange }: UserManagementProps) {
           </GlassButton>
         </div>
       </GlassCardContent>
+
+      <ConfirmationDialog
+        open={userToDelete !== null}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={() => userToDelete && handleDelete(userToDelete)}
+        title="Delete user?"
+        description={`${
+          userToDelete?.username ?? "This user"
+        } will be permanently deleted. Are you sure? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="destructive"
+      />
     </GlassCard>
   );
 }

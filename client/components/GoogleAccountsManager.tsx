@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
+import { errorMessage } from '@/lib/errors';
 
 interface GoogleAccount {
   id: string;
@@ -23,8 +24,8 @@ export function GoogleAccountsManager() {
     try {
       const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts');
       setAccounts(data.accounts || []);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(errorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -40,8 +41,8 @@ export function GoogleAccountsManager() {
         redirectUrl: window.location.pathname
       });
       window.location.href = data.authUrl;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(errorMessage(error));
     }
   };
 
@@ -50,8 +51,8 @@ export function GoogleAccountsManager() {
       await apiDelete(`/api/google-auth/accounts/${id}`);
       toast.success('Account unlinked successfully.');
       fetchAccounts(); // Refresh the list
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(errorMessage(error));
     }
   };
 

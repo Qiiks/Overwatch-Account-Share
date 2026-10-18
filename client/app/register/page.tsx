@@ -18,7 +18,8 @@ import {
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
 import { useSettings } from "@/context/SettingsContext"
-import { apiPost, clearStoredAuthSession } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
+import { errorMessage } from "@/lib/errors"
 
 function validatePassword(password: string): string | null {
   // Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special @$!%*?&
@@ -42,6 +43,7 @@ function validatePassword(password: string): string | null {
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { register } = useAuth()
   const { settings, loading } = useSettings()
   const [formData, setFormData] = useState({
     username: "",
@@ -83,32 +85,29 @@ export default function RegisterPage() {
     }
 
     if (!acceptTerms || !acceptPrivacy) {
-      alert("Please accept the Terms of Service and Privacy Policy")
+      setPasswordError("Please accept the Terms of Service and Privacy Policy")
       return
     }
 
     setIsLoading(true)
 
     try {
-      const data = await apiPost<{ token?: string; role?: string; tokenExpiresAt?: string }>('/api/auth/register', {
+      const result = await register({
         username: formData.username,
         email: formData.email,
         password: formData.password,
       })
 
-      clearStoredAuthSession()
+      if (result.pendingApproval) {
+        setPasswordError(
+          "Your account was created and is waiting for administrator approval.",
+        )
+        return
+      }
 
-      if (data.token) {
-        localStorage.setItem("auth_token", data.token)
-      }
-      if (data.tokenExpiresAt) {
-        localStorage.setItem("auth_token_expires_at", String(new Date(data.tokenExpiresAt).getTime()))
-      }
-      localStorage.setItem("user_role", data.role || "user")
       router.push("/dashboard")
-    } catch (error: any) {
-      console.error("Registration error:", error)
-      setPasswordError(error.message || "Registration failed. Please try again.")
+    } catch (error) {
+      setPasswordError(errorMessage(error, "Registration failed. Please try again."))
     } finally {
       setIsLoading(false)
     }
@@ -163,7 +162,7 @@ export default function RegisterPage() {
           <GlassCardHeader className="text-center">
             <GlassCardTitle className="text-2xl font-bold text-[#8A2BE2]">Create Account</GlassCardTitle>
             <GlassCardDescription className="text-[#EAEAEA]/70">
-              Join SecureVault and start managing your credentials securely
+              Create an account to start sharing accounts and relaying login codes
             </GlassCardDescription>
           </GlassCardHeader>
           <GlassCardContent>

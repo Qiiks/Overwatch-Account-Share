@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
@@ -21,6 +21,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { apiGet, apiPut, apiDelete } from "@/lib/api"
+import { errorMessage } from "@/lib/errors"
+import { toast } from "sonner"
 
 interface GoogleAccount {
   id: string
@@ -72,28 +74,31 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
   }, [credential])
 
   // Fetch linked Google accounts when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      fetchGoogleAccounts()
-    }
-  }, [isOpen])
-
-  const fetchGoogleAccounts = async () => {
+  const fetchGoogleAccounts = useCallback(async () => {
     setIsLoadingAccounts(true)
     try {
       const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts')
       setGoogleAccounts(data.accounts || [])
-      
+
       // Auto-select the account that was associated with this credential
-      if (credential?.googleAccountId && !formData.googleAccountId) {
-        setFormData(prev => ({ ...prev, googleAccountId: credential.googleAccountId || "" }))
+      const preferredId = credential?.googleAccountId
+      if (preferredId) {
+        setFormData(prev =>
+          prev.googleAccountId ? prev : { ...prev, googleAccountId: preferredId },
+        )
       }
     } catch (error) {
-      console.error("Error fetching Google accounts:", error)
+      toast.error(errorMessage(error, "Failed to load Google accounts"))
     } finally {
       setIsLoadingAccounts(false)
     }
-  }
+  }, [credential])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchGoogleAccounts()
+    }
+  }, [isOpen, fetchGoogleAccounts])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -114,14 +119,14 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
         notes: formData.notes || undefined,
       })
       
+      toast.success("Overwatch account updated")
       onClose()
       // Trigger data refresh without page reload
       if (onActionSuccess) {
         await onActionSuccess()
       }
     } catch (error) {
-      console.error("Update account error:", error)
-      alert("Failed to update Overwatch account")
+      toast.error(errorMessage(error, "Failed to update Overwatch account"))
     } finally {
       setIsLoading(false)
     }
@@ -132,7 +137,8 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
 
     try {
       await apiDelete(`/api/overwatch-accounts/${credential.id}`)
-      
+
+      toast.success("Overwatch account deleted")
       setShowDeleteDialog(false)
       onClose()
       // Trigger data refresh without page reload
@@ -140,8 +146,7 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
         await onActionSuccess()
       }
     } catch (error) {
-      console.error("Delete account error:", error)
-      alert("Failed to delete Overwatch account")
+      toast.error(errorMessage(error, "Failed to delete Overwatch account"))
     }
   }
 
@@ -152,7 +157,7 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
       <DialogContent className="sm:max-w-[500px] bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
         <DialogHeader>
           <DialogTitle className="text-[#8A2BE2] text-xl">Manage Overwatch Account</DialogTitle>
-          <DialogDescription className="text-[#EAEAEA]/70">Edit or delete "{credential.name}"</DialogDescription>
+          <DialogDescription className="text-[#EAEAEA]/70">Edit or delete {`"${credential.name}"`}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleUpdate} className="space-y-4">
@@ -252,8 +257,8 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
                 <AlertDialogHeader>
                   <AlertDialogTitle className="text-red-400">Delete Overwatch Account</AlertDialogTitle>
                   <AlertDialogDescription className="text-[#EAEAEA]/70">
-                    Are you sure you want to delete "{credential.name}"? This action cannot be undone and will revoke
-                    access for all shared users.
+                    Are you sure you want to delete {`"${credential.name}"`}? This action cannot be undone and will
+                    revoke access for all shared users.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

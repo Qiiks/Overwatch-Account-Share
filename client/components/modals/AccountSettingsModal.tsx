@@ -2,12 +2,16 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { apiPatch, apiPost } from "@/lib/api"
+import { errorMessage } from "@/lib/errors"
+import { useAuth } from "@/context/AuthContext"
 
 interface AccountSettingsModalProps {
   isOpen: boolean
@@ -15,13 +19,21 @@ interface AccountSettingsModalProps {
 }
 
 export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalProps) {
+  const { user, refresh } = useAuth()
   const [formData, setFormData] = useState({
     username: "",
-    email: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   })
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setFormData((prev) => ({ ...prev, username: user.username }))
+    }
+  }, [isOpen, user])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -29,18 +41,47 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle profile update
-    console.log("Profile update:", { username: formData.username, email: formData.email })
+    setIsSavingProfile(true)
+
+    try {
+      await apiPatch("/auth/me", { username: formData.username })
+      await refresh()
+      toast.success("Profile updated")
+      onClose()
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to update profile"))
+    } finally {
+      setIsSavingProfile(false)
+    }
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
     if (formData.newPassword !== formData.confirmPassword) {
-      alert("New passwords don't match")
+      toast.error("New passwords don't match")
       return
     }
-    // Handle password change
-    console.log("Password change")
+
+    setIsSavingPassword(true)
+
+    try {
+      await apiPost("/auth/change-password", {
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      })
+      toast.success("Password changed")
+      setFormData((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }))
+      onClose()
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to change password"))
+    } finally {
+      setIsSavingPassword(false)
+    }
   }
 
   return (
@@ -80,6 +121,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   value={formData.username}
                   onChange={(e) => handleInputChange("username", e.target.value)}
                   placeholder="Enter your username"
+                  required
                 />
               </div>
 
@@ -90,9 +132,9 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 <GlassInput
                   id="email"
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  placeholder="Enter your email"
+                  value={user?.email || ""}
+                  disabled
+                  className="opacity-60"
                 />
               </div>
 
@@ -100,8 +142,8 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 <GlassButton type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </GlassButton>
-                <GlassButton type="submit" variant="primary">
-                  Update Profile
+                <GlassButton type="submit" variant="primary" disabled={isSavingProfile}>
+                  {isSavingProfile ? "Saving..." : "Update Profile"}
                 </GlassButton>
               </div>
             </form>
@@ -119,6 +161,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   value={formData.currentPassword}
                   onChange={(e) => handleInputChange("currentPassword", e.target.value)}
                   placeholder="Enter current password"
+                  required
                 />
               </div>
 
@@ -132,6 +175,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   value={formData.newPassword}
                   onChange={(e) => handleInputChange("newPassword", e.target.value)}
                   placeholder="Enter new password"
+                  required
                 />
               </div>
 
@@ -145,6 +189,7 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
                   placeholder="Confirm new password"
+                  required
                 />
               </div>
 
@@ -152,8 +197,8 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 <GlassButton type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </GlassButton>
-                <GlassButton type="submit" variant="warning">
-                  Change Password
+                <GlassButton type="submit" variant="warning" disabled={isSavingPassword}>
+                  {isSavingPassword ? "Saving..." : "Change Password"}
                 </GlassButton>
               </div>
             </form>

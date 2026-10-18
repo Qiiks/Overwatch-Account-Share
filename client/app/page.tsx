@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/GlassButton";
 import {
@@ -11,92 +11,32 @@ import {
 } from "@/components/ui/GlassCard";
 import { DotGrid } from "@/components/DotGrid";
 import { Navigation } from "@/components/Navigation";
-import { getStoredAuthSession } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { connectSocket } from "@/lib/socket";
 import { ShieldCheck, Users, Lock, RefreshCw } from "lucide-react";
 
 export default function IndexPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, isAdmin } = useAuth();
+  const isLoggedIn = !!user;
 
   // Online users count state
   const [onlineUsersCount, setOnlineUsersCount] = useState<number>(0);
-  const socketRef = useRef<any>(null);
 
+  // Online users real-time sync. Anonymous sockets are allowed for the count only.
   useEffect(() => {
-    // Check authentication status
-    const { token, expired } = getStoredAuthSession();
-    if (expired) {
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      return;
-    }
+    const socket = connectSocket();
+    socket.on("connect", () => {
+      socket.emit("requestOnlineUsers");
+    });
+    socket.on("onlineUsers", (count: number) => setOnlineUsersCount(count));
+    socket.on("connectionSuccess", (data: { onlineUsers: number }) =>
+      setOnlineUsersCount(data.onlineUsers),
+    );
+    socket.on("disconnect", () => setOnlineUsersCount(0));
 
-    const userRole =
-      typeof window !== "undefined" ? localStorage.getItem("user_role") : null;
-    setIsLoggedIn(!!token);
-    setIsAdmin(userRole === "admin");
-  }, []);
-
-  // Online users real-time sync (socket.io or polling fallback)
-  useEffect(() => {
-    let pollInterval: ReturnType<typeof setInterval> | null = null;
-    let isUnmounted = false;
-
-    // Validate NEXT_PUBLIC_API_BASE_URL is set
-    if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
-      throw new Error(
-        "NEXT_PUBLIC_API_BASE_URL environment variable is required but not set",
-      );
-    }
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
-    const setupSocket = async () => {
-      try {
-        const io = (await import("socket.io-client")).io;
-        socketRef.current = io(apiBase, {
-          transports: ["websocket", "polling"],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-        });
-        socketRef.current.on("connect", () => {
-          socketRef.current.emit("requestOnlineUsers");
-        });
-        socketRef.current.on("onlineUsers", (count: number) => {
-          if (!isUnmounted) setOnlineUsersCount(count);
-        });
-        socketRef.current.on(
-          "connectionSuccess",
-          (data: { onlineUsers: number }) => {
-            if (!isUnmounted) setOnlineUsersCount(data.onlineUsers);
-          },
-        );
-        socketRef.current.on("disconnect", () => {
-          if (!isUnmounted) setOnlineUsersCount(0);
-        });
-      } catch (err) {
-        // Fallback: poll every 5s
-        pollInterval = setInterval(async () => {
-          try {
-            const res = await fetch("/api/dashboard/online-users");
-            const data = await res.json();
-            if (!isUnmounted) setOnlineUsersCount(data.count || 0);
-          } catch {}
-        }, 5000);
-      }
-    };
-    setupSocket();
-    // Initial poll in case socket fails
-    fetch("/api/dashboard/online-users")
-      .then(async (res) => {
-        const data = await res.json();
-        if (!isUnmounted) setOnlineUsersCount(data.count || 0);
-      })
-      .catch(() => {});
     return () => {
-      isUnmounted = true;
-      if (pollInterval) clearInterval(pollInterval);
-      if (socketRef.current?.disconnect) socketRef.current.disconnect();
+      socket.disconnect();
     };
   }, []);
 

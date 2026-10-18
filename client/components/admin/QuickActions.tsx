@@ -8,7 +8,9 @@ import {
   GlassCardContent,
 } from "@/components/ui/GlassCard";
 import { GlassButton } from "@/components/ui/GlassButton";
-import { apiPost, apiGet } from "@/lib/api";
+import { ConfirmationDialog } from "@/components/admin/ConfirmationDialog";
+import { apiPost, apiGet, apiDownload } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -21,44 +23,21 @@ import {
 
 export function QuickActions() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [isForceLogoutOpen, setIsForceLogoutOpen] = useState(false);
 
   // Helper to handle API calls with loading state and toast
   const executeAction = async (
     actionId: string,
-    endpoint: string,
-    method: "POST" | "GET" = "POST",
+    run: () => Promise<unknown>,
     successMessage: string,
   ) => {
     setLoadingAction(actionId);
     try {
-      if (method === "GET") {
-        // Handle file download for CSV
-        if (endpoint.includes("export")) {
-          const response = await fetch(endpoint, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-            },
-          });
-          if (!response.ok) throw new Error("Export failed");
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "users_export.csv";
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          toast.success(successMessage);
-          return;
-        }
-        await apiGet(endpoint);
-      } else {
-        await apiPost(endpoint, {});
-      }
+      await run();
       toast.success(successMessage);
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Action Failed", {
-        description: error.message || "An unexpected error occurred",
+        description: errorMessage(error, "An unexpected error occurred"),
       });
     } finally {
       setLoadingAction(null);
@@ -80,8 +59,14 @@ export function QuickActions() {
             onClick={() =>
               executeAction(
                 "maintenance",
-                "/api/admin/toggle-registrations",
-                "POST",
+                async () => {
+                  const { enabled } = await apiGet<{ enabled: boolean }>(
+                    "/admin/registration-status",
+                  );
+                  await apiPost("/admin/toggle-registrations", {
+                    enabled: !enabled,
+                  });
+                },
                 "Registration status toggled",
               )
             }
@@ -100,20 +85,7 @@ export function QuickActions() {
 
           {/* Force Logout */}
           <GlassButton
-            onClick={() => {
-              if (
-                confirm(
-                  "Are you sure? This will log out ALL users immediately.",
-                )
-              ) {
-                executeAction(
-                  "logout",
-                  "/api/admin/force-logout",
-                  "POST",
-                  "All users forced logged out",
-                );
-              }
-            }}
+            onClick={() => setIsForceLogoutOpen(true)}
             variant="ghost"
             className="h-auto py-4 flex flex-col items-center gap-2 hover:bg-red-500/10 border-red-500/20"
             disabled={loadingAction === "logout"}
@@ -132,8 +104,17 @@ export function QuickActions() {
             onClick={() =>
               executeAction(
                 "export",
-                "/api/admin/export-users",
-                "GET",
+                async () => {
+                  const blob = await apiDownload("/admin/export-users");
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "users_export.csv";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  window.URL.revokeObjectURL(url);
+                },
                 "User export started",
               )
             }
@@ -155,8 +136,7 @@ export function QuickActions() {
             onClick={() =>
               executeAction(
                 "cache",
-                "/api/admin/clear-cache",
-                "POST",
+                () => apiPost("/admin/clear-cache"),
                 "System cache cleared",
               )
             }
@@ -174,6 +154,23 @@ export function QuickActions() {
           </GlassButton>
         </div>
       </GlassCardContent>
+
+      <ConfirmationDialog
+        open={isForceLogoutOpen}
+        onClose={() => setIsForceLogoutOpen(false)}
+        onConfirm={() => {
+          setIsForceLogoutOpen(false);
+          executeAction(
+            "logout",
+            () => apiPost("/admin/force-logout"),
+            "All users forced logged out",
+          );
+        }}
+        title="Force logout all users?"
+        description="Are you sure? This will log out ALL users immediately."
+        confirmText="Force Logout"
+        variant="destructive"
+      />
     </GlassCard>
   );
 }

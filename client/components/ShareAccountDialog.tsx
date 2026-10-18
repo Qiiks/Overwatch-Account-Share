@@ -10,20 +10,22 @@ import {
 } from "@/components/ui/dialog";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassButton } from "@/components/ui/GlassButton";
-import { Search, User, Share2, Loader2, Check } from "lucide-react";
-import { apiGet, apiPost } from "@/lib/api";
+import { Search, User, Share2, Loader2, X } from "lucide-react";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface ShareAccountDialogProps {
   isOpen: boolean;
   onClose: () => void;
   accountId: string;
   accountTag: string;
-  onShareSuccess?: () => void;
+  /** Users the account is currently shared with (owner view). Omit to hide the revoke list. */
+  sharedWith?: { id: string; email: string }[];
+  onShareSuccess?: () => void | Promise<void>;
 }
 
-interface User {
+interface ShareUser {
   id: string;
   username: string;
   email: string;
@@ -34,13 +36,15 @@ export function ShareAccountDialog({
   onClose,
   accountId,
   accountTag,
+  sharedWith,
   onShareSuccess,
 }: ShareAccountDialogProps) {
   const [query, setQuery] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<ShareUser[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<ShareUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState<string | null>(null); // userId being shared with
+  const [revoking, setRevoking] = useState<string | null>(null); // userId being revoked
 
   // Fetch users when dialog opens
   useEffect(() => {
@@ -48,14 +52,14 @@ export function ShareAccountDialog({
       const fetchUsers = async () => {
         setLoading(true);
         try {
-          const response = await apiGet("/api/overwatch-accounts/users");
-          if (response.success && Array.isArray(response.data)) {
-            setUsers(response.data);
-            setFilteredUsers(response.data);
-          }
+          const fetched = await apiGet<ShareUser[] | { users: ShareUser[] }>(
+            "/api/overwatch-accounts/users",
+          );
+          const list = Array.isArray(fetched) ? fetched : fetched?.users ?? [];
+          setUsers(list);
+          setFilteredUsers(list);
         } catch (error) {
-          console.error("Error fetching users for sharing:", error);
-          toast.error("Failed to load users list");
+          toast.error(errorMessage(error, "Failed to load users list"));
         } finally {
           setLoading(false);
         }
@@ -66,6 +70,7 @@ export function ShareAccountDialog({
       // Reset state when closed
       setQuery("");
       setSharing(null);
+      setRevoking(null);
     }
   }, [isOpen]);
 
@@ -85,25 +90,39 @@ export function ShareAccountDialog({
     setFilteredUsers(filtered);
   }, [query, users]);
 
-  const handleShare = async (user: User) => {
+  const handleShare = async (user: ShareUser) => {
     setSharing(user.id);
     try {
-      const response = await apiPost(
-        `/api/overwatch-accounts/${accountId}/share-by-email`,
-        { email: user.email },
-      );
+      await apiPost(`/overwatch-accounts/${accountId}/share-by-email`, {
+        email: user.email,
+      });
 
-      toast.success(response.message || `Account shared with ${user.username}`);
-      onShareSuccess?.();
-    } catch (error: any) {
-      console.error("Error sharing account:", error);
-      const msg =
-        error.response?.data?.error?.[0]?.msg ||
-        error.message ||
-        "Failed to share";
-      toast.error(msg);
+      toast.success(`Account shared with ${user.username}`);
+      await onShareSuccess?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to share"));
     } finally {
       setSharing(null);
+    }
+  };
+
+  const handleRevoke = async (user: { id: string; email: string }) => {
+    setRevoking(user.id);
+    try {
+      const remainingIds = (sharedWith ?? [])
+        .filter((shared) => shared.id !== user.id)
+        .map((shared) => shared.id);
+
+      await apiPut(`/overwatch-accounts/${accountId}/access`, {
+        userIds: remainingIds,
+      });
+
+      toast.success(`Access revoked for ${user.email}`);
+      await onShareSuccess?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to revoke access"));
+    } finally {
+      setRevoking(null);
     }
   };
 
@@ -178,6 +197,46 @@ export function ShareAccountDialog({
               </div>
             )}
           </div>
+
+          {/* Currently shared with */}
+          {sharedWith && sharedWith.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-purple-500/20">
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                Currently shared with
+              </p>
+              {sharedWith.map((shared) => (
+                <div
+                  key={shared.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-purple-500/10 bg-purple-500/5"
+                >
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <p className="text-sm truncate text-gray-200">
+                      {shared.email}
+                    </p>
+                  </div>
+                  <GlassButton
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleRevoke(shared)}
+                    disabled={!!revoking}
+                    className="h-8 px-3"
+                  >
+                    {revoking === shared.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <X className="w-3 h-3 mr-1" />
+                        Revoke
+                      </>
+                    )}
+                  </GlassButton>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

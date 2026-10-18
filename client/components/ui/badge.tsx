@@ -33,11 +33,11 @@ interface BadgeProps
 
 const Badge = React.forwardRef<HTMLElement, BadgeProps>(
   ({ className, variant, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'span'
+    const Comp = (asChild ? Slot : 'span') as React.ElementType
 
     return (
       <Comp
-        ref={ref as any}
+        ref={ref}
         data-slot="badge"
         className={cn(badgeVariants({ variant }), className)}
         {...props}

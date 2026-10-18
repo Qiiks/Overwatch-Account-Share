@@ -6,37 +6,18 @@ import { GlassButton } from "@/components/ui/GlassButton";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
-import { clearStoredAuthSession, getStoredAuthSession } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export function Navigation() {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [username, setUsername] = useState("");
+  const { user, isAdmin, logout } = useAuth();
+  // Derived view state for the existing markup; the session itself lives in AuthContext.
+  const isLoggedIn = !!user;
+  const username = user?.username ?? "";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { settings } = useSettings();
-
-  useEffect(() => {
-    const { token, expired } = getStoredAuthSession();
-
-    if (expired) {
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      setUsername("");
-      return;
-    }
-
-    const adminStatus =
-      typeof window !== "undefined" ? localStorage.getItem("is_admin") : null;
-    const storedUsername =
-      typeof window !== "undefined" ? localStorage.getItem("username") : null;
-
-    setIsLoggedIn(!!token);
-    setIsAdmin(adminStatus === "true");
-    setUsername(storedUsername || "");
-  }, [pathname]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -60,13 +41,10 @@ export function Navigation() {
     setIsMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = () => {
-    clearStoredAuthSession();
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    setUsername("");
-    router.push("/login");
+  const handleLogout = async () => {
+    await logout();
     setIsMenuOpen(false);
+    router.push("/login");
   };
 
   const toggleMenu = () => {
@@ -85,7 +63,7 @@ export function Navigation() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <div className="text-xl md:text-2xl font-bold font-heading text-[#8A2BE2] tracking-tight">
-              SecureVault
+              Overwatch Share
             </div>
           </Link>
 

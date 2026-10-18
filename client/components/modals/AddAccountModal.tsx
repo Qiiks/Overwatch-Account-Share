@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { apiGet, apiPost } from "@/lib/api"
+import { errorMessage } from "@/lib/errors"
+import { toast } from "sonner"
 
 interface GoogleAccount {
   id: string
@@ -20,9 +22,10 @@ interface GoogleAccount {
 interface AddAccountModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void | Promise<void>
 }
 
-export function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
+export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalProps) {
   const [formData, setFormData] = useState({
     battletag: "",
     email: "",
@@ -34,30 +37,33 @@ export function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
 
+  const fetchGoogleAccounts = useCallback(async () => {
+    setIsLoadingAccounts(true)
+    try {
+      const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts')
+      const accounts = data.accounts || []
+      setGoogleAccounts(accounts)
+
+      // Auto-select primary account if available
+      const primaryAccount = accounts.find((acc) => acc.is_primary)
+      if (primaryAccount) {
+        setFormData(prev =>
+          prev.googleAccountId ? prev : { ...prev, googleAccountId: primaryAccount.id },
+        )
+      }
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to load Google accounts"))
+    } finally {
+      setIsLoadingAccounts(false)
+    }
+  }, [])
+
   // Fetch linked Google accounts when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchGoogleAccounts()
     }
-  }, [isOpen])
-
-  const fetchGoogleAccounts = async () => {
-    setIsLoadingAccounts(true)
-    try {
-      const data = await apiGet<{ accounts: GoogleAccount[] }>('/api/google-auth/accounts')
-      setGoogleAccounts(data.accounts || [])
-      
-      // Auto-select primary account if available
-      const primaryAccount = data.accounts?.find((acc: GoogleAccount) => acc.is_primary)
-      if (primaryAccount && !formData.googleAccountId) {
-        setFormData(prev => ({ ...prev, googleAccountId: primaryAccount.id }))
-      }
-    } catch (error) {
-      console.error("Error fetching Google accounts:", error)
-    } finally {
-      setIsLoadingAccounts(false)
-    }
-  }
+  }, [isOpen, fetchGoogleAccounts])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -68,24 +74,20 @@ export function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
     setIsLoading(true)
 
     try {
-      const payload = {
+      await apiPost('/api/overwatch-accounts', {
         battletag: formData.battletag,
         email: formData.email,
         password: formData.password,
         googleAccountId: formData.googleAccountId,
         notes: formData.notes,
-      }
-      
-      console.log("Sending payload to /api/overwatch-accounts:", payload)
-      
-      await apiPost('/api/overwatch-accounts', payload)
-      
+      })
+
+      toast.success("Overwatch account added")
+      resetForm()
       onClose()
-      // Refresh the dashboard
-      window.location.reload()
-    } catch (error: any) {
-      console.error("Add account error:", error)
-      alert(error.message || "Failed to add Overwatch account")
+      await onSuccess?.()
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to add Overwatch account"))
     } finally {
       setIsLoading(false)
     }

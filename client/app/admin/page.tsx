@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/Navigation";
 import { DotGrid } from "@/components/DotGrid";
@@ -9,11 +10,10 @@ import { RegistrationToggle } from "@/components/admin/RegistrationToggle";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { GlobalAccessManager } from "@/components/admin/GlobalAccessManager";
 import { QuickActions } from "@/components/admin/QuickActions";
-import {
-  apiGet,
-  clearStoredAuthSession,
-  getStoredAuthSession,
-} from "@/lib/api";
+import { apiGet } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 import {
   Users,
   Activity,
@@ -33,38 +33,34 @@ interface AdminStats {
 
 export default function AdminPage() {
   const router = useRouter();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const { token, expired } = getStoredAuthSession();
-    const adminFlag =
-      typeof window !== "undefined"
-        ? localStorage.getItem("is_admin") === "true"
-        : false;
+    if (authLoading) return;
 
-    if (!token || expired) {
-      if (expired) {
-        clearStoredAuthSession();
-      }
+    if (!user) {
       router.push("/login");
       return;
     }
 
-    if (!adminFlag) {
+    if (!isAdmin) {
       router.push("/dashboard");
       return;
     }
 
     fetchAdminData();
-  }, [router]);
+  }, [authLoading, user, isAdmin, router]);
 
   const fetchAdminData = async () => {
     try {
-      const data = await apiGet<{ stats: AdminStats }>("/api/admin/dashboard");
+      const data = await apiGet<{ stats: AdminStats }>("/admin/dashboard");
       setStats(data.stats);
     } catch (error) {
-      console.error("Failed to fetch admin data:", error);
+      toast.error("Failed to load admin data", {
+        description: errorMessage(error),
+      });
       setStats(null);
     } finally {
       setIsLoading(false);
@@ -84,7 +80,7 @@ export default function AdminPage() {
     }
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden flex items-center justify-center">
         <DotGrid />
@@ -240,7 +236,7 @@ function StatsCard({
   trend,
   color = "text-white",
 }: {
-  icon: any;
+  icon: ReactNode;
   label: string;
   value: number;
   trend?: string;

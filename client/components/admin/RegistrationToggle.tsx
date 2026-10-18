@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { GlassSwitch } from "@/components/ui/GlassSwitch"; // Assuming we have or will treat Switch as GlassSwitch
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { apiGet, apiPost } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -19,12 +19,12 @@ export function RegistrationToggle() {
 
   const fetchStatus = async () => {
     try {
-      const data = await apiGet<{ allowed: boolean }>(
-        "/api/admin/registration-status",
-      );
-      setEnabled(data.allowed);
+      const data = await apiGet<{ enabled: boolean }>("/admin/registration-status");
+      setEnabled(data.enabled);
     } catch (error) {
-      console.error("Failed to fetch registration status", error);
+      toast.error("Failed to load registration status", {
+        description: errorMessage(error),
+      });
     } finally {
       setLoading(false);
     }
@@ -35,15 +35,16 @@ export function RegistrationToggle() {
     // Optimistic update
     setEnabled(checked);
     try {
-      const data = await apiPost<{ message: string; enabled: boolean }>(
-        "/api/admin/toggle-registrations",
-        { enabled: checked },
-      );
+      const data = await apiPost<{ enabled: boolean }>("/admin/toggle-registrations", {
+        enabled: checked,
+      });
       setEnabled(data.enabled);
-      toast.success(data.message);
+      toast.success(data.enabled ? "Registrations enabled" : "Registrations disabled");
     } catch (error) {
       setEnabled(!checked); // Revert
-      toast.error("Failed to toggle registrations");
+      toast.error("Failed to toggle registrations", {
+        description: errorMessage(error),
+      });
     } finally {
       setToggling(false);
     }

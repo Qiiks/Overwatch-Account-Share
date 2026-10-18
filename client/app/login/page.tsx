@@ -17,10 +17,12 @@ import {
 } from "@/components/ui/GlassCard"
 import { DotGrid } from "@/components/DotGrid"
 import Link from "next/link"
-import { apiPost, clearStoredAuthSession } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
+import { errorMessage } from "@/lib/errors"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -33,47 +35,10 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const data = await apiPost<{
-        token: string
-        tokenExpiresAt?: string
-        role: string
-        isAdmin: boolean
-        username: string
-        id: string
-        email: string
-      }>('/api/auth/login', {
-        email,
-        password,
-        rememberMe
-      })
-
-      // Clear any previous session data before storing new values
-      clearStoredAuthSession()
-
-      localStorage.setItem("auth_token", data.token)
-      if (data.tokenExpiresAt) {
-        localStorage.setItem("auth_token_expires_at", String(new Date(data.tokenExpiresAt).getTime()))
-      }
-      localStorage.setItem("user_role", data.role || "user")
-      localStorage.setItem("is_admin", data.isAdmin ? "true" : "false")
-      if (data.username) {
-        localStorage.setItem("username", data.username)
-      } else {
-        localStorage.removeItem("username")
-      }
-      // Store the complete user object for authorization checks
-      const userObject = {
-        id: data.id,
-        username: data.username,
-        email: data.email,
-        role: data.role || "user",
-        isAdmin: data.isAdmin || false
-      }
-      localStorage.setItem("user", JSON.stringify(userObject))
+      await login(email, password, rememberMe)
       router.push("/dashboard")
-    } catch (error: any) {
-      setError(error.message || "An error occurred. Please try again.")
-      console.error("Login error:", error)
+    } catch (error) {
+      setError(errorMessage(error, "An error occurred. Please try again."))
     } finally {
       setIsLoading(false)
     }
@@ -98,7 +63,7 @@ export default function LoginPage() {
           <GlassCardHeader className="text-center">
             <GlassCardTitle className="text-2xl font-bold text-[#8A2BE2]">Welcome Back</GlassCardTitle>
             <GlassCardDescription className="text-[#EAEAEA]/70">
-              Sign in to your SecureVault account
+              Sign in to your account
             </GlassCardDescription>
           </GlassCardHeader>
           <GlassCardContent>
@@ -154,12 +119,6 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 text-center space-y-2">
-              <Link
-                href="/forgot-password"
-                className="text-sm text-[#DA70D6] hover:text-[#DA70D6]/80 transition-colors"
-              >
-                Forgot your password?
-              </Link>
               <div className="text-sm text-[#EAEAEA]/70">
                 Don't have an account?{" "}
                 <Link href="/register" className="text-[#8A2BE2] hover:text-[#8A2BE2]/80 transition-colors">

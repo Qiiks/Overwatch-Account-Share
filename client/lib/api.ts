@@ -1,124 +1,133 @@
 /**
- * API Utility for CSRF-Protected Requests
+ * The single HTTP entry point for the app.
  *
- * This module provides a wrapper around fetch that automatically handles
- * CSRF token management using the double-submit cookie pattern.
- *
- * The backend sets a CSRF token in an httpOnly cookie on GET requests.
- * For state-changing requests (POST, PUT, DELETE, PATCH), we need to:
- * 1. Read the CSRF token from the cookie
- * 2. Add it to the request header
- *
- * Usage:
- *   import { apiRequest } from '@/lib/api';
- *
- *   // GET request (no CSRF token needed)
- *   const data = await apiRequest('/api/dashboard');
- *
- *   // POST request (CSRF token automatically added)
- *   const result = await apiRequest('/api/overwatch-accounts', {
- *     method: 'POST',
- *     body: JSON.stringify({ ... })
- *   });
+ * - Base URL: NEXT_PUBLIC_API_BASE_URL (default "/api"; dev: http://localhost:5001/api).
+ *   Paths may be written bare ("/auth/me") or fully ("/api/auth/me") — both resolve.
+ * - Credentials: the session lives in an httpOnly cookie, so every call is `credentials: 'include'`.
+ * - CSRF: the token comes from GET /api/auth/csrf (response body), is cached in memory and sent as
+ *   `x-csrf-token` on non-GET requests; a CSRF_* failure refetches once and retries once.
  */
 
-// Validate NEXT_PUBLIC_API_BASE_URL is set
-if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
-  throw new Error(
-    "NEXT_PUBLIC_API_BASE_URL environment variable is required but not set",
-  );
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  details?: unknown;
+
+  constructor(status: number, code: string, message: string, details?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const CSRF_COOKIE_NAME = "csrf-token";
-const CSRF_HEADER_NAME = "x-csrf-token";
-const TOKEN_STORAGE_KEY = "auth_token";
-const TOKEN_EXPIRY_STORAGE_KEY = "auth_token_expires_at";
-const SESSION_STORAGE_KEYS = [
-  TOKEN_STORAGE_KEY,
-  TOKEN_EXPIRY_STORAGE_KEY,
-  "user_role",
-  "is_admin",
-  "username",
-  "user",
-] as const;
-
-export interface AuthSession {
-  token: string | null;
-  expired: boolean;
-  user: any | null;
-  isAdmin: boolean;
+interface ApiEnvelope<T> {
+  success?: boolean;
+  data?: T;
+  meta?: Record<string, unknown>;
+  error?: { message?: string; code?: string; details?: unknown };
 }
 
-/**
- * Get the stored authentication session
- */
-export function getStoredAuthSession(): AuthSession {
-  if (typeof localStorage === "undefined") {
-    return { token: null, expired: false, user: null, isAdmin: false };
+const resolveUrl = (path: string) => {
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/+$/, '');
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  // Tolerate call sites written against the full path while the base already carries /api.
+  if (base.endsWith('/api') && normalized.startsWith('/api/')) {
+    return `${base}${normalized.slice(4)}`;
+  }
+  return `${base}${normalized}`;
+};
+
+let csrfToken: string | null = null;
+
+export async function getCsrfToken(force = false): Promise<string> {
+  if (csrfToken && !force) return csrfToken;
+
+  const response = await fetch(resolveUrl('/auth/csrf'), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  const body = (await response.json().catch(() => null)) as ApiEnvelope<{ token?: string }> | null;
+  const token = body?.data?.token;
+
+  if (!response.ok || typeof token !== 'string') {
+    throw new ApiError(
+      response.status || 500,
+      'CSRF_FETCH_FAILED',
+      'Could not establish a CSRF token. Reload the page and try again.',
+    );
   }
 
-  let token: string | null = null;
-  let expired = false;
-  let user: any | null = null;
-  let isAdmin = false;
+  csrfToken = token;
+  return token;
+}
 
-  try {
-    token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (!token) {
-      return { token: null, expired: false, user: null, isAdmin: false };
+const request = async <T>(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+  retryOnCsrf = true,
+): Promise<T> => {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (method !== 'GET') {
+    try {
+      headers['x-csrf-token'] = await getCsrfToken();
+    } catch (error) {
+      // Inside this branch method is never GET, so only the retry flag gates the throw.
+      if (retryOnCsrf) throw error;
     }
-
-    const expiry = parseExpiry(localStorage.getItem(TOKEN_EXPIRY_STORAGE_KEY));
-
-    if (!expiry) {
-      // If no expiry, assume valid for now but incomplete session
-      // Try to get user data anyway
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        try {
-          user = JSON.parse(userStr);
-        } catch (e) {
-          // invalid user json
-        }
-      }
-
-      const role = localStorage.getItem("user_role");
-      const isAdminStr = localStorage.getItem("is_admin");
-      isAdmin = role === "admin" || isAdminStr === "true";
-
-      return { token, expired: false, user, isAdmin };
-    }
-
-    if (Date.now() >= expiry) {
-      expired = true;
-      clearStoredAuthSession();
-      token = null;
-    } else {
-      // Token valid, get user data
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        try {
-          user = JSON.parse(userStr);
-        } catch (e) {
-          // invalid user json
-        }
-      }
-
-      const role = localStorage.getItem("user_role");
-      const isAdminStr = localStorage.getItem("is_admin");
-      isAdmin = role === "admin" || isAdminStr === "true";
-
-      // Enhance user object with role if missing but present in separate key
-      if (user && !user.role && role) {
-        user.role = role;
-      }
-    }
-  } catch {
-    clearStoredAuthSession();
-    token = null;
-    expired = true;
   }
 
-  return { token, expired, user, isAdmin };
-}
+  const response = await fetch(resolveUrl(path), {
+    method,
+    credentials: 'include',
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
+
+  if (!response.ok || payload?.success === false) {
+    const error = payload?.error;
+    const code = error?.code || (response.status === 401 ? 'UNAUTHENTICATED' : 'INTERNAL');
+    const message = error?.message || `Request failed (${response.status})`;
+
+    // A stale CSRF token is recoverable: refetch and retry once.
+    if (code.startsWith('CSRF_') && method !== 'GET' && retryOnCsrf) {
+      await getCsrfToken(true);
+      return request<T>(method, path, body, false);
+    }
+
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
+
+    throw new ApiError(response.status, code, message, error?.details);
+  }
+
+  // Success envelope; a legacy bare body is tolerated so partial migrations keep working.
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    return (payload.data as T) ?? (undefined as unknown as T);
+  }
+  return payload as unknown as T;
+};
+
+export const apiGet = <T>(path: string) => request<T>('GET', path);
+export const apiPost = <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {});
+export const apiPut = <T>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {});
+export const apiPatch = <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {});
+export const apiDelete = <T>(path: string, body?: unknown) => request<T>('DELETE', path, body);
+
+/** Downloads a non-JSON response (CSV/file export) with the session cookie attached. */
+export const apiDownload = async (path: string): Promise<Blob> => {
+  const response = await fetch(resolveUrl(path), { credentials: 'include' });
+  if (!response.ok) {
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
+    throw new ApiError(response.status, 'INTERNAL', `Request failed (${response.status})`);
+  }
+  return response.blob();
+};

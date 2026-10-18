@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   GlassCard,
   GlassCardHeader,
@@ -10,6 +10,7 @@ import {
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { apiGet, apiPost } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 import { Loader2, Search, User, Shield, Check } from "lucide-react";
 
@@ -39,10 +40,14 @@ export function GlobalAccessManager() {
       if (accountQuery.length >= 2 && !selectedAccount) {
         setIsSearchingAccount(true);
         apiGet<SearchResult[]>(
-          `/api/admin/search?type=account&query=${encodeURIComponent(accountQuery)}`,
+          `/admin/search?type=account&query=${encodeURIComponent(accountQuery)}`,
         )
           .then(setAccountResults)
-          .catch((err) => console.error(err))
+          .catch((error) => {
+            toast.error("Account search failed", {
+              description: errorMessage(error),
+            });
+          })
           .finally(() => setIsSearchingAccount(false));
       } else {
         setAccountResults([]);
@@ -56,10 +61,14 @@ export function GlobalAccessManager() {
       if (userQuery.length >= 2 && !selectedUser) {
         setIsSearchingUser(true);
         apiGet<SearchResult[]>(
-          `/api/admin/search?type=user&query=${encodeURIComponent(userQuery)}`,
+          `/admin/search?type=user&query=${encodeURIComponent(userQuery)}`,
         )
           .then(setUserResults)
-          .catch((err) => console.error(err))
+          .catch((error) => {
+            toast.error("User search failed", {
+              description: errorMessage(error),
+            });
+          })
           .finally(() => setIsSearchingUser(false));
       } else {
         setUserResults([]);
@@ -73,7 +82,7 @@ export function GlobalAccessManager() {
 
     setIsSubmitting(true);
     try {
-      await apiPost("/api/admin/share-account", {
+      await apiPost("/admin/share-account", {
         accountId: selectedAccount.value,
         targetUserId: selectedUser.value,
       });
@@ -85,9 +94,9 @@ export function GlobalAccessManager() {
       setSelectedUser(null);
       setAccountQuery("");
       setUserQuery("");
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Failed to grant access", {
-        description: error.message || "Unknown error occurred",
+        description: errorMessage(error, "Unknown error occurred"),
       });
     } finally {
       setIsSubmitting(false);
