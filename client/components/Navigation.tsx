@@ -1,319 +1,183 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { GlassButton } from "@/components/ui/GlassButton";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { useSettings } from "@/context/SettingsContext";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
 
 export function Navigation() {
-  const router = useRouter();
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAdmin, logout } = useAuth();
-  // Derived view state for the existing markup; the session itself lives in AuthContext.
-  const isLoggedIn = !!user;
-  const username = user?.username ?? "";
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const { settings } = useSettings();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
 
-  // Close menu when clicking outside
+  const signedIn = !!user;
+  const links = signedIn
+    ? [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/accounts", label: "Accounts" },
+        ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
+      ]
+    : [
+        { href: "/", label: "Home" },
+        { href: "/terms", label: "Terms" },
+        { href: "/privacy", label: "Privacy" },
+      ];
+
+  // Close the sheet on route change, outside click and Escape.
+  useEffect(() => setIsMenuOpen(false), [pathname]);
+
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
+    if (!isMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) setIsMenuOpen(false);
     };
-
-    if (isMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [isMenuOpen]);
 
-  // Close menu when route changes
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [pathname]);
-
   const handleLogout = async () => {
-    await logout();
     setIsMenuOpen(false);
+    await logout();
     router.push("/login");
   };
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-  const isActive = (path: string) => pathname === path;
+  const actions = (
+    <>
+      {signedIn ? (
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="h-9 border border-transparent px-3 text-sm text-ink-2 transition-colors duration-[var(--dur-2)] ease-standard hover:border-alarm/40 hover:text-alarm"
+        >
+          Log out
+        </button>
+      ) : (
+        <>
+          <Link
+            href="/login"
+            className={cn(
+              "border px-3 py-2 text-sm transition-colors duration-[var(--dur-2)] ease-standard",
+              pathname === "/login"
+                ? "border-line-2 bg-white/3 text-ink"
+                : "border-transparent text-ink-2 hover:border-line-2 hover:text-ink",
+            )}
+          >
+            Log in
+          </Link>
+          {settings?.allow_registration && (
+            <Link
+              href="/register"
+              className="inline-flex h-9 items-center rounded-lg border border-signal bg-signal px-4 text-sm font-semibold text-signal-ink transition-colors duration-[var(--dur-2)] ease-standard hover:border-accent hover:bg-accent"
+            >
+              Create account
+            </Link>
+          )}
+        </>
+      )}
+    </>
+  );
 
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#8A2BE2]/15"
-      ref={menuRef}
-    >
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="text-xl md:text-2xl font-bold font-heading text-[#8A2BE2] tracking-tight">
-              Overwatch Share
-            </div>
-          </Link>
-
-          {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center space-x-2">
-            {!isLoggedIn ? (
-              <>
-                <Link href="/">
-                  <GlassButton
-                    variant="ghost"
-                    className={`${
-                      isActive("/")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Home
-                  </GlassButton>
-                </Link>
-                <Link href="/terms">
-                  <GlassButton
-                    variant="ghost"
-                    className={`${
-                      isActive("/terms")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Terms
-                  </GlassButton>
-                </Link>
-                <Link href="/privacy">
-                  <GlassButton
-                    variant="ghost"
-                    className={`${
-                      isActive("/privacy")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Privacy
-                  </GlassButton>
-                </Link>
-                <Link href="/login">
-                  <GlassButton
-                    variant="ghost"
-                    className={`${
-                      isActive("/login")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Login
-                  </GlassButton>
-                </Link>
-                {settings?.allow_registration && (
-                  <Link href="/register">
-                    <GlassButton variant="primary">Register</GlassButton>
-                  </Link>
-                )}
-              </>
-            ) : (
-              <>
-                <Link href="/dashboard">
-                  <GlassButton
-                    variant="ghost"
-                    className={`${
-                      isActive("/dashboard")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Dashboard
-                  </GlassButton>
-                </Link>
-
-                <Link href="/accounts">
-                  <GlassButton
-                    variant="ghost"
-                    className={`${
-                      isActive("/accounts")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Accounts
-                  </GlassButton>
-                </Link>
-
-                {isAdmin && (
-                  <Link href="/admin">
-                    <GlassButton
-                      variant="ghost"
-                      className={`text-green-400 hover:text-green-300 hover:bg-green-400/10 ${
-                        isActive("/admin")
-                          ? "text-green-300 bg-green-400/10 border-green-400/30"
-                          : ""
-                      }`}
-                    >
-                      Admin
-                    </GlassButton>
-                  </Link>
-                )}
-
-                <div className="flex items-center space-x-3 ml-2">
-                  {username && (
-                    <span className="text-[#EAEAEA]/60 text-sm">
-                      {username}
-                    </span>
-                  )}
-                  <GlassButton
-                    onClick={handleLogout}
-                    variant="ghost"
-                    className="border-red-400/50 text-red-400 hover:bg-red-400/10 bg-transparent"
-                  >
-                    Logout
-                  </GlassButton>
-                </div>
-              </>
+    <header ref={headerRef} className="border-b border-line">
+      <div className="flex items-center gap-4 px-[var(--pad-x)] py-3">
+        {/* Lime marks a live session; neutral when anonymous. */}
+        <Link href="/" className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={cn(
+              "size-[7px] shrink-0",
+              signedIn ? "bg-signal motion-safe:animate-led" : "bg-ink-3",
             )}
-          </div>
+            aria-hidden="true"
+          />
+          <span className="text-base font-bold tracking-[0.1em] uppercase whitespace-nowrap">
+            Overwatch Share
+          </span>
+          {user && (
+            <span className="hidden font-mono text-2xs tracking-[0.06em] text-ink-3 uppercase truncate sm:inline">
+              @{user.username}
+            </span>
+          )}
+        </Link>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={toggleMenu}
-            className="md:hidden p-2 text-[#DA70D6] hover:text-[#8A2BE2] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+        <nav className="ml-auto hidden items-center gap-1 md:flex" aria-label="Main">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={pathname === link.href ? "page" : undefined}
+              className={cn(
+                "border px-3 py-2 text-sm transition-colors duration-[var(--dur-2)] ease-standard",
+                pathname === link.href
+                  ? "border-line-2 bg-white/3 text-ink"
+                  : "border-transparent text-ink-2 hover:border-line-2 hover:text-ink",
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="hidden items-center gap-2.5 border-l border-line pl-3 md:flex">
+          {actions}
         </div>
 
-        {/* Mobile Menu Dropdown */}
-        {isMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 space-y-2 border-t border-[#8A2BE2]/15 pt-4">
-            {!isLoggedIn ? (
-              <>
-                <Link href="/" className="block">
-                  <GlassButton
-                    variant="ghost"
-                    className={`w-full text-left ${
-                      isActive("/")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Home
-                  </GlassButton>
-                </Link>
-                <Link href="/terms" className="block">
-                  <GlassButton
-                    variant="ghost"
-                    className={`w-full text-left ${
-                      isActive("/terms")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Terms
-                  </GlassButton>
-                </Link>
-                <Link href="/privacy" className="block">
-                  <GlassButton
-                    variant="ghost"
-                    className={`w-full text-left ${
-                      isActive("/privacy")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Privacy
-                  </GlassButton>
-                </Link>
-                <Link href="/login" className="block">
-                  <GlassButton
-                    variant="ghost"
-                    className={`w-full text-left ${
-                      isActive("/login")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Login
-                  </GlassButton>
-                </Link>
-                {settings?.allow_registration && (
-                  <Link href="/register" className="block">
-                    <GlassButton variant="primary" className="w-full">
-                      Register
-                    </GlassButton>
-                  </Link>
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen((open) => !open)}
+          className="ml-auto flex size-11 items-center justify-center border border-line-2 text-ink-2 transition-colors md:hidden"
+          aria-label="Toggle menu"
+          aria-expanded={isMenuOpen}
+        >
+          {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+      </div>
+
+      {isMenuOpen && (
+        <div className="border-t border-line md:hidden">
+          <nav className="flex flex-col py-1" aria-label="Main">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={pathname === link.href ? "page" : undefined}
+                className={cn(
+                  "flex min-h-11 items-center border-l-2 px-4 text-base transition-colors",
+                  pathname === link.href
+                    ? "border-signal bg-signal/6 text-ink"
+                    : "border-transparent text-ink-2 hover:text-ink",
                 )}
-              </>
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
+            {signedIn ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="min-h-11 border border-line-2 px-4 text-sm text-ink-2 transition-colors hover:border-alarm/40 hover:text-alarm"
+              >
+                Log out
+              </button>
             ) : (
-              <>
-                {username && (
-                  <div className="px-3 py-2 text-[#EAEAEA]/60 text-sm border-b border-[#8A2BE2]/10">
-                    {username}
-                  </div>
-                )}
-                <Link href="/dashboard" className="block">
-                  <GlassButton
-                    variant="ghost"
-                    className={`w-full text-left ${
-                      isActive("/dashboard")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Dashboard
-                  </GlassButton>
-                </Link>
-                <Link href="/accounts" className="block">
-                  <GlassButton
-                    variant="ghost"
-                    className={`w-full text-left ${
-                      isActive("/accounts")
-                        ? "text-[#DA70D6] bg-[#8A2BE2]/10 border-[#8A2BE2]/30"
-                        : ""
-                    }`}
-                  >
-                    Accounts
-                  </GlassButton>
-                </Link>
-                {isAdmin && (
-                  <Link href="/admin" className="block">
-                    <GlassButton
-                      variant="ghost"
-                      className={`w-full text-left text-green-400 hover:text-green-300 hover:bg-green-400/10 ${
-                        isActive("/admin")
-                          ? "text-green-300 bg-green-400/10 border-green-400/30"
-                          : ""
-                      }`}
-                    >
-                      Admin
-                    </GlassButton>
-                  </Link>
-                )}
-                <GlassButton
-                  onClick={handleLogout}
-                  variant="ghost"
-                  className="w-full text-left border-red-400/50 text-red-400 hover:bg-red-400/10 bg-transparent"
-                >
-                  Logout
-                </GlassButton>
-              </>
+              actions
             )}
           </div>
-        )}
-      </div>
-    </nav>
+        </div>
+      )}
+    </header>
   );
 }

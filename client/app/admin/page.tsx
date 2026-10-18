@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Navigation } from "@/components/Navigation";
-import { DotGrid } from "@/components/DotGrid";
-import { GlassCard, GlassCardContent } from "@/components/ui/GlassCard";
 import { RegistrationToggle } from "@/components/admin/RegistrationToggle";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { GlobalAccessManager } from "@/components/admin/GlobalAccessManager";
@@ -14,13 +10,6 @@ import { apiGet } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import {
-  Users,
-  Activity,
-  ShieldCheck,
-  Server,
-  AlertCircle,
-} from "lucide-react";
 
 interface AdminStats {
   totalUsers: number;
@@ -30,6 +19,12 @@ interface AdminStats {
   sharedCredentials: number;
   systemHealth: "healthy" | "warning" | "critical";
 }
+
+const HEALTH_DOT: Record<string, string> = {
+  healthy: "bg-signal",
+  warning: "bg-warn",
+  critical: "bg-alarm",
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -67,203 +62,110 @@ export default function AdminPage() {
     }
   };
 
-  const getHealthColor = (health: string) => {
-    switch (health) {
-      case "healthy":
-        return "text-[#00ff88]";
-      case "warning":
-        return "text-[#ffcc00]";
-      case "critical":
-        return "text-[#ff0040]";
-      default:
-        return "text-gray-400";
-    }
-  };
-
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden flex items-center justify-center">
-        <DotGrid />
-        <div className="relative z-10 flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A2BE2]"></div>
-          <p className="text-[#DA70D6] animate-pulse">
-            Initializing AdmnilNK...
-          </p>
-        </div>
+      <div className="flex items-center justify-center py-24">
+        <span className="font-mono text-2xs tracking-label text-ink-3 uppercase animate-led motion-reduce:animate-none">
+          Initializing console…
+        </span>
       </div>
     );
   }
 
+  const health = stats?.systemHealth ?? "unknown";
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden font-sans">
-      <Navigation />
-      <DotGrid />
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center gap-3 border-b border-line pb-4">
+        <h1 className="text-md font-semibold text-ink">Admin console</h1>
+        <span className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+          System controls
+        </span>
+        <span className="ml-auto inline-flex items-center gap-2 rounded-lg border border-line-2 px-2.5 py-1.5">
+          <span
+            className={`size-2 flex-none ${HEALTH_DOT[health] ?? "bg-ink-3"} ${
+              health === "healthy" ? "animate-led motion-reduce:animate-none" : ""
+            }`}
+          />
+          <span className="font-mono text-2xs tracking-[0.1em] text-ink-2 uppercase">
+            System: {health}
+          </span>
+        </span>
+      </header>
 
-      {/* Decorative Background Glows */}
-      <div className="fixed top-20 left-1/4 w-96 h-96 bg-[#8A2BE2]/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="fixed bottom-20 right-1/4 w-96 h-96 bg-[#DA70D6]/10 rounded-full blur-[100px] pointer-events-none" />
-
-      <div className="relative z-10 container mx-auto px-4 py-8 pt-24 space-y-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#8A2BE2] via-[#DA70D6] to-[#00ffff] font-[family-name:var(--font-heading)]">
-              Admin Command Center
-            </h1>
-            <p className="text-gray-400 max-w-lg">
-              System overhaul complete. Monitoring active neural links and user
-              permissions.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
-            <div
-              className={`w-2.5 h-2.5 rounded-full ${stats?.systemHealth === "healthy" ? "bg-[#00ff88] animate-pulse" : "bg-red-500"}`}
-            />
-            <span className="text-sm font-medium uppercase tracking-wider text-gray-300">
-              System: {stats?.systemHealth || "Unknown"}
-            </span>
-          </div>
+      {stats && (
+        <div className="flex flex-wrap border-b border-line">
+          <Readout label="Total users" value={stats.totalUsers} />
+          <Readout label="Active now" value={stats.activeUsers} live />
+          <Readout label="Credentials" value={stats.totalCredentials} />
+          <Readout label="Shared items" value={stats.sharedCredentials} />
+          <Readout
+            label="Flagged"
+            value={stats.flaggedActivities}
+            alarm={stats.flaggedActivities > 0}
+          />
         </div>
+      )}
 
-        {/* Stats Grid */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <StatsCard
-              icon={<Users className="w-5 h-5 text-[#8A2BE2]" />}
-              label="Total Users"
-              value={stats.totalUsers}
-              trend="+12%"
-            />
-            <StatsCard
-              icon={<Activity className="w-5 h-5 text-[#00ff88]" />}
-              label="Active Now"
-              value={stats.activeUsers}
-              color="text-[#00ff88]"
-            />
-            <StatsCard
-              icon={<ShieldCheck className="w-5 h-5 text-[#DA70D6]" />}
-              label="Credentials"
-              value={stats.totalCredentials}
-            />
-            <StatsCard
-              icon={<Server className="w-5 h-5 text-blue-400" />}
-              label="Shared Items"
-              value={stats.sharedCredentials}
-            />
-            <StatsCard
-              icon={<AlertCircle className="w-5 h-5 text-[#ff0040]" />}
-              label="Flagged"
-              value={stats.flaggedActivities}
-              color="text-[#ff0040]"
-            />
-            <GlassCard className="col-span-1 lg:col-span-1 flex items-center justify-center bg-gradient-to-br from-[#8A2BE2]/20 to-[#DA70D6]/20 border-[#DA70D6]/30">
-              <div className="text-center">
-                <div className="text-xs text-[#DA70D6] uppercase tracking-widest mb-1">
-                  Status
-                </div>
-                <div
-                  className={`text-xl font-bold ${getHealthColor(stats.systemHealth)}`}
-                >
-                  {stats.systemHealth.toUpperCase()}
-                </div>
-              </div>
-            </GlassCard>
-          </div>
-        )}
+      <section>
+        <SectionHead>Quick actions</SectionHead>
+        <QuickActions />
+      </section>
 
-        {/* Quick Actions Panel */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-6 w-1 bg-[#8A2BE2] rounded-full" />
-            <h2 className="text-xl font-bold text-white font-[family-name:var(--font-heading)]">
-              Quick Actions
-            </h2>
-          </div>
-          <QuickActions />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <section className="min-w-0">
+          <SectionHead>User database</SectionHead>
+          <UserManagement onUsersChange={fetchAdminData} />
         </section>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content Area - Left Column */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* User Management */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-6 w-1 bg-[#DA70D6] rounded-full" />
-                <h2 className="text-xl font-bold text-white font-[family-name:var(--font-heading)]">
-                  User Database
-                </h2>
-              </div>
-              <UserManagement onUsersChange={fetchAdminData} />
-            </section>
-          </div>
+        <div className="space-y-6">
+          <section>
+            <SectionHead>Global access</SectionHead>
+            <GlobalAccessManager />
+          </section>
 
-          {/* Sidebar - Right Column */}
-          <div className="space-y-8">
-            {/* Global Access Manager */}
-            <section>
-              <GlobalAccessManager />
-            </section>
-
-            {/* Application Settings */}
-            <section>
-              <GlassCard>
-                <GlassCardContent className="pt-6">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Server className="w-4 h-4 text-gray-400" />
-                    System Controls
-                  </h3>
-                  <div className="space-y-4">
-                    <RegistrationToggle />
-                    {/* Add more system toggles here later */}
-                    <div className="p-4 rounded-lg bg-white/5 border border-white/5 text-xs text-gray-500 text-center">
-                      More system controls coming soon
-                    </div>
-                  </div>
-                </GlassCardContent>
-              </GlassCard>
-            </section>
-          </div>
+          <section>
+            <SectionHead>Application settings</SectionHead>
+            <div className="rounded-lg border border-line bg-panel p-3.5">
+              <RegistrationToggle />
+              <p className="mt-3 rounded-md border border-line px-3 py-2.5 text-center font-mono text-2xs tracking-[0.06em] text-ink-3 uppercase">
+                More system controls coming soon
+              </p>
+            </div>
+          </section>
         </div>
       </div>
     </div>
   );
 }
 
-function StatsCard({
-  icon,
+function SectionHead({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-2.5 flex items-center gap-2.5">
+      <span className="h-4 w-0.5 flex-none bg-signal" />
+      <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">
+        {children}
+      </h2>
+    </div>
+  );
+}
+
+function Readout({
   label,
   value,
-  trend,
-  color = "text-white",
+  live = false,
+  alarm = false,
 }: {
-  icon: ReactNode;
   label: string;
   value: number;
-  trend?: string;
-  color?: string;
+  live?: boolean;
+  alarm?: boolean;
 }) {
+  const tone = alarm ? "text-alarm" : live ? "text-signal" : "text-ink";
   return (
-    <GlassCard className="hover:border-[#8A2BE2]/50 transition-colors duration-300 group">
-      <GlassCardContent className="p-5">
-        <div className="flex justify-between items-start mb-2">
-          <div className="p-2 rounded-md bg-white/5 group-hover:bg-[#8A2BE2]/20 transition-colors">
-            {icon}
-          </div>
-          {trend && (
-            <span className="text-xs text-[#00ff88] bg-[#00ff88]/10 px-1.5 py-0.5 rounded">
-              {trend}
-            </span>
-          )}
-        </div>
-        <div
-          className={`text-2xl font-bold mb-1 ${color} font-[family-name:var(--font-heading)]`}
-        >
-          {value}
-        </div>
-        <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-          {label}
-        </div>
-      </GlassCardContent>
-    </GlassCard>
+    <div className="mr-5 border-r border-line py-3 pr-5 last:mr-0 last:border-r-0">
+      <p className={`font-mono text-xl tabular-nums ${tone}`}>{value}</p>
+      <p className="font-mono text-2xs tracking-label text-ink-3 uppercase">{label}</p>
+    </div>
   );
 }

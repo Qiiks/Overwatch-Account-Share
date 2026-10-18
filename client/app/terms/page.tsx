@@ -1,27 +1,22 @@
 "use client"
 
-import { Navigation } from "@/components/Navigation"
-import { DotGrid } from "@/components/DotGrid"
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
-
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden">
-      <Navigation />
-      <DotGrid />
-
-      <div className="relative z-10 container mx-auto px-4 py-8 pt-24 max-w-4xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-[#8A2BE2] mb-4">Terms of Service</h1>
-          <p className="text-[#EAEAEA]/70 text-lg">Last updated: {new Date().toLocaleDateString()}</p>
-        </div>
+    <div className="mx-auto max-w-3xl">
+      <header className="mb-8 border-b border-line pb-6">
+        <p className="font-mono text-2xs tracking-label text-ink-3 uppercase">Legal · 02</p>
+        <h1 className="mt-2 text-2xl text-ink">Terms of Service</h1>
+        <p className="mt-1 font-mono text-xs text-ink-3">
+          Last updated: {new Date().toLocaleDateString()}
+        </p>
+      </header>
 
         <div className="space-y-6">
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">1. Agreement to Terms</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">1. Agreement to Terms</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 By accessing and using Overwatch Account Share ("the Service"), you agree to be bound by these Terms of
                 Service. If you disagree with any part of these terms, you may not access the Service.
@@ -30,14 +25,14 @@ export default function TermsPage() {
                 The Service is designed to facilitate secure sharing of Overwatch game account credentials within the
                 gaming community. You must be at least 13 years old to use this Service.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">2. Account Responsibilities</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">2. Account Responsibilities</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>When creating an account with us, you agree to:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Provide accurate, complete, and current information</li>
@@ -51,14 +46,14 @@ export default function TermsPage() {
                 You are solely responsible for any activity that occurs under your account. We reserve the right to
                 suspend or terminate accounts that violate these terms.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">3. Data Usage</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">3. Data Usage</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>By using our Service, you understand and agree that:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>
@@ -83,14 +78,14 @@ export default function TermsPage() {
                   We will never sell, rent, or share your personal information with third parties for marketing purposes
                 </li>
               </ul>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">4. Acceptable Use</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">4. Acceptable Use</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>You agree not to use the Service to:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Share accounts that you do not own or have permission to share</li>
@@ -102,14 +97,14 @@ export default function TermsPage() {
                 <li>Use the Service for commercial purposes without explicit permission</li>
                 <li>Harass, abuse, or harm other users of the Service</li>
               </ul>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">5. Third-Party Services</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">5. Third-Party Services</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>Our Service integrates with third-party services including:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>
@@ -126,14 +121,14 @@ export default function TermsPage() {
                 Your use of these third-party services is subject to their respective terms of service and privacy
                 policies. We are not responsible for the practices of these third-party services.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">6. Disclaimer</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">6. Disclaimer</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 <strong>THE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND.</strong> We make no warranties,
                 express or implied, regarding:
@@ -154,14 +149,14 @@ export default function TermsPage() {
                 <strong>Not Affiliated with Blizzard:</strong> This Service is not affiliated with, endorsed by, or
                 sponsored by Blizzard Entertainment, Inc. Overwatch is a trademark of Blizzard Entertainment, Inc.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">7. Limitation of Liability</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">7. Limitation of Liability</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 To the maximum extent permitted by law, Overwatch Account Share and its operators shall not be liable
                 for:
@@ -177,14 +172,14 @@ export default function TermsPage() {
                 Our total liability shall not exceed the amount you have paid us in the past twelve months, or $100 if
                 you have not made any payments.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">8. Termination</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">8. Termination</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 We reserve the right to terminate or suspend your account immediately, without prior notice, for any
                 reason including but not limited to:
@@ -199,14 +194,14 @@ export default function TermsPage() {
                 Upon termination, your right to use the Service will cease immediately. All provisions of these Terms
                 which should reasonably survive termination shall remain in effect.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">9. Changes to Terms</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">9. Changes to Terms</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 We reserve the right to modify these Terms of Service at any time. Changes will be effective immediately
                 upon posting to the Service. Your continued use of the Service following any changes constitutes
@@ -218,16 +213,16 @@ export default function TermsPage() {
                 <li>Prominent notices on the Service dashboard</li>
                 <li>Update notifications upon login</li>
               </ul>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">10. Contact Information</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">10. Contact Information</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>For questions about these Terms of Service or the Service itself, please contact us:</p>
-              <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+              <div className="rounded-md border border-line bg-ground p-3">
                 <p>
                   <strong>Email:</strong> gameslayer.inc@gmail.com
                 </p>
@@ -238,10 +233,9 @@ export default function TermsPage() {
                   <strong>Response Time:</strong> We aim to respond to all inquiries within 48-72 hours
                 </p>
               </div>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
   )
 }

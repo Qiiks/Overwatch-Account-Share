@@ -22,6 +22,21 @@ interface ConfirmationDialogProps {
   variant?: "default" | "destructive" | "warning"
 }
 
+const VARIANT_STYLES: Record<string, { title: string; action: string }> = {
+  destructive: {
+    title: "text-alarm",
+    action: "bg-alarm text-ground hover:bg-alarm/90",
+  },
+  warning: {
+    title: "text-warn",
+    action: "bg-warn text-ground hover:bg-warn/90",
+  },
+  default: {
+    title: "text-ink",
+    action: "bg-signal text-signal-ink hover:bg-accent",
+  },
+}
+
 export function ConfirmationDialog({
   open,
   onClose,
@@ -32,41 +47,23 @@ export function ConfirmationDialog({
   cancelText = "Cancel",
   variant = "default",
 }: ConfirmationDialogProps) {
-  const getVariantStyles = () => {
-    switch (variant) {
-      case "destructive":
-        return {
-          title: "text-red-400",
-          action: "bg-red-600 hover:bg-red-700 text-white",
-        }
-      case "warning":
-        return {
-          title: "text-yellow-400",
-          action: "bg-yellow-500/80 hover:bg-yellow-500 text-white",
-        }
-      default:
-        return {
-          title: "text-[#DA70D6]",
-          action: "bg-[#DA70D6]/80 hover:bg-[#DA70D6] text-white",
-        }
-    }
-  }
-
-  const styles = getVariantStyles()
+  const styles = VARIANT_STYLES[variant] ?? VARIANT_STYLES.default
 
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
-      <AlertDialogContent className="bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+      <AlertDialogContent className="border-line-2 bg-panel-2 text-ink">
         <AlertDialogHeader>
-          <AlertDialogTitle className={styles.title}>{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-[#EAEAEA]/70">
+          <AlertDialogTitle className="font-mono text-2xs tracking-label uppercase">
+            <span className={styles.title}>{title}</span>
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-xs text-ink-2">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel 
+          <AlertDialogCancel
             onClick={onClose}
-            className="bg-white/5 border-white/10 text-[#EAEAEA] hover:bg-white/10"
+            className="border-line-2 bg-transparent text-ink-2 hover:bg-white/5 hover:text-ink"
           >
             {cancelText}
           </AlertDialogCancel>

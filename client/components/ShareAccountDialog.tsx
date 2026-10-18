@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassButton } from "@/components/ui/GlassButton";
-import { Search, User, Share2, Loader2, X } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
@@ -128,63 +128,59 @@ export function ShareAccountDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-black/80 backdrop-blur-xl border-purple-500/20 text-white">
+      <DialogContent className="border-line-2 bg-panel-2 text-ink sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-purple-400 flex items-center gap-2">
-            <Share2 className="w-5 h-5" />
-            Share Access
+          <DialogTitle className="font-mono text-2xs tracking-label text-ink-2 uppercase">
+            Share access
           </DialogTitle>
-          <DialogDescription className="text-gray-400">
-            Share <span className="text-white font-medium">{accountTag}</span>{" "}
-            with other users.
+          <DialogDescription className="text-xs text-ink-3">
+            Share <span className="font-mono text-ink">{accountTag}</span> with
+            other users.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
+        <div className="mt-3 space-y-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-3" />
             <GlassInput
-              placeholder="Search users by name or email..."
+              placeholder="Search users by name or email…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 border-purple-500/30 focus:border-purple-400 bg-purple-900/10"
+              className="pl-8"
             />
           </div>
 
-          <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+          <div className="max-h-[300px] overflow-y-auto border-t border-line">
             {loading ? (
-              <div className="flex justify-center py-8 text-purple-400">
-                <Loader2 className="w-6 h-6 animate-spin" />
+              <div className="flex justify-center py-8 text-ink-3">
+                <Loader2 className="size-4 animate-spin" />
               </div>
             ) : filteredUsers.length > 0 ? (
               filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-purple-500/10 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
+                  className="flex items-center gap-3 border-b border-line px-1 py-2.5 last:border-b-0"
                 >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 font-bold text-xs shrink-0">
-                      {user.username.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate text-gray-200">
-                        {user.username}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {user.email}
-                      </p>
-                    </div>
-                  </div>
-
+                  <span className="grid size-7 flex-none place-items-center rounded-md border border-line-2 font-mono text-2xs text-ink-2">
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-mono text-xs text-ink">
+                      {user.username}
+                    </span>
+                    <span className="block truncate font-mono text-2xs text-ink-3">
+                      {user.email}
+                    </span>
+                  </span>
                   <GlassButton
                     size="sm"
                     variant="ghost"
                     onClick={() => handleShare(user)}
                     disabled={!!sharing}
-                    className="h-8 px-3 text-purple-300 hover:text-purple-200 hover:bg-purple-500/20"
+                    className="ml-auto flex-none"
                   >
                     {sharing === user.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="size-3.5 animate-spin" />
                     ) : (
                       "Share"
                     )}
@@ -192,45 +188,40 @@ export function ShareAccountDialog({
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500 text-sm">
+              <p className="py-8 text-center font-mono text-xs text-ink-3">
                 No users found.
-              </div>
+              </p>
             )}
           </div>
 
           {/* Currently shared with */}
           {sharedWith && sharedWith.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-purple-500/20">
-              <p className="text-xs uppercase tracking-wide text-gray-500">
+            <div className="space-y-1.5 border-t border-line pt-3">
+              <p className="font-mono text-2xs tracking-label text-ink-3 uppercase">
                 Currently shared with
               </p>
               {sharedWith.map((shared) => (
                 <div
                   key={shared.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-purple-500/10 bg-purple-500/5"
+                  className="flex items-center gap-3 border-b border-line py-2 last:border-b-0"
                 >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <p className="text-sm truncate text-gray-200">
-                      {shared.email}
-                    </p>
-                  </div>
+                  <span className="grid size-7 flex-none place-items-center rounded-md border border-line-2 font-mono text-2xs text-ink-2">
+                    {shared.email.substring(0, 2).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 truncate font-mono text-xs text-ink-2">
+                    {shared.email}
+                  </span>
                   <GlassButton
                     size="sm"
-                    variant="destructive"
+                    variant="ghost"
                     onClick={() => handleRevoke(shared)}
                     disabled={!!revoking}
-                    className="h-8 px-3"
+                    className="ml-auto flex-none border-alarm/50 text-alarm hover:bg-alarm/10 hover:text-alarm"
                   >
                     {revoking === shared.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <>
-                        <X className="w-3 h-3 mr-1" />
-                        Revoke
-                      </>
+                      "Revoke"
                     )}
                   </GlassButton>
                 </div>

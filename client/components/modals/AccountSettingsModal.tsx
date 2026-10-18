@@ -86,34 +86,36 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+      <DialogContent className="border-line-2 bg-panel-2 text-ink sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-[#8A2BE2] text-xl">Account Settings</DialogTitle>
-          <DialogDescription className="text-[#EAEAEA]/70">
+          <DialogTitle className="font-mono text-2xs tracking-label text-ink-2 uppercase">
+            Account settings
+          </DialogTitle>
+          <DialogDescription className="text-xs text-ink-3">
             Manage your account information and security settings
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10">
+          <TabsList className="grid w-full grid-cols-2 rounded-md border border-line bg-ground p-0.5">
             <TabsTrigger
               value="profile"
-              className="data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#8A2BE2]"
+              className="rounded-sm font-mono text-2xs tracking-label text-ink-3 uppercase data-[state=active]:bg-panel data-[state=active]:text-ink"
             >
               Profile
             </TabsTrigger>
             <TabsTrigger
               value="security"
-              className="data-[state=active]:bg-[#8A2BE2]/20 data-[state=active]:text-[#8A2BE2]"
+              className="rounded-sm font-mono text-2xs tracking-label text-ink-3 uppercase data-[state=active]:bg-panel data-[state=active]:text-ink"
             >
               Security
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="profile" className="space-y-4">
-            <form onSubmit={handleProfileUpdate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-[#EAEAEA]">
+          <TabsContent value="profile" className="space-y-4 pt-3">
+            <form onSubmit={handleProfileUpdate} className="space-y-3.5">
+              <div className="space-y-1.5">
+                <Label htmlFor="username" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
                   Username
                 </Label>
                 <GlassInput
@@ -125,8 +127,8 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#EAEAEA]">
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
                   Email
                 </Label>
                 <GlassInput
@@ -138,22 +140,22 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end gap-2">
                 <GlassButton type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </GlassButton>
                 <GlassButton type="submit" variant="primary" disabled={isSavingProfile}>
-                  {isSavingProfile ? "Saving..." : "Update Profile"}
+                  {isSavingProfile ? "Saving…" : "Update profile"}
                 </GlassButton>
               </div>
             </form>
           </TabsContent>
 
-          <TabsContent value="security" className="space-y-4">
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword" className="text-[#EAEAEA]">
-                  Current Password
+          <TabsContent value="security" className="space-y-4 pt-3">
+            <form onSubmit={handlePasswordChange} className="space-y-3.5">
+              <div className="space-y-1.5">
+                <Label htmlFor="currentPassword" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+                  Current password
                 </Label>
                 <GlassInput
                   id="currentPassword"
@@ -165,9 +167,9 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="newPassword" className="text-[#EAEAEA]">
-                  New Password
+              <div className="space-y-1.5">
+                <Label htmlFor="newPassword" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+                  New password
                 </Label>
                 <GlassInput
                   id="newPassword"
@@ -179,9 +181,9 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-[#EAEAEA]">
-                  Confirm New Password
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+                  Confirm new password
                 </Label>
                 <GlassInput
                   id="confirmPassword"
@@ -193,12 +195,12 @@ export function AccountSettingsModal({ isOpen, onClose }: AccountSettingsModalPr
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end gap-2">
                 <GlassButton type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </GlassButton>
-                <GlassButton type="submit" variant="warning" disabled={isSavingPassword}>
-                  {isSavingPassword ? "Saving..." : "Change Password"}
+                <GlassButton type="submit" variant="primary" disabled={isSavingPassword}>
+                  {isSavingPassword ? "Saving…" : "Change password"}
                 </GlassButton>
               </div>
             </form>

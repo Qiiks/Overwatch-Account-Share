@@ -1,27 +1,24 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-export type GlassInputProps = React.InputHTMLAttributes<HTMLInputElement>
+export type GlassInputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(({ className, type, ...props }, ref) => {
-  return (
+const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
+  ({ className, type, ...props }, ref) => (
     <input
+      ref={ref}
       type={type}
+      /* 16px on touch sizes: anything smaller makes iOS Safari zoom the field on focus. */
       className={cn(
-        "flex h-9 w-full rounded bg-cyan-500/3 backdrop-blur-md border border-cyan-400/20 px-3 py-1 text-base text-cyan-400 placeholder:text-cyan-400/40 shadow-sm transition-all file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 focus-visible:border-cyan-400 focus-visible:shadow-lg focus-visible:shadow-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm hover:border-cyan-400/30 font-mono",
+        "flex h-10 w-full rounded-lg border border-line-2 bg-panel-2 px-3 py-1 text-[16px] text-ink transition-colors duration-[var(--dur-2)] ease-standard placeholder:text-ink-3 selection:bg-signal selection:text-signal-ink focus-visible:border-signal disabled:cursor-not-allowed disabled:opacity-50 md:h-9 md:text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-ink",
         className,
       )}
-      ref={ref}
       {...props}
-      style={{
-        textShadow: "0 0 5px rgba(0, 255, 255, 0.3)",
-        ...props.style,
-      }}
     />
-  )
-})
-GlassInput.displayName = "GlassInput"
+  ),
+);
+GlassInput.displayName = "GlassInput";
 
-export { GlassInput }
+export { GlassInput };

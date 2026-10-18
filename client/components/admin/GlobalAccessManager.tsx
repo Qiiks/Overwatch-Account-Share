@@ -1,18 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  GlassCard,
-  GlassCardHeader,
-  GlassCardTitle,
-  GlassCardContent,
-} from "@/components/ui/GlassCard";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { apiGet, apiPost } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import { toast } from "sonner";
-import { Loader2, Search, User, Shield, Check } from "lucide-react";
+import { Loader2, Search, User, Check } from "lucide-react";
 
 interface SearchResult {
   id: string;
@@ -104,112 +98,109 @@ export function GlobalAccessManager() {
   };
 
   return (
-    <GlassCard className="relative overflow-visible z-20">
-      <GlassCardHeader>
-        <GlassCardTitle className="text-[#DA70D6] flex items-center gap-2">
-          <Shield className="w-5 h-5" />
-          Global Access Manager
-        </GlassCardTitle>
-      </GlassCardHeader>
-      <GlassCardContent>
-        <div className="grid md:grid-cols-2 gap-6 relative">
-          {/* Account Search */}
-          <div className="space-y-2 relative">
-            <label className="text-sm text-gray-400">Select Account</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
-              <GlassInput
-                placeholder="Search by Tag or Email..."
-                className="pl-9"
-                value={selectedAccount ? selectedAccount.label : accountQuery}
-                onChange={(e) => {
-                  setAccountQuery(e.target.value);
-                  setSelectedAccount(null);
-                }}
-              />
-              {isSearchingAccount && (
-                <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-[#8A2BE2]" />
-              )}
-            </div>
-            {/* Account Results Dropdown */}
-            {accountResults.length > 0 && !selectedAccount && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-md shadow-xl max-h-60 overflow-y-auto z-50">
-                {accountResults.map((result) => (
-                  <button
-                    key={result.id}
-                    className="w-full text-left px-4 py-2 hover:bg-[#8A2BE2]/20 text-sm text-gray-200 transition-colors flex items-center justify-between group"
-                    onClick={() => {
-                      setSelectedAccount(result);
-                      setAccountResults([]);
-                      setAccountQuery(result.label);
-                    }}
-                  >
-                    <span>{result.label}</span>
-                    <Check className="w-4 h-4 opacity-0 group-hover:opacity-100 text-[#8A2BE2]" />
-                  </button>
-                ))}
-              </div>
+    <section className="rounded-lg border border-line bg-panel">
+      <div className="grid gap-4 p-3.5 md:grid-cols-2">
+        {/* Account Search */}
+        <div className="relative space-y-1.5">
+          <label className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+            Select account
+          </label>
+          <div className="relative">
+            <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-3" />
+            <GlassInput
+              placeholder="Search by tag or email…"
+              className="pl-8"
+              value={selectedAccount ? selectedAccount.label : accountQuery}
+              onChange={(e) => {
+                setAccountQuery(e.target.value);
+                setSelectedAccount(null);
+              }}
+            />
+            {isSearchingAccount && (
+              <Loader2 className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 animate-spin text-signal" />
             )}
           </div>
-
-          {/* User Search */}
-          <div className="space-y-2 relative">
-            <label className="text-sm text-gray-400">Select User</label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
-              <GlassInput
-                placeholder="Search by Username or Email..."
-                className="pl-9"
-                value={selectedUser ? selectedUser.label : userQuery}
-                onChange={(e) => {
-                  setUserQuery(e.target.value);
-                  setSelectedUser(null);
-                }}
-              />
-              {isSearchingUser && (
-                <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-[#DA70D6]" />
-              )}
+          {/* Account Results Dropdown */}
+          {accountResults.length > 0 && !selectedAccount && (
+            <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-line-2 bg-panel-2 shadow-raised">
+              {accountResults.map((result) => (
+                <button
+                  key={result.id}
+                  className="group flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs text-ink-2 transition-colors duration-150 ease-standard hover:bg-white/5 hover:text-ink"
+                  onClick={() => {
+                    setSelectedAccount(result);
+                    setAccountResults([]);
+                    setAccountQuery(result.label);
+                  }}
+                >
+                  <span>{result.label}</span>
+                  <Check className="size-3.5 text-signal opacity-0 group-hover:opacity-100" />
+                </button>
+              ))}
             </div>
-            {/* User Results Dropdown */}
-            {userResults.length > 0 && !selectedUser && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-md shadow-xl max-h-60 overflow-y-auto z-50">
-                {userResults.map((result) => (
-                  <button
-                    key={result.id}
-                    className="w-full text-left px-4 py-2 hover:bg-[#DA70D6]/20 text-sm text-gray-200 transition-colors flex items-center justify-between group"
-                    onClick={() => {
-                      setSelectedUser(result);
-                      setUserResults([]);
-                      setUserQuery(result.label);
-                    }}
-                  >
-                    <span>{result.label}</span>
-                    <Check className="w-4 h-4 opacity-0 group-hover:opacity-100 text-[#DA70D6]" />
-                  </button>
-                ))}
-              </div>
+          )}
+        </div>
+
+        {/* User Search */}
+        <div className="relative space-y-1.5">
+          <label className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+            Select user
+          </label>
+          <div className="relative">
+            <User className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-3" />
+            <GlassInput
+              placeholder="Search by username or email…"
+              className="pl-8"
+              value={selectedUser ? selectedUser.label : userQuery}
+              onChange={(e) => {
+                setUserQuery(e.target.value);
+                setSelectedUser(null);
+              }}
+            />
+            {isSearchingUser && (
+              <Loader2 className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 animate-spin text-signal" />
             )}
           </div>
+          {/* User Results Dropdown */}
+          {userResults.length > 0 && !selectedUser && (
+            <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-line-2 bg-panel-2 shadow-raised">
+              {userResults.map((result) => (
+                <button
+                  key={result.id}
+                  className="group flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs text-ink-2 transition-colors duration-150 ease-standard hover:bg-white/5 hover:text-ink"
+                  onClick={() => {
+                    setSelectedUser(result);
+                    setUserResults([]);
+                    setUserQuery(result.label);
+                  }}
+                >
+                  <span>{result.label}</span>
+                  <Check className="size-3.5 text-signal opacity-0 group-hover:opacity-100" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
-        <div className="mt-6 flex justify-end">
-          <GlassButton
-            onClick={handleGrantAccess}
-            disabled={!selectedAccount || !selectedUser || isSubmitting}
-            variant="primary"
-            className="w-full md:w-auto bg-gradient-to-r from-[#8A2BE2] to-[#DA70D6] hover:opacity-90 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Granting Access...
-              </>
-            ) : (
-              "Grant Access"
-            )}
-          </GlassButton>
-        </div>
-      </GlassCardContent>
-    </GlassCard>
+      <div className="flex justify-end border-t border-line px-3.5 py-2.5">
+        <GlassButton
+          onClick={handleGrantAccess}
+          disabled={!selectedAccount || !selectedUser || isSubmitting}
+          variant="primary"
+          size="sm"
+          className="w-full md:w-auto"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              Granting access…
+            </>
+          ) : (
+            "Grant access"
+          )}
+        </GlassButton>
+      </div>
+    </section>
   );
 }

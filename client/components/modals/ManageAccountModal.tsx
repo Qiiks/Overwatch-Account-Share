@@ -154,15 +154,17 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+      <DialogContent className="border-line-2 bg-panel-2 text-ink sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-[#8A2BE2] text-xl">Manage Overwatch Account</DialogTitle>
-          <DialogDescription className="text-[#EAEAEA]/70">Edit or delete {`"${credential.name}"`}</DialogDescription>
+          <DialogTitle className="font-mono text-2xs tracking-label text-ink-2 uppercase">
+            Manage Overwatch account
+          </DialogTitle>
+          <DialogDescription className="text-xs text-ink-3">Edit or delete {`"${credential.name}"`}</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleUpdate} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="battletag" className="text-[#EAEAEA]">
+        <form onSubmit={handleUpdate} className="space-y-3.5">
+          <div className="space-y-1.5">
+            <Label htmlFor="battletag" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
               Battletag *
             </Label>
             <GlassInput
@@ -174,9 +176,9 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-[#EAEAEA]">
-              Battle.net Email
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+              Battle.net email
             </Label>
             <GlassInput
               id="email"
@@ -187,8 +189,8 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-[#EAEAEA]">
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
               Password
             </Label>
             <GlassInput
@@ -200,23 +202,23 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="googleAccount" className="text-[#EAEAEA]">
-              OTP Gmail Account
+          <div className="space-y-1.5">
+            <Label htmlFor="googleAccount" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+              OTP Gmail account
             </Label>
             {isLoadingAccounts ? (
-              <div className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]/50 p-2 rounded text-sm">
-                Loading Google accounts...
+              <div className="rounded-md border border-line bg-ground px-2.5 py-2 font-mono text-2xs text-ink-3">
+                Loading Google accounts…
               </div>
             ) : googleAccounts.length > 0 ? (
               <Select
                 value={formData.googleAccountId}
                 onValueChange={(value) => handleInputChange("googleAccountId", value)}
               >
-                <SelectTrigger className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+                <SelectTrigger className="w-full border-line-2 bg-ground text-ink">
                   <SelectValue placeholder="Select Gmail account for OTP" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#111111]/95 backdrop-blur-md border-white/10">
+                <SelectContent className="border-line-2 bg-panel-2 text-ink">
                   {googleAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.google_email}
@@ -226,14 +228,14 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
                 </SelectContent>
               </Select>
             ) : (
-              <div className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]/50 p-3 rounded text-sm">
+              <div className="rounded-md border border-line bg-ground px-2.5 py-2 font-mono text-2xs text-ink-3">
                 No Google accounts linked. Please link a Gmail account first from the dashboard.
               </div>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-[#EAEAEA]">
+          <div className="space-y-1.5">
+            <Label htmlFor="notes" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
               Notes
             </Label>
             <Textarea
@@ -241,43 +243,49 @@ export function ManageAccountModal({ isOpen, onClose, credential, onActionSucces
               value={formData.notes}
               onChange={(e) => handleInputChange("notes", e.target.value)}
               placeholder="Additional notes (optional)"
-              className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA] placeholder:text-[#EAEAEA]/50"
+              className="border-line-2 bg-ground text-ink placeholder:text-ink-3"
               rows={3}
             />
           </div>
 
-          <div className="flex justify-between pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
               <AlertDialogTrigger asChild>
-                <GlassButton type="button" variant="destructive">
+                <GlassButton
+                  type="button"
+                  variant="ghost"
+                  className="border-alarm/50 text-alarm hover:bg-alarm/10 hover:text-alarm"
+                >
                   Delete
                 </GlassButton>
               </AlertDialogTrigger>
-              <AlertDialogContent className="bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+              <AlertDialogContent className="border-line-2 bg-panel-2 text-ink">
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-red-400">Delete Overwatch Account</AlertDialogTitle>
-                  <AlertDialogDescription className="text-[#EAEAEA]/70">
+                  <AlertDialogTitle className="font-mono text-2xs tracking-label text-alarm uppercase">
+                    Delete Overwatch account
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-xs text-ink-2">
                     Are you sure you want to delete {`"${credential.name}"`}? This action cannot be undone and will
                     revoke access for all shared users.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel className="bg-white/5 border-white/10 text-[#EAEAEA] hover:bg-white/10">
+                  <AlertDialogCancel className="border-line-2 bg-transparent text-ink-2 hover:bg-white/5 hover:text-ink">
                     Cancel
                   </AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-red-500/80 hover:bg-red-500 text-white">
+                  <AlertDialogAction onClick={handleDelete} className="bg-alarm text-ground hover:bg-alarm/90">
                     Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
 
-            <div className="space-x-2">
+            <div className="flex gap-2">
               <GlassButton type="button" variant="ghost" onClick={onClose}>
                 Cancel
               </GlassButton>
               <GlassButton type="submit" variant="primary" disabled={isLoading || !formData.battletag}>
-                {isLoading ? "Updating..." : "Update"}
+                {isLoading ? "Updating…" : "Update"}
               </GlassButton>
             </div>
           </div>

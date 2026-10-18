@@ -1,27 +1,22 @@
 "use client"
 
-import { Navigation } from "@/components/Navigation"
-import { DotGrid } from "@/components/DotGrid"
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
-
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden">
-      <Navigation />
-      <DotGrid />
-
-      <div className="relative z-10 container mx-auto px-4 py-8 pt-24 max-w-4xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-[#8A2BE2] mb-4">Privacy Policy</h1>
-          <p className="text-[#EAEAEA]/70 text-lg">Last updated: {new Date().toLocaleDateString()}</p>
-        </div>
+    <div className="mx-auto max-w-3xl">
+      <header className="mb-8 border-b border-line pb-6">
+        <p className="font-mono text-2xs tracking-label text-ink-3 uppercase">Legal · 01</p>
+        <h1 className="mt-2 text-2xl text-ink">Privacy Policy</h1>
+        <p className="mt-1 font-mono text-xs text-ink-3">
+          Last updated: {new Date().toLocaleDateString()}
+        </p>
+      </header>
 
         <div className="space-y-6">
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">1. Introduction</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">1. Introduction</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 Overwatch Account Share ("we," "our," or "the Service") is committed to protecting your privacy. This
                 Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our
@@ -31,24 +26,24 @@ export default function PrivacyPage() {
                 By using our Service, you consent to the data practices described in this policy. If you do not agree
                 with the terms of this Privacy Policy, please do not access the Service.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">2. Information We Collect</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">2. Information We Collect</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>We collect information that you provide directly to us and information automatically collected:</p>
               
-              <h4 className="font-semibold text-[#DA70D6] mt-4">Account Information:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">Account Information:</h4>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Username and email address for account registration</li>
                 <li>Encrypted password for authentication</li>
                 <li>Profile information you choose to provide</li>
               </ul>
 
-              <h4 className="font-semibold text-[#DA70D6] mt-4">Overwatch Account Data:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">Overwatch Account Data:</h4>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Battle.net account tags (Battletags)</li>
                 <li>Battle.net email addresses associated with game accounts</li>
@@ -57,34 +52,34 @@ export default function PrivacyPage() {
                 <li>Account sharing permissions and access logs</li>
               </ul>
 
-              <h4 className="font-semibold text-[#DA70D6] mt-4">Google Account Integration:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">Google Account Integration:</h4>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Google account email addresses you link for OTP retrieval</li>
                 <li>OAuth refresh tokens for maintaining access</li>
                 <li>Limited email access scope for reading Battle.net emails only</li>
               </ul>
 
-              <h4 className="font-semibold text-[#DA70D6] mt-4">Technical Data:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">Technical Data:</h4>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>IP addresses and browser information</li>
                 <li>Device identifiers and operating system</li>
                 <li>Usage patterns and interaction data</li>
                 <li>Login timestamps and session information</li>
               </ul>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">3. Google API Services - Email OTP Extraction</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">3. Google API Services - Email OTP Extraction</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p className="font-semibold">
                 IMPORTANT: Our use of Google API Services is strictly limited to extracting One-Time Password (OTP) codes
                 from Battle.net emails.
               </p>
               
-              <h4 className="font-semibold text-[#DA70D6] mt-4">What We Access:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">What We Access:</h4>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>
                   We request read-only access to your Gmail messages with the scope limited to searching for Battle.net
@@ -98,7 +93,7 @@ export default function PrivacyPage() {
                 </li>
               </ul>
 
-              <h4 className="font-semibold text-[#DA70D6] mt-4">What We DON'T Do:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">What We DON'T Do:</h4>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>We DO NOT store the content of your emails</li>
                 <li>We DO NOT read, access, or process any emails other than Battle.net OTP messages</li>
@@ -107,25 +102,25 @@ export default function PrivacyPage() {
                 <li>We DO NOT modify, delete, or send emails from your account</li>
               </ul>
 
-              <h4 className="font-semibold text-[#DA70D6] mt-4">Data Retention:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">Data Retention:</h4>
               <p>
                 OTP codes are temporarily held in memory only during the authentication process and are immediately
                 discarded after use. No email content is permanently stored in our systems.
               </p>
 
-              <h4 className="font-semibold text-[#DA70D6] mt-4">Google API Compliance:</h4>
+              <h4 className="mt-4 font-mono text-2xs tracking-label text-ink-3 uppercase">Google API Compliance:</h4>
               <p>
                 Our use of Google API Services complies with the Google API Services User Data Policy, including the
                 Limited Use requirements. We undergo regular reviews to ensure continued compliance with Google's policies.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">4. How We Use Your Information</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">4. How We Use Your Information</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>We use the collected information for the following purposes:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>To provide and maintain our Service</li>
@@ -137,14 +132,14 @@ export default function PrivacyPage() {
                 <li>To improve and optimize our Service based on usage patterns</li>
                 <li>To comply with legal obligations and enforce our Terms of Service</li>
               </ul>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">5. Data Security</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">5. Data Security</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>We implement appropriate technical and organizational security measures including:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>
@@ -171,14 +166,14 @@ export default function PrivacyPage() {
                 While we strive to protect your information, no method of electronic storage or transmission is 100%
                 secure. We cannot guarantee absolute security.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">6. Information Sharing and Disclosure</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">6. Information Sharing and Disclosure</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 We do not sell, trade, or rent your personal information to third parties. We may share your information
                 only in the following circumstances:
@@ -202,14 +197,14 @@ export default function PrivacyPage() {
                   will be notified)
                 </li>
               </ul>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">7. Data Retention</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">7. Data Retention</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>We retain your information for as long as necessary to fulfill the purposes outlined in this policy:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>
@@ -233,14 +228,14 @@ export default function PrivacyPage() {
                 </li>
               </ul>
               <p>Upon account deletion, we will delete or anonymize your personal information within 30 days.</p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">8. Your Rights and Choices</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">8. Your Rights and Choices</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>You have the following rights regarding your personal information:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>
@@ -266,14 +261,14 @@ export default function PrivacyPage() {
                 To exercise these rights, please contact us at gameslayer.inc@gmail.com. We will respond to your
                 request within 30 days.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">9. Cookies and Tracking Technologies</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">9. Cookies and Tracking Technologies</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>We use cookies and similar tracking technologies to:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Maintain user sessions and authentication status</li>
@@ -285,14 +280,14 @@ export default function PrivacyPage() {
                 You can control cookies through your browser settings. Disabling cookies may limit your ability to use
                 certain features of our Service.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">10. Children's Privacy</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">10. Children's Privacy</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 Our Service is not intended for children under 13 years of age. We do not knowingly collect personal
                 information from children under 13. If we become aware that we have collected personal information from a
@@ -302,14 +297,14 @@ export default function PrivacyPage() {
                 If you are a parent or guardian and believe your child has provided us with personal information, please
                 contact us at gameslayer.inc@gmail.com.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">11. International Data Transfers</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">11. International Data Transfers</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 Your information may be transferred to and processed in countries other than your country of residence.
                 These countries may have different data protection laws than your country.
@@ -318,14 +313,14 @@ export default function PrivacyPage() {
                 By using our Service, you consent to the transfer of your information to these countries. We will take
                 appropriate steps to ensure your information receives an adequate level of protection.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">12. Changes to This Privacy Policy</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">12. Changes to This Privacy Policy</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>
                 We may update this Privacy Policy from time to time. We will notify you of any material changes by:
               </p>
@@ -338,16 +333,16 @@ export default function PrivacyPage() {
                 Your continued use of the Service after any changes indicates your acceptance of the updated Privacy
                 Policy.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
 
-          <GlassCard>
-            <GlassCardHeader>
-              <GlassCardTitle className="text-[#DA70D6]">13. Contact Information</GlassCardTitle>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4 text-[#EAEAEA]/80">
+          <section className="rounded-lg border border-line bg-panel">
+            <header className="border-b border-line px-5 py-3">
+              <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">13. Contact Information</h2>
+            </header>
+            <div className="space-y-4 px-5 py-4 text-sm text-ink-2">
               <p>If you have questions or concerns about this Privacy Policy or our data practices, please contact us:</p>
-              <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+              <div className="rounded-md border border-line bg-ground p-3">
                 <p>
                   <strong>Email:</strong> gameslayer.inc@gmail.com
                 </p>
@@ -365,10 +360,9 @@ export default function PrivacyPage() {
                 We are committed to working with you to obtain a fair resolution of any complaint or concern about
                 privacy.
               </p>
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
   )
 }

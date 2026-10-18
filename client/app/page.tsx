@@ -2,38 +2,77 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowRight, Lock } from "lucide-react";
 import { GlassButton } from "@/components/ui/GlassButton";
-import {
-  GlassCard,
-  GlassCardContent,
-  GlassCardHeader,
-  GlassCardTitle,
-} from "@/components/ui/GlassCard";
-import { DotGrid } from "@/components/DotGrid";
-import { Navigation } from "@/components/Navigation";
+import { GlassCard } from "@/components/ui/GlassCard";
 import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
 import { connectSocket } from "@/lib/socket";
-import { ShieldCheck, Users, Lock, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+/** The relay, stated as the mechanism it is — no specimen codes, no invented figures. */
+const TAPE = [
+  {
+    channel: "MAIL",
+    tone: "text-chan-mail",
+    body: "the Battle.net code lands in the linked mailbox",
+  },
+  {
+    channel: "RELAY",
+    tone: "text-signal",
+    body: "pushed over the socket to every member who holds access",
+  },
+  {
+    channel: "LOGIN",
+    tone: "text-ink",
+    body: "the member signs in and the code is spent",
+  },
+];
+
+const RUNDOWN = [
+  {
+    title: "Link the mailbox",
+    body: "The Gmail that receives Battle.net codes. Revocable at any time, and members never see it.",
+  },
+  {
+    title: "Add the account",
+    body: "Store the Battle.net tag and credentials once. Encrypted at rest, masked everywhere else.",
+  },
+  {
+    title: "Share the access",
+    body: "Grant a member by name. Nothing is copied out and the mailbox stays yours.",
+  },
+  {
+    title: "Catch the code",
+    body: "New mail arrives and the code lands in their session. No screenshots, no DMs.",
+  },
+];
 
 export default function IndexPage() {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { settings } = useSettings();
   const isLoggedIn = !!user;
 
-  // Online users count state
-  const [onlineUsersCount, setOnlineUsersCount] = useState<number>(0);
+  // Real presence: the anonymous socket is allowed for the count only.
+  const [onlineUsersCount, setOnlineUsersCount] = useState(0);
+  const [connected, setConnected] = useState(false);
 
-  // Online users real-time sync. Anonymous sockets are allowed for the count only.
   useEffect(() => {
     const socket = connectSocket();
     socket.on("connect", () => {
+      setConnected(true);
       socket.emit("requestOnlineUsers");
     });
     socket.on("onlineUsers", (count: number) => setOnlineUsersCount(count));
     socket.on("connectionSuccess", (data: { onlineUsers: number }) =>
       setOnlineUsersCount(data.onlineUsers),
     );
-    socket.on("disconnect", () => setOnlineUsersCount(0));
+    socket.on("disconnect", () => {
+      setConnected(false);
+      setOnlineUsersCount(0);
+    });
 
     return () => {
       socket.disconnect();
@@ -41,158 +80,178 @@ export default function IndexPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#EAEAEA] relative overflow-hidden">
-      <Navigation />
-      <DotGrid />
-
-      {/* Hero Section */}
-      <div className="relative z-10 container mx-auto px-4 py-12 sm:py-16 pt-20 sm:pt-24">
-        <div className="text-center mb-12 sm:mb-16">
-          <h1 className="platform-title text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold mb-4 sm:mb-6 font-heading tracking-tight">
-            SECUREVAULT
+    <>
+      <section className="grid items-start gap-8 pt-8 pb-10 lg:grid-cols-[minmax(0,1.22fr)_minmax(380px,.78fr)] lg:gap-14 lg:pt-13">
+        <div>
+          <h1 className="mb-5 text-display font-bold tracking-display uppercase text-balance">
+            Share the
+            <br />
+            account, not
+            <br />
+            <span className="text-ink-3">the mailbox.</span>
           </h1>
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-[#EAEAEA]/70 mb-6 sm:mb-8 max-w-3xl mx-auto px-2">
-            AES-256-GCM encrypted credential sharing for teams
-          </p>
-          <p className="text-sm text-[#DA70D6]/60 mb-8">
-            Military-grade encryption · Zero-knowledge architecture · Real-time
-            sync
+          <p className="mb-6 max-w-[52ch] text-lg text-ink-2">
+            Owners keep the keys. A linked Gmail mailbox relays the Battle.net
+            login code the moment it lands, so a member gets into the session
+            without ever seeing your email.
           </p>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center w-full sm:w-auto max-w-md sm:max-w-none mx-auto">
+          <p className="mb-6 flex flex-wrap items-center gap-x-3.5 gap-y-2 font-mono text-xs tracking-[0.05em] text-ink-3 uppercase">
+            <span className="flex items-center gap-2 text-ink-2">
+              <span
+                className={cn(
+                  "size-[7px]",
+                  connected
+                    ? "bg-signal motion-safe:animate-led"
+                    : "bg-ink-3",
+                )}
+                aria-hidden="true"
+              />
+              <b className="font-medium">{onlineUsersCount}</b> online now
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {settings?.allow_registration
+                ? "registration open"
+                : "accounts by approval"}
+            </span>
+          </p>
+
+          <div className="flex flex-wrap gap-3">
             {!isLoggedIn ? (
               <>
+                {settings?.allow_registration && (
+                  <GlassButton
+                    size="lg"
+                    variant="primary"
+                    onClick={() => router.push("/register")}
+                  >
+                    Create account
+                    <ArrowRight />
+                  </GlassButton>
+                )}
                 <GlassButton
-                  onClick={() => router.push("/login")}
-                  variant="primary"
                   size="lg"
-                  className="px-6 sm:px-8 py-3 text-base sm:text-lg w-full sm:w-auto"
-                >
-                  Sign In
-                </GlassButton>
-                <GlassButton
-                  onClick={() => router.push("/register")}
                   variant="ghost"
-                  size="lg"
-                  className="px-6 sm:px-8 py-3 text-base sm:text-lg w-full sm:w-auto"
+                  onClick={() => router.push("/login")}
                 >
-                  Create Account
+                  Log in
                 </GlassButton>
               </>
             ) : (
               <>
                 <GlassButton
-                  onClick={() => router.push("/dashboard")}
-                  variant="primary"
                   size="lg"
-                  className="px-6 sm:px-8 py-3 text-base sm:text-lg w-full sm:w-auto"
+                  variant="primary"
+                  onClick={() => router.push("/dashboard")}
                 >
-                  Go to Dashboard
+                  Go to dashboard
+                  <ArrowRight />
                 </GlassButton>
                 {isAdmin && (
                   <GlassButton
-                    onClick={() => router.push("/admin")}
-                    variant="ghost"
                     size="lg"
-                    className="px-6 sm:px-8 py-3 text-base sm:text-lg border-green-400/50 text-green-400 hover:bg-green-400/10 w-full sm:w-auto"
+                    variant="ghost"
+                    onClick={() => router.push("/admin")}
                   >
-                    Admin Console
+                    Admin console
                   </GlassButton>
                 )}
               </>
             )}
+            <GlassButton size="lg" variant="ghost" asChild>
+              <a href="#how">
+                How the relay works
+                <ArrowRight />
+              </a>
+            </GlassButton>
           </div>
         </div>
 
-        {/* Platform Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16">
-          <GlassCard className="holographic">
-            <GlassCardHeader>
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="w-6 h-6 text-[#8A2BE2]" />
-                <GlassCardTitle className="text-[#8A2BE2] text-lg">
-                  Secure Storage
-                </GlassCardTitle>
-              </div>
-            </GlassCardHeader>
-            <GlassCardContent>
-              <p className="text-[#EAEAEA]/60 text-sm">
-                AES-256 encryption with zero-knowledge architecture. Your
-                credentials never leave your device unencrypted.
-              </p>
-            </GlassCardContent>
-          </GlassCard>
-
-          <GlassCard className="holographic">
-            <GlassCardHeader>
-              <div className="flex items-center gap-3">
-                <Users className="w-6 h-6 text-[#DA70D6]" />
-                <GlassCardTitle className="text-[#DA70D6] text-lg">
-                  Team Sharing
-                </GlassCardTitle>
-              </div>
-            </GlassCardHeader>
-            <GlassCardContent>
-              <p className="text-[#EAEAEA]/60 text-sm">
-                Secure channels with multi-user access and granular permissions.
-                Share credentials without exposing them.
-              </p>
-            </GlassCardContent>
-          </GlassCard>
-
-          <GlassCard className="holographic">
-            <GlassCardHeader>
-              <div className="flex items-center gap-3">
-                <Lock className="w-6 h-6 text-[#8A2BE2]" />
-                <GlassCardTitle className="text-[#8A2BE2] text-lg">
-                  Access Control
-                </GlassCardTitle>
-              </div>
-            </GlassCardHeader>
-            <GlassCardContent>
-              <p className="text-[#EAEAEA]/60 text-sm">
-                Role-based authentication with comprehensive audit logging and
-                permission management.
-              </p>
-            </GlassCardContent>
-          </GlassCard>
-
-          <GlassCard className="holographic">
-            <GlassCardHeader>
-              <div className="flex items-center gap-3">
-                <RefreshCw className="w-6 h-6 text-[#DA70D6]" />
-                <GlassCardTitle className="text-[#DA70D6] text-lg">
-                  OTP Generator
-                </GlassCardTitle>
-              </div>
-            </GlassCardHeader>
-            <GlassCardContent>
-              <p className="text-[#EAEAEA]/60 text-sm">
-                TOTP algorithm with auto-refresh and instant sharing. Real-time
-                OTP extraction from email.
-              </p>
-            </GlassCardContent>
-          </GlassCard>
-        </div>
-
-        <div className="mt-16 text-center">
-          <div className="inline-flex items-center gap-3 bg-[#0a0a0a]/60 border border-[#8A2BE2]/20 rounded-full px-6 py-2 text-xs text-[#EAEAEA]/50 backdrop-blur-md">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              Online
+        <GlassCard>
+          <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-3">
+            <span className="font-mono text-xs tracking-label text-ink-2 uppercase">
+              Relay
             </span>
-            <span className="text-[#8A2BE2]/40">|</span>
-            <span>Encrypted</span>
-            <span className="text-[#8A2BE2]/40">|</span>
-            <span>
-              <span className="text-[#DA70D6]">{onlineUsersCount}</span> active
+            <span className="ml-auto font-mono text-xs text-ink-3">
+              battle.net login
             </span>
-            <span className="text-[#8A2BE2]/40">|</span>
-            <span className="text-green-400/70">99.99% uptime</span>
           </div>
-        </div>
-      </div>
-    </div>
+
+          <div className="border-b border-line bg-panel-2 px-3.5 py-4">
+            <p className="mb-2 flex items-center gap-2 font-mono text-2xs tracking-label text-ink-3 uppercase">
+              <Lock size={12} aria-hidden="true" />
+              Login code — masked until you hold access
+            </p>
+            <div className="flex items-center gap-4" aria-hidden="true">
+              <span className="flex gap-1.5">
+                <span className="size-4 bg-ink-2" />
+                <span className="size-4 bg-ink-2" />
+                <span className="size-4 bg-ink-2" />
+              </span>
+              <span className="flex gap-1.5">
+                <span className="size-4 bg-ink-2" />
+                <span className="size-4 bg-ink-2" />
+                <span className="size-4 bg-ink-2" />
+              </span>
+            </div>
+            <span className="sr-only">
+              The login code stays hidden until you hold access.
+            </span>
+            <p className="mt-4 flex flex-wrap gap-x-3.5 gap-y-1.5 font-mono text-2xs tracking-[0.05em] text-ink-3 uppercase">
+              <span>delivered live</span>
+              <span>scoped to members</span>
+              <span>spent on sign-in</span>
+            </p>
+          </div>
+
+          <ol className="py-1.5">
+            {TAPE.map((event) => (
+              <li
+                key={event.channel}
+                className="grid grid-cols-[54px_1fr] items-baseline gap-x-2.5 gap-y-1 px-3.5 py-2 font-mono text-xs text-ink-2"
+              >
+                <span className={cn("text-2xs tracking-[0.08em]", event.tone)}>
+                  {event.channel}
+                </span>
+                <span>{event.body}</span>
+              </li>
+            ))}
+          </ol>
+        </GlassCard>
+      </section>
+
+      <section id="how" className="scroll-mt-4 border-y border-line-2">
+        <ol className="grid sm:grid-cols-2 lg:grid-cols-4">
+          {RUNDOWN.map((step, index) => (
+            <li
+              key={step.title}
+              className="group relative border-b border-line px-4 py-3.5 last:border-b-0 sm:odd:border-r lg:border-r lg:border-b-0 lg:last:border-r-0"
+            >
+              <span className="font-mono text-2xs tracking-[0.12em] text-ink-3">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <h2 className="mt-1.5 mb-1.5 text-sm font-semibold tracking-[0.09em] uppercase">
+                {step.title}
+              </h2>
+              <p className="max-w-[34ch] text-sm text-ink-2">{step.body}</p>
+              <span className="absolute bottom-0 left-0 h-px w-0 bg-signal transition-[width] duration-[var(--dur-3)] ease-standard group-hover:w-full" />
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <footer className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-4 pb-4 font-mono text-2xs tracking-[0.1em] text-ink-3 uppercase">
+        <span>Account sharing · OTP relay</span>
+        <span className="ml-auto flex gap-4">
+          <Link href="/privacy" className="hover:text-ink">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-ink">
+            Terms
+          </Link>
+        </span>
+      </footer>
+    </>
   );
 }

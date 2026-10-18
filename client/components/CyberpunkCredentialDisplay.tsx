@@ -1,12 +1,5 @@
-import React, { useState, useEffect } from "react";
-import {
-  Eye,
-  EyeOff,
-  Lock,
-  Copy,
-  Shield,
-  AlertTriangle,
-} from "lucide-react";
+import { useState } from "react";
+import { Eye, EyeOff, Lock, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 interface CyberpunkCredentialDisplayProps {
@@ -15,6 +8,20 @@ interface CyberpunkCredentialDisplayProps {
   isEncrypted: boolean;
   hasAccess: boolean;
   onDecrypt?: () => void;
+  /** "readout" renders the value large, as the relay's headline number (OTP). */
+  variant?: "row" | "readout";
+  /** ISO date or epoch ms — when known, the readout states when the code dies. */
+  expiresAt?: string | number;
+}
+
+function expiryLabel(expiresAt?: string | number) {
+  if (!expiresAt) return null;
+  const at = typeof expiresAt === "number" ? expiresAt : Date.parse(expiresAt);
+  if (!Number.isFinite(at)) return null;
+  const left = Math.max(0, at - Date.now());
+  const mm = Math.floor(left / 60000);
+  const ss = Math.floor((left % 60000) / 1000);
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
 export function CyberpunkCredentialDisplay({
@@ -23,32 +30,12 @@ export function CyberpunkCredentialDisplay({
   isEncrypted,
   hasAccess,
   onDecrypt,
+  variant = "row",
+  expiresAt,
 }: CyberpunkCredentialDisplayProps) {
   const [showValue, setShowValue] = useState(false);
-  const [glitchText, setGlitchText] = useState(value);
   const [copied, setCopied] = useState(false);
-
-  // Animated glitch effect for encrypted values
-  useEffect(() => {
-    if (isEncrypted && !hasAccess) {
-      const glitchChars = "░▒▓█▌│║▐►◄↕↔╔╗╚╝═";
-      const interval = setInterval(() => {
-        const randomGlitch = value
-          .split("")
-          .map((char) =>
-            Math.random() > 0.7
-              ? glitchChars[Math.floor(Math.random() * glitchChars.length)]
-              : char,
-          )
-          .join("");
-        setGlitchText(randomGlitch);
-      }, 500);
-
-      return () => clearInterval(interval);
-    } else {
-      setGlitchText(value);
-    }
-  }, [isEncrypted, hasAccess, value]);
+  const locked = isEncrypted && !hasAccess;
 
   const handleCopy = async () => {
     if (!hasAccess || !value) return;
@@ -65,137 +52,104 @@ export function CyberpunkCredentialDisplay({
         }
       }, 30000);
 
-      // Reset copied state
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Failed to copy to clipboard");
     }
   };
 
-  return (
-    <div className="credential-container relative">
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-xs uppercase tracking-wider text-purple-400 font-mono">
-          {label}
-        </label>
-        {hasAccess && (
-          <button
-            onClick={() => setShowValue(!showValue)}
-            className="text-cyan-400 hover:text-cyan-300 transition-all duration-200 hover:scale-110"
-            title={showValue ? "Hide" : "Show"}
-          >
-            {showValue ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        )}
-      </div>
+  const copyButton = (
+    <button
+      onClick={handleCopy}
+      className="grid size-[26px] flex-none place-items-center rounded-md border border-line-2 text-ink-3 transition-colors duration-150 ease-standard hover:text-ink"
+      title="Copy to clipboard"
+      aria-label="Copy to clipboard"
+    >
+      {copied ? <Check size={13} /> : <Copy size={13} />}
+    </button>
+  );
 
-      <div
-        className={`
-        relative p-3 rounded-lg border transition-all duration-300
-        ${
-          isEncrypted && !hasAccess
-            ? "bg-black/80 border-red-500/50 cyberpunk-glow shadow-red-500/30 shadow-lg"
-            : "bg-black/40 border-cyan-500/30 hover:border-cyan-500/50"
-        }
-      `}
-      >
-        {isEncrypted && !hasAccess ? (
-          <div className="space-y-2">
-            {/* Main cipher display */}
-            <div className="font-mono text-red-400 glitch-text text-xs sm:text-sm break-all overflow-hidden">
-              {glitchText}
-            </div>
+  const labelNode = (
+    <span className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+      {label}
+    </span>
+  );
 
-            {/* Authorization warning */}
-            <div className="flex items-center gap-2 text-xs text-red-300 flex-wrap">
-              <AlertTriangle
-                size={12}
-                className="animate-pulse flex-shrink-0"
-              />
-              <span className="uppercase tracking-widest animated-text break-words">
-                ◄ AUTHORIZATION REQUIRED ►
-              </span>
-            </div>
-
-            {/* Encrypted signature */}
-            <div className="text-xs text-gray-500 font-mono opacity-70 break-all">
-              {`[CIPHER::${Date.now().toString(16).toUpperCase().slice(-8)}::LOCKED]`}
-            </div>
-
-            {/* Matrix rain effect overlay */}
-            <div className="matrix-rain-overlay"></div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 min-w-0">
-            {hasAccess ? (
-              <>
-                <input
-                  type={showValue ? "text" : "password"}
-                  value={value}
-                  readOnly
-                  className="flex-1 bg-transparent text-cyan-300 font-mono outline-none text-xs sm:text-sm overflow-hidden text-ellipsis min-w-0"
-                  style={{
-                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                    maxWidth: "100%",
-                  }}
-                />
-                <button
-                  onClick={handleCopy}
-                  className={`
-                    transition-all duration-200 hover:scale-110 flex-shrink-0 p-1
-                    ${
-                      copied
-                        ? "text-green-400 hover:text-green-300"
-                        : "text-cyan-400 hover:text-cyan-300"
-                    }
-                  `}
-                  title="Copy to clipboard"
-                  aria-label="Copy to clipboard"
-                >
-                  {copied ? <Shield size={16} /> : <Copy size={16} />}
-                </button>
-              </>
-            ) : (
-              <span className="text-gray-400 font-mono text-xs sm:text-sm">
-                ••••••••••••
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Animated border effect for encrypted content */}
-        {isEncrypted && !hasAccess && (
-          <div className="absolute inset-0 rounded-lg pointer-events-none overflow-hidden">
-            <div className="animated-border"></div>
-            <div className="corner-accent top-left"></div>
-            <div className="corner-accent top-right"></div>
-            <div className="corner-accent bottom-left"></div>
-            <div className="corner-accent bottom-right"></div>
-          </div>
-        )}
-
-        {/* Scan lines effect */}
-        {isEncrypted && !hasAccess && <div className="scan-lines"></div>}
-      </div>
-
-      {/* Request Access button */}
-      {onDecrypt && !hasAccess && (
-        <button
-          onClick={onDecrypt}
-          className="mt-2 text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1 transition-all duration-200 hover:translate-x-1"
-        >
-          <Lock size={12} />
-          Request Access
-        </button>
-      )}
-
-      {/* Security indicator */}
-      {hasAccess && (
-        <div className="mt-1 flex items-center gap-1 text-xs text-green-400 opacity-60">
-          <Shield size={10} />
-          <span>Secure connection established</span>
+  if (locked) {
+    return (
+      <div className="rounded-lg border border-line bg-panel-2 px-3 py-2.5">
+        {labelNode}
+        <p className="mt-1.5 font-mono text-xs break-all text-ink-3">{value}</p>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="font-mono text-2xs tracking-[0.08em] text-alarm uppercase">
+            Authorization required
+          </span>
+          {onDecrypt && (
+            <button
+              onClick={onDecrypt}
+              className="inline-flex items-center gap-1.5 font-mono text-2xs tracking-label text-ink-2 uppercase transition-colors duration-150 ease-standard hover:text-ink"
+            >
+              <Lock size={11} />
+              Request access
+            </button>
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
+
+  if (variant === "readout") {
+    const expires = expiryLabel(expiresAt);
+    return (
+      <div className="rounded-lg border border-line bg-panel-2 px-3.5 py-3">
+        <div className="flex items-center gap-2.5">
+          {labelNode}
+          <span className="rounded-sm bg-signal px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-signal-ink uppercase">
+            Live
+          </span>
+          <span className="ml-auto">{copyButton}</span>
+        </div>
+        <p className="mt-2 font-mono text-xl tabular-nums break-all text-ink">
+          {value || "—"}
+        </p>
+        <div className="mt-2.5 h-0.5 overflow-hidden rounded-xs bg-white/[0.09]">
+          <div className="h-full origin-left bg-signal animate-countdown motion-reduce:animate-none" />
+        </div>
+        {expires && (
+          <p className="mt-2 font-mono text-2xs tracking-[0.05em] text-ink-3 uppercase">
+            expires <b className="font-medium text-ink-2">{expires}</b> · pushed over
+            socket
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-line bg-panel-2 px-3 py-2">
+      <div className="flex items-center gap-2">
+        {labelNode}
+        <span className="ml-auto flex items-center gap-1.5">
+          {hasAccess && (
+            <button
+              onClick={() => setShowValue(!showValue)}
+              className="grid size-[26px] flex-none place-items-center rounded-md border border-line-2 text-ink-3 transition-colors duration-150 ease-standard hover:text-ink"
+              title={showValue ? "Hide" : "Show"}
+              aria-label={showValue ? "Hide value" : "Show value"}
+            >
+              {showValue ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+          )}
+          {hasAccess && copyButton}
+        </span>
+      </div>
+      <input
+        type={showValue ? "text" : "password"}
+        value={value}
+        readOnly
+        aria-label={label}
+        className="mt-1.5 w-full min-w-0 bg-transparent font-mono text-sm text-ink outline-none"
+      />
     </div>
   );
 }

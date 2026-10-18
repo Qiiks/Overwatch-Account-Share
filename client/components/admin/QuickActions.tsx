@@ -1,13 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import {
-  GlassCard,
-  GlassCardHeader,
-  GlassCardTitle,
-  GlassCardContent,
-} from "@/components/ui/GlassCard";
-import { GlassButton } from "@/components/ui/GlassButton";
 import { ConfirmationDialog } from "@/components/admin/ConfirmationDialog";
 import { apiPost, apiGet, apiDownload } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
@@ -18,8 +11,16 @@ import {
   Database,
   Trash2,
   Loader2,
-  Zap,
 } from "lucide-react";
+
+interface ActionTile {
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  hint: string;
+  tone: string;
+  onClick: () => void;
+}
 
 export function QuickActions() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -44,116 +45,101 @@ export function QuickActions() {
     }
   };
 
+  const actions: ActionTile[] = [
+    {
+      id: "maintenance",
+      icon: <AlertTriangle className="size-4" />,
+      label: "Maintenance mode",
+      hint: "Toggle registrations",
+      tone: "text-warn",
+      onClick: () =>
+        executeAction(
+          "maintenance",
+          async () => {
+            const { enabled } = await apiGet<{ enabled: boolean }>(
+              "/admin/registration-status",
+            );
+            await apiPost("/admin/toggle-registrations", {
+              enabled: !enabled,
+            });
+          },
+          "Registration status toggled",
+        ),
+    },
+    {
+      id: "logout",
+      icon: <Power className="size-4" />,
+      label: "Force logout all",
+      hint: "Emergency security",
+      tone: "text-alarm",
+      onClick: () => setIsForceLogoutOpen(true),
+    },
+    {
+      id: "export",
+      icon: <Database className="size-4" />,
+      label: "Export users",
+      hint: "Download CSV",
+      tone: "text-chan-mail",
+      onClick: () =>
+        executeAction(
+          "export",
+          async () => {
+            const blob = await apiDownload("/admin/export-users");
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "users_export.csv";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+          },
+          "User export started",
+        ),
+    },
+    {
+      id: "cache",
+      icon: <Trash2 className="size-4" />,
+      label: "Clear cache",
+      hint: "System maintenance",
+      tone: "text-ink-3",
+      onClick: () =>
+        executeAction(
+          "cache",
+          () => apiPost("/admin/clear-cache"),
+          "System cache cleared",
+        ),
+    },
+  ];
+
   return (
-    <GlassCard className="mb-8">
-      <GlassCardHeader>
-        <GlassCardTitle className="text-[#DA70D6] flex items-center gap-2">
-          <Zap className="w-5 h-5" />
-          Quick Actions
-        </GlassCardTitle>
-      </GlassCardHeader>
-      <GlassCardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Maintenance Mode */}
-          <GlassButton
-            onClick={() =>
-              executeAction(
-                "maintenance",
-                async () => {
-                  const { enabled } = await apiGet<{ enabled: boolean }>(
-                    "/admin/registration-status",
-                  );
-                  await apiPost("/admin/toggle-registrations", {
-                    enabled: !enabled,
-                  });
-                },
-                "Registration status toggled",
-              )
-            }
-            variant="ghost"
-            className="h-auto py-4 flex flex-col items-center gap-2 hover:bg-yellow-500/10 border-yellow-500/20"
-            disabled={loadingAction === "maintenance"}
+    <div className="rounded-lg border border-line bg-panel">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {actions.map((action) => (
+          <button
+            key={action.id}
+            onClick={action.onClick}
+            disabled={loadingAction === action.id}
+            className="flex items-center gap-3 border-b border-line px-3.5 py-3 text-left transition-colors duration-150 ease-standard last:border-b-0 hover:bg-white/[0.025] disabled:opacity-50 sm:border-r lg:last:border-r-0"
           >
-            {loadingAction === "maintenance" ? (
-              <Loader2 className="w-6 h-6 animate-spin text-yellow-500" />
-            ) : (
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-            )}
-            <span className="text-sm font-medium">Maintenance Mode</span>
-            <span className="text-xs text-gray-400">Toggle Registrations</span>
-          </GlassButton>
-
-          {/* Force Logout */}
-          <GlassButton
-            onClick={() => setIsForceLogoutOpen(true)}
-            variant="ghost"
-            className="h-auto py-4 flex flex-col items-center gap-2 hover:bg-red-500/10 border-red-500/20"
-            disabled={loadingAction === "logout"}
-          >
-            {loadingAction === "logout" ? (
-              <Loader2 className="w-6 h-6 animate-spin text-red-500" />
-            ) : (
-              <Power className="w-6 h-6 text-red-500" />
-            )}
-            <span className="text-sm font-medium">Force Logout All</span>
-            <span className="text-xs text-gray-400">Emergency Security</span>
-          </GlassButton>
-
-          {/* Export Users */}
-          <GlassButton
-            onClick={() =>
-              executeAction(
-                "export",
-                async () => {
-                  const blob = await apiDownload("/admin/export-users");
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "users_export.csv";
-                  document.body.appendChild(a);
-                  a.click();
-                  a.remove();
-                  window.URL.revokeObjectURL(url);
-                },
-                "User export started",
-              )
-            }
-            variant="ghost"
-            className="h-auto py-4 flex flex-col items-center gap-2 hover:bg-blue-500/10 border-blue-500/20"
-            disabled={loadingAction === "export"}
-          >
-            {loadingAction === "export" ? (
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            ) : (
-              <Database className="w-6 h-6 text-blue-500" />
-            )}
-            <span className="text-sm font-medium">Export Users</span>
-            <span className="text-xs text-gray-400">Download CSV</span>
-          </GlassButton>
-
-          {/* Clear Cache */}
-          <GlassButton
-            onClick={() =>
-              executeAction(
-                "cache",
-                () => apiPost("/admin/clear-cache"),
-                "System cache cleared",
-              )
-            }
-            variant="ghost"
-            className="h-auto py-4 flex flex-col items-center gap-2 hover:bg-purple-500/10 border-purple-500/20"
-            disabled={loadingAction === "cache"}
-          >
-            {loadingAction === "cache" ? (
-              <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-            ) : (
-              <Trash2 className="w-6 h-6 text-purple-500" />
-            )}
-            <span className="text-sm font-medium">Clear Cache</span>
-            <span className="text-xs text-gray-400">System Maintenance</span>
-          </GlassButton>
-        </div>
-      </GlassCardContent>
+            <span className={`grid size-7 flex-none place-items-center rounded-md border border-line-2 ${action.tone}`}>
+              {loadingAction === action.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                action.icon
+              )}
+            </span>
+            <span className="min-w-0">
+              <span className="block font-mono text-xs font-medium text-ink">
+                {action.label}
+              </span>
+              <span className="block font-mono text-2xs tracking-[0.05em] text-ink-3 uppercase">
+                {action.hint}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
 
       <ConfirmationDialog
         open={isForceLogoutOpen}
@@ -171,6 +157,6 @@ export function QuickActions() {
         confirmText="Force Logout"
         variant="destructive"
       />
-    </GlassCard>
+    </div>
   );
 }

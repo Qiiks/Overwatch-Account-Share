@@ -1,21 +1,25 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Outfit, Inter } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
+import localFont from "next/font/local";
 import { Suspense } from "react";
+import { Toaster } from "@/components/ui/sonner";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-heading",
+/* Self-hosted Geist (design/previews/fonts) — no build-time Google fetch. */
+const geistSans = localFont({
+  src: "./fonts/Geist-Variable.woff2",
+  weight: "100 900",
+  variable: "--font-geist-sans",
   display: "swap",
 });
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
+const geistMono = localFont({
+  src: "./fonts/GeistMono-Variable.woff2",
+  weight: "100 900",
+  variable: "--font-geist-mono",
   display: "swap",
 });
 
@@ -38,13 +42,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`font-sans ${outfit.variable} ${inter.variable} antialiased bg-[#0a0a0a] text-white`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>
           <SettingsProvider>
             <Suspense fallback={null}>
-              {children}
+              <AppShell>{children}</AppShell>
               <Toaster richColors theme="dark" />
             </Suspense>
           </SettingsProvider>

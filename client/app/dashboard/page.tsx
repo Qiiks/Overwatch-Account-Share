@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Navigation } from "@/components/Navigation"
-import { DotGrid } from "@/components/DotGrid"
 import { GlassButton } from "@/components/ui/GlassButton"
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/GlassCard"
-import { Badge } from "@/components/ui/badge"
 import { AddAccountModal } from "@/components/modals/AddAccountModal"
 import { ShareAccountDialog } from "@/components/ShareAccountDialog"
 import { ManageAccountModal } from "@/components/modals/ManageAccountModal"
@@ -131,191 +127,189 @@ export default function DashboardPage() {
     setShowManageModal(true)
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "password":
-        return "🔑"
-      case "otp":
-        return "⏱️"
-      case "api_key":
-        return "🔐"
-      default:
-        return "📄"
-    }
-  }
-
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
-        <DotGrid />
-        <div className="relative z-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A2BE2]"></div>
-        </div>
+      <div className="flex items-center justify-center py-24">
+        <span className="font-mono text-2xs tracking-label text-ink-3 uppercase animate-led motion-reduce:animate-none">
+          Connecting…
+        </span>
       </div>
     )
   }
 
+  const sharedByMe = credentials.filter((c) => c.sharedWith.length > 0).length
+
   return (
-    <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden">
-      <Navigation />
-      <DotGrid />
-
-      <div className="relative z-10 container mx-auto px-4 py-8 pt-24">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between items-start md:items-center mb-8">
-          <div className="w-full md:w-auto">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#8A2BE2] mb-2">Dashboard</h1>
-            <p className="text-sm sm:text-base text-[#EAEAEA]/70">Manage your credentials and OTPs securely</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full md:w-auto mt-4 md:mt-0">
-            <GlassButton onClick={() => setShowAddModal(true)} variant="primary" className="w-full sm:w-auto">
-              <span className="sm:hidden">Add</span>
-              <span className="hidden sm:inline">Add Credential</span>
-            </GlassButton>
-            <GlassButton onClick={() => setShowSettingsModal(true)} variant="ghost" className="w-full sm:w-auto">
-              Settings
-            </GlassButton>
-          </div>
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-center gap-3 border-b border-line pb-4">
+        <h1 className="text-md font-semibold text-ink">Dashboard</h1>
+        <span className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+          Operator console
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <GlassButton
+            onClick={() => setShowAddModal(true)}
+            variant="primary"
+            size="sm"
+          >
+            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">Add credential</span>
+          </GlassButton>
+          <GlassButton onClick={() => setShowSettingsModal(true)} variant="ghost" size="sm">
+            Settings
+          </GlassButton>
         </div>
+      </header>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
-          <GlassCard>
-            <GlassCardContent className="p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-bold text-[#8A2BE2]">{credentials.length}</div>
-              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Owned Credentials</div>
-            </GlassCardContent>
-          </GlassCard>
-          <GlassCard>
-            <GlassCardContent className="p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{sharedCredentials.length}</div>
-              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Shared Access</div>
-            </GlassCardContent>
-          </GlassCard>
-          <GlassCard>
-            <GlassCardContent className="p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-bold text-[#8A2BE2]">
-                {credentials.filter((c) => c.sharedWith.length > 0).length}
-              </div>
-              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Shared by You</div>
-            </GlassCardContent>
-          </GlassCard>
-          <GlassCard>
-            <GlassCardContent className="p-3 sm:p-4">
-              <div className="text-xl sm:text-2xl font-bold text-[#DA70D6]">{onlineUsersCount}</div>
-              <div className="text-xs sm:text-sm text-[#EAEAEA]/70">Online Users</div>
-            </GlassCardContent>
-          </GlassCard>
-        </div>
+      {/* Readout strip */}
+      <div className="flex flex-wrap border-b border-line">
+        <Readout label="Owned" value={credentials.length} />
+        <Readout label="Shared with you" value={sharedCredentials.length} />
+        <Readout label="Shared by you" value={sharedByMe} />
+        <Readout label="Online now" value={onlineUsersCount} live={onlineUsersCount > 0} />
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Owned Credentials */}
-          <div className="lg:col-span-2">
-            <GlassCard>
-              <GlassCardHeader>
-                <GlassCardTitle className="text-[#8A2BE2]">Your Credentials</GlassCardTitle>
-              </GlassCardHeader>
-              <GlassCardContent>
-                <div className="space-y-3">
-                  {credentials.map((credential) => (
-                    <div
-                      key={credential.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{getTypeIcon(credential.type)}</div>
-                        <div>
-                          <div className="font-medium text-[#EAEAEA]">{credential.name}</div>
-                          <div className="text-sm text-[#EAEAEA]/60">
-                            {credential.type.replace("_", " ").toUpperCase()} • Last used {credential.lastUsed}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {credential.sharedWith.length > 0 && (
-                          <Badge variant="secondary" className="bg-[#DA70D6]/20 text-[#DA70D6]">
-                            Shared
-                          </Badge>
-                        )}
-                        <GlassButton size="sm" variant="ghost" onClick={() => handleShareCredential(credential)}>
-                          Share
-                        </GlassButton>
-                        <GlassButton size="sm" variant="ghost" onClick={() => handleManageCredential(credential)}>
-                          Manage
-                        </GlassButton>
-                      </div>
-                    </div>
-                  ))}
-                  {credentials.length === 0 && (
-                    <div className="text-center py-8 text-[#EAEAEA]/50">
-                      No credentials yet. Add your first credential to get started.
-                    </div>
-                  )}
-                </div>
-              </GlassCardContent>
-            </GlassCard>
-
-            {/* Shared Access */}
-            {sharedCredentials.length > 0 && (
-              <GlassCard className="mt-6">
-                <GlassCardHeader>
-                  <GlassCardTitle className="text-[#DA70D6]">Shared with You</GlassCardTitle>
-                </GlassCardHeader>
-                <GlassCardContent>
-                  <div className="space-y-3">
-                    {sharedCredentials.map((credential) => (
-                      <div
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.62fr)_minmax(300px,1fr)]">
+        <div className="space-y-4">
+          <section className="rounded-lg border border-line bg-panel">
+            <PanelHead title="Your credentials" meta={`${credentials.length} in vault`} />
+            {credentials.length === 0 ? (
+              <p className="px-3.5 py-10 text-center font-mono text-xs text-ink-3">
+                No credentials yet. Add your first credential to get started.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <Th>Credential</Th>
+                      <Th className="hidden md:table-cell">Shared with</Th>
+                      <Th className="hidden sm:table-cell">Last used</Th>
+                      <Th className="text-right">Actions</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {credentials.map((credential) => (
+                      <tr
                         key={credential.id}
-                        className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10"
+                        className="transition-colors duration-150 ease-standard hover:bg-white/[0.025]"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl">{getTypeIcon(credential.type)}</div>
-                          <div>
-                            <div className="font-medium text-[#EAEAEA]">{credential.name}</div>
-                            <div className="text-sm text-[#EAEAEA]/60">
-                              Shared by {credential.owner} • Last used {credential.lastUsed}
-                            </div>
+                        <td className="border-t border-line px-3.5 py-2.5 align-middle">
+                          <span className="font-mono text-sm font-medium text-ink">
+                            {credential.name}
+                          </span>
+                          <span className="mt-0.5 block font-mono text-2xs tracking-[0.08em] text-ink-3 uppercase">
+                            {credential.type.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle font-mono text-xs text-ink-2 md:table-cell">
+                          {credential.sharedWith.length > 0
+                            ? credential.sharedWith
+                                .map((u) => u.email.split("@")[0])
+                                .join(", ")
+                            : "—"}
+                        </td>
+                        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle font-mono text-xs tabular-nums text-ink-2 sm:table-cell">
+                          {credential.lastUsed}
+                        </td>
+                        <td className="border-t border-line px-3.5 py-2.5 align-middle">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <GlassButton
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleShareCredential(credential)}
+                            >
+                              Share
+                            </GlassButton>
+                            <GlassButton
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleManageCredential(credential)}
+                            >
+                              Manage
+                            </GlassButton>
                           </div>
-                        </div>
-                        <GlassButton size="sm" variant="ghost">
-                          Access
-                        </GlassButton>
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                </GlassCardContent>
-              </GlassCard>
+                  </tbody>
+                </table>
+              </div>
             )}
-          </div>
+          </section>
 
-          {/* Online Users */}
-          <div>
-            <GlassCard>
-              <GlassCardHeader>
-                <GlassCardTitle className="text-[#8A2BE2]">Online Users</GlassCardTitle>
-              </GlassCardHeader>
-              <GlassCardContent>
-                <div className="space-y-3">
-                  {onlineUsersCount > 0 ? (
-                    <div className="text-center py-4">
-                      <div className="text-3xl font-bold text-[#8A2BE2] mb-2">{onlineUsersCount}</div>
-                      <div className="text-sm text-[#EAEAEA]/60">
-                        {onlineUsersCount === 1 ? 'User Online' : 'Users Online'}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-[#EAEAEA]/50">
-                      No users online
-                    </div>
-                  )}
-                </div>
-              </GlassCardContent>
-            </GlassCard>
-          </div>
+          {sharedCredentials.length > 0 && (
+            <section className="rounded-lg border border-line bg-panel">
+              <PanelHead
+                title="Shared with you"
+                meta={`${sharedCredentials.length} accounts`}
+              />
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <Th>Credential</Th>
+                      <Th className="hidden sm:table-cell">Owner</Th>
+                      <Th className="hidden sm:table-cell">Last used</Th>
+                      <Th className="text-right">Access</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sharedCredentials.map((credential) => (
+                      <tr
+                        key={credential.id}
+                        className="transition-colors duration-150 ease-standard hover:bg-white/[0.025]"
+                      >
+                        <td className="border-t border-line px-3.5 py-2.5 align-middle">
+                          <span className="font-mono text-sm font-medium text-ink">
+                            {credential.name}
+                          </span>
+                          <span className="mt-0.5 block font-mono text-2xs tracking-[0.08em] text-ink-3 uppercase">
+                            {credential.type.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle font-mono text-xs text-ink-2 sm:table-cell">
+                          {credential.owner}
+                        </td>
+                        <td className="hidden border-t border-line px-3.5 py-2.5 align-middle font-mono text-xs tabular-nums text-ink-2 sm:table-cell">
+                          {credential.lastUsed}
+                        </td>
+                        <td className="border-t border-line px-3.5 py-2.5 text-right align-middle">
+                          <span className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs tracking-[0.08em] text-ink-2 uppercase">
+                            Shared
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </div>
 
-        {/* Google Accounts Manager */}
-        <div className="mt-8">
+        <div className="space-y-4">
+          <section className="rounded-lg border border-line bg-panel">
+            <PanelHead title="Relay · online" live={onlineUsersCount > 0} />
+            <div className="px-3.5 py-4">
+              <p
+                className={`font-mono text-2xl tabular-nums ${
+                  onlineUsersCount > 0 ? "text-signal" : "text-ink"
+                }`}
+              >
+                {onlineUsersCount}
+              </p>
+              <p className="mt-1 font-mono text-2xs tracking-label text-ink-3 uppercase">
+                {onlineUsersCount === 1 ? "User online" : "Users online"}
+              </p>
+              <p className="mt-3 border-t border-line pt-3 font-mono text-2xs text-ink-3">
+                {onlineUsersCount > 0
+                  ? "Live socket session · codes push to owners and shared users"
+                  : "No users online"}
+              </p>
+            </div>
+          </section>
+
           <GoogleAccountsManager />
         </div>
       </div>
@@ -342,5 +336,60 @@ export default function DashboardPage() {
       />
       <AccountSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
     </div>
+  )
+}
+
+function PanelHead({
+  title,
+  meta,
+  live = false,
+}: {
+  title: string
+  meta?: string
+  live?: boolean
+}) {
+  return (
+    <header className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
+      {live && <span className="size-1.5 flex-none bg-signal animate-led motion-reduce:animate-none" />}
+      <h2 className="font-mono text-2xs tracking-label text-ink-2 uppercase">{title}</h2>
+      {meta && <span className="font-mono text-2xs text-ink-3">{meta}</span>}
+    </header>
+  )
+}
+
+function Readout({
+  label,
+  value,
+  live = false,
+}: {
+  label: string
+  value: number
+  live?: boolean
+}) {
+  return (
+    <div className="mr-5 border-r border-line py-3 pr-5 last:mr-0 last:border-r-0">
+      <p
+        className={`font-mono text-xl tabular-nums ${live ? "text-signal" : "text-ink"}`}
+      >
+        {value}
+      </p>
+      <p className="font-mono text-2xs tracking-label text-ink-3 uppercase">{label}</p>
+    </div>
+  )
+}
+
+function Th({
+  children,
+  className = "",
+}: {
+  children?: React.ReactNode
+  className?: string
+}) {
+  return (
+    <th
+      className={`px-3.5 pt-2.5 pb-1.5 text-left font-mono text-2xs font-medium tracking-label text-ink-3 uppercase ${className}`}
+    >
+      {children}
+    </th>
   )
 }

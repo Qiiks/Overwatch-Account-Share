@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
 import { Label } from "@/components/ui/label"
@@ -15,30 +16,28 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/GlassCard"
-import { DotGrid } from "@/components/DotGrid"
-import Link from "next/link"
 import { useSettings } from "@/context/SettingsContext"
 import { useAuth } from "@/context/AuthContext"
 import { errorMessage } from "@/lib/errors"
+import { cn } from "@/lib/utils"
+
+const LABEL = "font-mono text-2xs tracking-label text-ink-3 uppercase"
+
+/* Same contract the server enforces; shown live so the field is not a guessing game. */
+const PASSWORD_RULES = [
+  { label: "At least 8 characters", test: (value: string) => value.length >= 8 },
+  { label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
+  { label: "One lowercase letter", test: (value: string) => /[a-z]/.test(value) },
+  { label: "One digit", test: (value: string) => /[0-9]/.test(value) },
+  {
+    label: "One special character: @ $ ! % * ? &",
+    test: (value: string) => /[@$!%*?&]/.test(value),
+  },
+]
 
 function validatePassword(password: string): string | null {
-  // Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special @$!%*?&
-  if (password.length < 8) {
-    return "Password must be at least 8 characters long."
-  }
-  if (!/[A-Z]/.test(password)) {
-    return "Password must contain at least one uppercase letter."
-  }
-  if (!/[a-z]/.test(password)) {
-    return "Password must contain at least one lowercase letter."
-  }
-  if (!/[0-9]/.test(password)) {
-    return "Password must contain at least one digit."
-  }
-  if (!/[@$!%*?&]/.test(password)) {
-    return "Password must contain at least one special character (@$!%*?&)."
-  }
-  return null
+  const unmet = PASSWORD_RULES.find((rule) => !rule.test(password))
+  return unmet ? `Password must have: ${unmet.label.toLowerCase()}.` : null
 }
 
 export default function RegisterPage() {
@@ -55,6 +54,7 @@ export default function RegisterPage() {
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   // Redirect to login if registration is disabled
   useEffect(() => {
@@ -66,12 +66,13 @@ export default function RegisterPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     if (field === "password") {
-      setPasswordError(validatePassword(value))
+      setPasswordError(null)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setNotice(null)
 
     const passwordValidation = validatePassword(formData.password)
     if (passwordValidation) {
@@ -89,6 +90,7 @@ export default function RegisterPage() {
       return
     }
 
+    setPasswordError(null)
     setIsLoading(true)
 
     try {
@@ -99,7 +101,7 @@ export default function RegisterPage() {
       })
 
       if (result.pendingApproval) {
-        setPasswordError(
+        setNotice(
           "Your account was created and is waiting for administrator approval.",
         )
         return
@@ -107,7 +109,9 @@ export default function RegisterPage() {
 
       router.push("/dashboard")
     } catch (error) {
-      setPasswordError(errorMessage(error, "Registration failed. Please try again."))
+      setPasswordError(
+        errorMessage(error, "Registration failed. Please try again."),
+      )
     } finally {
       setIsLoading(false)
     }
@@ -116,15 +120,14 @@ export default function RegisterPage() {
   // Show loading state while settings are being fetched
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
-        <DotGrid />
-        <div className="relative z-10 w-full max-w-md px-4">
-          <GlassCard>
-            <GlassCardHeader className="text-center">
-              <GlassCardTitle className="text-2xl font-bold text-[#8A2BE2]">Loading...</GlassCardTitle>
-            </GlassCardHeader>
-          </GlassCard>
-        </div>
+      <div className="mx-auto my-auto w-full max-w-[26rem] py-10">
+        <GlassCard>
+          <GlassCardHeader>
+            <GlassCardTitle className="font-mono text-xs tracking-label text-ink-3 uppercase">
+              Loading
+            </GlassCardTitle>
+          </GlassCardHeader>
+        </GlassCard>
       </div>
     )
   }
@@ -132,158 +135,212 @@ export default function RegisterPage() {
   // Show registration closed message if registration is disabled
   if (settings && !settings.allow_registration) {
     return (
-      <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
-        <DotGrid />
-        <div className="relative z-10 w-full max-w-md px-4">
-          <GlassCard>
-            <GlassCardHeader className="text-center">
-              <GlassCardTitle className="text-2xl font-bold text-[#DA70D6]">Registration Closed</GlassCardTitle>
-              <GlassCardDescription className="text-[#EAEAEA]/70">
-                New user registration is currently disabled. Please contact an administrator.
-              </GlassCardDescription>
-            </GlassCardHeader>
-            <GlassCardContent>
-              <GlassButton onClick={() => router.push("/login")} className="w-full">
-                Back to Login
-              </GlassButton>
-            </GlassCardContent>
-          </GlassCard>
-        </div>
+      <div className="mx-auto my-auto w-full max-w-[26rem] py-10">
+        <GlassCard>
+          <GlassCardHeader>
+            <GlassCardTitle className="text-xl">
+              Registration closed
+            </GlassCardTitle>
+            <GlassCardDescription>
+              New user registration is currently disabled. Please contact an
+              administrator.
+            </GlassCardDescription>
+          </GlassCardHeader>
+          <GlassCardContent>
+            <GlassButton
+              variant="primary"
+              className="w-full"
+              onClick={() => router.push("/login")}
+            >
+              Back to log in
+            </GlassButton>
+          </GlassCardContent>
+        </GlassCard>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
-      <DotGrid />
+    <div className="mx-auto my-auto w-full max-w-[26rem] py-10">
+      <Link href="/" className="mb-4 inline-flex items-center gap-2.5">
+        <span className="size-[7px] bg-ink-3" aria-hidden="true" />
+        <span className="text-sm font-bold tracking-[0.1em] uppercase">
+          Overwatch Share
+        </span>
+      </Link>
 
-      <div className="relative z-10 w-full max-w-md px-4">
-        <GlassCard>
-          <GlassCardHeader className="text-center">
-            <GlassCardTitle className="text-2xl font-bold text-[#8A2BE2]">Create Account</GlassCardTitle>
-            <GlassCardDescription className="text-[#EAEAEA]/70">
-              Create an account to start sharing accounts and relaying login codes
-            </GlassCardDescription>
-          </GlassCardHeader>
-          <GlassCardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-[#EAEAEA]">
-                  Username
-                </Label>
-                <GlassInput
-                  id="username"
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleInputChange("username", e.target.value)}
-                  placeholder="Choose a username"
-                  required
+      <GlassCard>
+        <GlassCardHeader>
+          <GlassCardTitle className="text-xl">Create account</GlassCardTitle>
+          <GlassCardDescription>
+            An administrator reviews new accounts before access is granted.
+          </GlassCardDescription>
+        </GlassCardHeader>
+        <GlassCardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username" className={LABEL}>
+                Username
+              </Label>
+              <GlassInput
+                id="username"
+                type="text"
+                value={formData.username}
+                onChange={(e) => handleInputChange("username", e.target.value)}
+                placeholder="nightrunner"
+                autoComplete="username"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className={LABEL}>
+                Email
+              </Label>
+              <GlassInput
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className={LABEL}>
+                Password
+              </Label>
+              <GlassInput
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                required
+                aria-describedby="password-rules"
+              />
+              <ul
+                id="password-rules"
+                className="mt-2 space-y-1 border border-line bg-panel-2 px-3 py-2"
+              >
+                {PASSWORD_RULES.map((rule) => {
+                  const met = rule.test(formData.password)
+                  return (
+                    <li
+                      key={rule.label}
+                      className={cn(
+                        "flex items-center gap-2 font-mono text-2xs tracking-[0.05em] uppercase",
+                        met ? "text-ink" : "text-ink-3",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "size-[7px] shrink-0",
+                          met ? "bg-signal" : "bg-ink-3",
+                        )}
+                        aria-hidden="true"
+                      />
+                      {rule.label}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className={LABEL}>
+                Confirm password
+              </Label>
+              <GlassInput
+                id="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) =>
+                  handleInputChange("confirmPassword", e.target.value)
+                }
+                placeholder="••••••••"
+                autoComplete="new-password"
+                required
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="terms"
+                  checked={acceptTerms}
+                  onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#EAEAEA]">
-                  Email
+                <Label
+                  htmlFor="terms"
+                  className="text-sm leading-relaxed text-ink-2"
+                >
+                  I accept the{" "}
+                  <Link href="/terms" className="text-signal hover:text-accent">
+                    Terms of Service
+                  </Link>
                 </Label>
-                <GlassInput
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  placeholder="Enter your email"
-                  required
-                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-[#EAEAEA]">
-                  Password
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="privacy"
+                  checked={acceptPrivacy}
+                  onCheckedChange={(checked) =>
+                    setAcceptPrivacy(checked as boolean)
+                  }
+                />
+                <Label
+                  htmlFor="privacy"
+                  className="text-sm leading-relaxed text-ink-2"
+                >
+                  I accept the{" "}
+                  <Link href="/privacy" className="text-signal hover:text-accent">
+                    Privacy Policy
+                  </Link>
                 </Label>
-                <GlassInput
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
-                  placeholder="Create a strong password"
-                  required
-                />
-                <div className="mt-2 text-xs text-[#EAEAEA]/60 bg-[#222]/50 rounded p-2">
-                  <div className="font-semibold text-[#8A2BE2] mb-1">Password requirements:</div>
-                  <ul className="list-disc pl-5">
-                    <li>At least 8 characters</li>
-                    <li>At least one uppercase letter</li>
-                    <li>At least one lowercase letter</li>
-                    <li>At least one digit</li>
-                    <li>At least one special character: <span className="font-mono">@ $ ! % * ? &</span></li>
-                  </ul>
-                </div>
-                {passwordError && (
-                  <div className="mt-2 text-xs text-[#DA70D6] bg-[#222]/70 rounded p-2">
-                    {passwordError}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-[#EAEAEA]">
-                  Confirm Password
-                </Label>
-                <GlassInput
-                  id="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                  placeholder="Confirm your password"
-                  required
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-start space-x-2">
-                  <Checkbox
-                    id="terms"
-                    checked={acceptTerms}
-                    onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
-                  />
-                  <Label htmlFor="terms" className="text-sm text-[#EAEAEA]/70 leading-relaxed">
-                    I accept the{" "}
-                    <Link href="/terms" className="text-[#8A2BE2] hover:text-[#8A2BE2]/80 transition-colors">
-                      Terms of Service
-                    </Link>
-                  </Label>
-                </div>
-
-                <div className="flex items-start space-x-2">
-                  <Checkbox
-                    id="privacy"
-                    checked={acceptPrivacy}
-                    onCheckedChange={(checked) => setAcceptPrivacy(checked as boolean)}
-                  />
-                  <Label htmlFor="privacy" className="text-sm text-[#EAEAEA]/70 leading-relaxed">
-                    I accept the{" "}
-                    <Link href="/privacy" className="text-[#DA70D6] hover:text-[#DA70D6]/80 transition-colors">
-                      Privacy Policy
-                    </Link>
-                  </Label>
-                </div>
-              </div>
-
-              <GlassButton type="submit" className="w-full" disabled={isLoading || !acceptTerms || !acceptPrivacy}>
-                {isLoading ? "Creating Account..." : "Create Account"}
-              </GlassButton>
-            </form>
-
-            <div className="mt-6 text-center">
-              <div className="text-sm text-[#EAEAEA]/70">
-                Already have an account?{" "}
-                <Link href="/login" className="text-[#8A2BE2] hover:text-[#8A2BE2]/80 transition-colors">
-                  Sign in
-                </Link>
               </div>
             </div>
-          </GlassCardContent>
-        </GlassCard>
-      </div>
+
+            {passwordError && (
+              <p
+                role="alert"
+                className="rounded-md border border-alarm/40 bg-alarm/10 px-3 py-2 text-sm text-alarm"
+              >
+                {passwordError}
+              </p>
+            )}
+
+            {notice && (
+              <p
+                role="status"
+                className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn"
+              >
+                {notice}
+              </p>
+            )}
+
+            <GlassButton
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={isLoading || !acceptTerms || !acceptPrivacy}
+            >
+              {isLoading ? "Creating account..." : "Create account"}
+            </GlassButton>
+          </form>
+
+          <p className="mt-5 border-t border-line pt-4 text-sm text-ink-2">
+            Already have an account?{" "}
+            <Link href="/login" className="text-signal hover:text-accent">
+              Sign in
+            </Link>
+          </p>
+        </GlassCardContent>
+      </GlassCard>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { GlassInput } from "@/components/ui/GlassInput"
 import { Label } from "@/components/ui/label"
@@ -15,14 +16,16 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/GlassCard"
-import { DotGrid } from "@/components/DotGrid"
-import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
+import { useSettings } from "@/context/SettingsContext"
 import { errorMessage } from "@/lib/errors"
+
+const LABEL = "font-mono text-2xs tracking-label text-ink-3 uppercase"
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
+  const { settings } = useSettings()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -55,80 +58,93 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#111111] text-[#EAEAEA] relative overflow-hidden flex items-center justify-center">
-      <DotGrid />
+    <div className="mx-auto my-auto w-full max-w-[26rem] py-10">
+      <Link href="/" className="mb-4 inline-flex items-center gap-2.5">
+        <span className="size-[7px] bg-ink-3" aria-hidden="true" />
+        <span className="text-sm font-bold tracking-[0.1em] uppercase">
+          Overwatch Share
+        </span>
+      </Link>
 
-      <div className="relative z-10 w-full max-w-md px-4">
-        <GlassCard>
-          <GlassCardHeader className="text-center">
-            <GlassCardTitle className="text-2xl font-bold text-[#8A2BE2]">Welcome Back</GlassCardTitle>
-            <GlassCardDescription className="text-[#EAEAEA]/70">
-              Sign in to your account
-            </GlassCardDescription>
-          </GlassCardHeader>
-          <GlassCardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#EAEAEA]">
-                  Email
-                </Label>
-                <GlassInput
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={handleEmailChange}
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-[#EAEAEA]">
-                  Password
-                </Label>
-                <GlassInput
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={handlePasswordChange}
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-
-              {error && (
-                <div className="text-red-500 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-md p-2">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                />
-                <Label htmlFor="remember" className="text-sm text-[#EAEAEA]/70">
-                  Remember me
-                </Label>
-              </div>
-
-              <GlassButton type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
-              </GlassButton>
-            </form>
-
-            <div className="mt-6 text-center space-y-2">
-              <div className="text-sm text-[#EAEAEA]/70">
-                Don't have an account?{" "}
-                <Link href="/register" className="text-[#8A2BE2] hover:text-[#8A2BE2]/80 transition-colors">
-                  Sign up
-                </Link>
-              </div>
+      <GlassCard>
+        <GlassCardHeader>
+          <GlassCardTitle className="text-xl">Sign in</GlassCardTitle>
+          <GlassCardDescription>
+            Reach the accounts shared with you, and the login codes that follow.
+          </GlassCardDescription>
+        </GlassCardHeader>
+        <GlassCardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className={LABEL}>
+                Email
+              </Label>
+              <GlassInput
+                id="email"
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+              />
             </div>
-          </GlassCardContent>
-        </GlassCard>
-      </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className={LABEL}>
+                Password
+              </Label>
+              <GlassInput
+                id="password"
+                type="password"
+                value={password}
+                onChange={handlePasswordChange}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="rounded-md border border-alarm/40 bg-alarm/10 px-3 py-2 text-sm text-alarm"
+              >
+                {error}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
+              <Label htmlFor="remember" className="text-sm text-ink-2">
+                Remember me
+              </Label>
+            </div>
+
+            <GlassButton
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign in"}
+            </GlassButton>
+          </form>
+
+          {settings?.allow_registration && (
+            <p className="mt-5 border-t border-line pt-4 text-sm text-ink-2">
+              No account yet?{" "}
+              <Link href="/register" className="text-signal hover:text-accent">
+                Create one
+              </Link>
+            </p>
+          )}
+        </GlassCardContent>
+      </GlassCard>
     </div>
   )
 }

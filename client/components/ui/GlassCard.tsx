@@ -3,6 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+/** DISPATCH panel: hairline border, flat panel fill, corner registration tick. No glass, no glow. */
 const GlassCard = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -10,17 +11,11 @@ const GlassCard = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded border bg-purple-500/5 backdrop-blur-md border-purple-500/20 shadow-lg shadow-black/50 text-card-foreground relative overflow-hidden",
-      "before:absolute before:inset-0 before:bg-gradient-to-br before:from-purple-500/5 before:to-transparent before:pointer-events-none",
-      "after:absolute after:inset-0 after:bg-[linear-gradient(45deg,transparent_48%,rgba(138,43,226,0.1)_49%,rgba(138,43,226,0.1)_51%,transparent_52%)] after:bg-[length:20px_20px] after:pointer-events-none after:opacity-20",
+      "relative rounded-lg border border-line bg-panel text-ink shadow-panel",
+      "before:pointer-events-none before:absolute before:-top-px before:-right-px before:size-2 before:border before:border-b-0 before:border-l-0 before:border-line-2 before:content-['']",
       className,
     )}
     {...props}
-    style={{
-      boxShadow:
-        "0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(138, 43, 226, 0.1), 0 0 20px rgba(138, 43, 226, 0.1)",
-      ...props.style,
-    }}
   />
 ));
 GlassCard.displayName = "GlassCard";
@@ -31,7 +26,7 @@ const GlassCardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    className={cn("flex flex-col gap-1.5 border-b border-line p-5", className)}
     {...props}
   />
 ));
@@ -43,7 +38,7 @@ const GlassCardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("font-semibold leading-none tracking-tight", className)}
+    className={cn("text-md font-semibold tracking-tight", className)}
     {...props}
   />
 ));
@@ -53,11 +48,7 @@ const GlassCardDescription = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
+  <div ref={ref} className={cn("text-sm text-ink-3", className)} {...props} />
 ));
 GlassCardDescription.displayName = "GlassCardDescription";
 
@@ -65,7 +56,7 @@ const GlassCardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <div ref={ref} className={cn("p-5", className)} {...props} />
 ));
 GlassCardContent.displayName = "GlassCardContent";
 
@@ -75,7 +66,7 @@ const GlassCardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
+    className={cn("flex items-center gap-2 p-5 pt-0", className)}
     {...props}
   />
 ));

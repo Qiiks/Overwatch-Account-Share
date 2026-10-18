@@ -110,17 +110,19 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px] bg-[#111111]/95 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+      <DialogContent className="border-line-2 bg-panel-2 text-ink sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-[#8A2BE2] text-xl">Add Overwatch Account</DialogTitle>
-          <DialogDescription className="text-[#EAEAEA]/70">
+          <DialogTitle className="font-mono text-2xs tracking-label text-ink-2 uppercase">
+            Add Overwatch account
+          </DialogTitle>
+          <DialogDescription className="text-xs text-ink-3">
             Add a new Overwatch account to your secure vault
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="battletag" className="text-[#EAEAEA]">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          <div className="space-y-1.5">
+            <Label htmlFor="battletag" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
               Battletag *
             </Label>
             <GlassInput
@@ -132,9 +134,9 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-[#EAEAEA]">
-              Battle.net Email *
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+              Battle.net email *
             </Label>
             <GlassInput
               id="email"
@@ -146,8 +148,8 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-[#EAEAEA]">
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
               Password *
             </Label>
             <GlassInput
@@ -160,13 +162,13 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="googleAccount" className="text-[#EAEAEA]">
-              OTP Gmail Account *
+          <div className="space-y-1.5">
+            <Label htmlFor="googleAccount" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
+              OTP Gmail account *
             </Label>
             {isLoadingAccounts ? (
-              <div className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]/50 p-2 rounded text-sm">
-                Loading Google accounts...
+              <div className="rounded-md border border-line bg-ground px-2.5 py-2 font-mono text-2xs text-ink-3">
+                Loading Google accounts…
               </div>
             ) : googleAccounts.length > 0 ? (
               <Select 
@@ -174,10 +176,10 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
                 onValueChange={(value) => handleInputChange("googleAccountId", value)}
                 required
               >
-                <SelectTrigger className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]">
+                <SelectTrigger className="w-full border-line-2 bg-ground text-ink">
                   <SelectValue placeholder="Select Gmail account for OTP" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#111111]/95 backdrop-blur-md border-white/10">
+                <SelectContent className="border-line-2 bg-panel-2 text-ink">
                   {googleAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.google_email}
@@ -187,14 +189,14 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
                 </SelectContent>
               </Select>
             ) : (
-              <div className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA]/50 p-3 rounded text-sm">
+              <div className="rounded-md border border-line bg-ground px-2.5 py-2 font-mono text-2xs text-ink-3">
                 No Google accounts linked. Please link a Gmail account first from the dashboard.
               </div>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-[#EAEAEA]">
+          <div className="space-y-1.5">
+            <Label htmlFor="notes" className="font-mono text-2xs tracking-label text-ink-3 uppercase">
               Notes
             </Label>
             <Textarea
@@ -202,12 +204,12 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
               value={formData.notes}
               onChange={(e) => handleInputChange("notes", e.target.value)}
               placeholder="Additional notes (optional)"
-              className="bg-white/5 backdrop-blur-md border-white/10 text-[#EAEAEA] placeholder:text-[#EAEAEA]/50"
+              className="border-line-2 bg-ground text-ink placeholder:text-ink-3"
               rows={3}
             />
           </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-end gap-2 pt-2">
             <GlassButton type="button" variant="ghost" onClick={handleClose}>
               Cancel
             </GlassButton>
@@ -223,7 +225,7 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
                 googleAccounts.length === 0
               }
             >
-              {isLoading ? "Adding..." : "Add Account"}
+              {isLoading ? "Adding…" : "Add account"}
             </GlassButton>
           </div>
         </form>
