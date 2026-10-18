@@ -145,3 +145,26 @@ container (priority 10) and everything else to the client. The client's
   (the only two the client reads; both are baked at image build time).
 - Health: the client container probes its own `/api/health` (liveness); point an external check at
   the API's `/ready` for a real dependency signal.
+
+### Coolify checklist for `overwatch.qiikzx.tech`
+
+Values to set when the app is created (secrets are placeholders — fill from your own store):
+
+| Where | Key | Value |
+|---|---|---|
+| Server env | `NODE_ENV` | `production` (also what makes the session cookie `Secure`) |
+| Server env | `ALLOWED_ORIGINS` | `https://overwatch.qiikzx.tech` |
+| Server env | `COOKIE_SAMESITE` | `lax` (same-origin host, so the session cookie is first-party) |
+| Server env | `CLIENT_URL` / `FRONTEND_URL` | `https://overwatch.qiikzx.tech` |
+| Server env | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | from Supabase → Settings → API |
+| Server env | `JWT_SECRET` | new random value (rotating it only invalidates sessions) |
+| Server env | `ENCRYPTION_SECRET` | **the original** — a new one orphans every stored credential |
+| Server env | `OAUTH_STATE_SECRET` | new random value |
+| Server env | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from Google Cloud |
+| Server env | `GOOGLE_REDIRECT_URI` | `https://overwatch.qiikzx.tech/api/google-auth/otp/callback` (must match the Google console exactly) |
+| Client build | `NEXT_PUBLIC_API_BASE_URL` | `/api` (relative, one image for any host) |
+| Client build | `NEXT_PUBLIC_WEBSITE_URL` | `https://overwatch.qiikzx.tech` (CI reads it from the repo secret) |
+
+DNS: an `A` record for `overwatch.qiikzx.tech` pointing at the Coolify host's IP, with Coolify's
+TLS (Let's Encrypt) enabled for the domain — the IP is the Coolify server's, so it comes from
+whoever runs that host.
