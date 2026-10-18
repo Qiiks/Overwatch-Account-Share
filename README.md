@@ -36,7 +36,6 @@ Client `.env.local` (the base URL already includes the API prefix; helpers appen
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://localhost:5001/api
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
 NEXT_PUBLIC_WEBSITE_URL=http://localhost:3000
 ```
 
