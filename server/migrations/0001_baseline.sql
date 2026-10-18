@@ -8,11 +8,13 @@
 --
 -- Ordering note for an existing project: probe before applying. `create table if not exists`
 -- never adds columns to a table that already exists, so a live schema that predates this file
--- needs the dated migrations — but those are NOT idempotent (`ALTER TABLE ... ADD COLUMN` and
--- `CREATE INDEX` without IF NOT EXISTS), so run each one only for what the probe reports
--- missing. One exception to watch: 2025-10-10-create-settings-table.sql defines the same table
--- with camelCase "createdAt"/"updatedAt" and a trigger whose body references `updatedat`, which
--- does not match its own column — the lowercase definition here is the one the models query.
+-- may need the dated migrations. Three of the four are safe to re-run; the exception is
+-- 2025-10-09-add-otp-and-normalization-to-accounts.sql, whose bare `ALTER TABLE ... ADD COLUMN`
+-- and `CREATE INDEX` (no IF NOT EXISTS) fail on a table that already has them — run it only for
+-- what the probe reports missing. One conflict to watch: 2025-10-10-create-settings-table.sql
+-- defines the same table with camelCase "createdAt"/"updatedAt" and a trigger whose body
+-- references `updatedat`, which does not match its own column — the lowercase definition here is
+-- the one the models query.
 
 create extension if not exists "uuid-ossp";
 
