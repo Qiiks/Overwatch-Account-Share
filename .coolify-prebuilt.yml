@@ -39,13 +39,13 @@ services:
       # SERVICE_FQDN_SERVER labels on the server service and rebuild the client with an
       # absolute NEXT_PUBLIC_API_BASE_URL (sibling subdomains of one registrable domain
       # stay same-site, so cookies keep working).
-      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.rule=Host(`${SERVICE_FQDN_CLIENT}`)"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.rule=Host(`overwatch.qiikzx.tech`)"
       - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.entrypoints=websecure"
       - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.tls=true"
       - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.tls.certresolver=letsencrypt"
       - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}.priority=1"
       - "traefik.http.services.client-${COOLIFY_RESOURCE_UUID}.loadbalancer.server.port=3000"
-      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.rule=Host(`${SERVICE_FQDN_CLIENT}`)"
+      - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.rule=Host(`overwatch.qiikzx.tech`)"
       - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.entrypoints=web"
       - "traefik.http.routers.client-${COOLIFY_RESOURCE_UUID}-http.middlewares=redirect-to-https@docker"
 
@@ -102,13 +102,13 @@ services:
       # Same host as the client, but only /api and /socket.io; the priority beat the client's
       # catch-all Host(...) router. Do not use Coolify's path field here: on several versions
       # it strips the prefix, and this API mounts /api/auth without a strip.
-      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.rule=Host(`${SERVICE_FQDN_CLIENT}`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
       - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.entrypoints=websecure"
       - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.tls=true"
       - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.tls.certresolver=letsencrypt"
       - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}.priority=10"
       - "traefik.http.services.server-${COOLIFY_RESOURCE_UUID}.loadbalancer.server.port=5001"
-      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.rule=Host(`${SERVICE_FQDN_CLIENT}`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
+      - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.rule=Host(`overwatch.qiikzx.tech`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
       - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.entrypoints=web"
       - "traefik.http.routers.server-${COOLIFY_RESOURCE_UUID}-http.middlewares=redirect-to-https@docker"
 
