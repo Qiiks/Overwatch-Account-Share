@@ -17,13 +17,20 @@ const { createOverwatchAccount } = require('../models/OverwatchAccount');
 
 const OWNER = { username: 'DevOwner', email: 'dev-owner@example.com', password: 'DevPassw0rd!' };
 const SHARED = { username: 'DevShared', email: 'dev-shared@example.com', password: 'DevPassw0rd!' };
+// Used by SMOKE_ADMIN=1 (server/scripts/smoke-envelope.js) and the admin Playwright specs.
+const ADMIN = {
+  username: 'DevAdmin',
+  email: 'dev-admin@example.com',
+  password: 'DevPassw0rd!',
+  isAdmin: true,
+};
 const ACCOUNT = {
   accountTag: 'DevOwner#1234',
   accountEmail: 'dev-owner@example.com',
   accountPassword: "p'a&<b>#1",
 };
 
-const upsertUser = async ({ username, email, password }) => {
+const upsertUser = async ({ username, email, password, isAdmin = false }) => {
   const passwordHash = await bcrypt.hash(password, 10);
 
   const { data: existing, error: lookupError } = await supabase
@@ -36,7 +43,7 @@ const upsertUser = async ({ username, email, password }) => {
   if (existing) {
     const { error } = await supabase
       .from('users')
-      .update({ password_hash: passwordHash, isapproved: true })
+      .update({ password_hash: passwordHash, isapproved: true, isadmin: !!isAdmin })
       .eq('id', existing.id);
     if (error) throw error;
     return existing.id;
@@ -48,8 +55,8 @@ const upsertUser = async ({ username, email, password }) => {
       username,
       email,
       password_hash: passwordHash,
-      role: 'user',
-      isadmin: false,
+      role: isAdmin ? 'admin' : 'user',
+      isadmin: !!isAdmin,
       isapproved: true,
     })
     .select('id')
@@ -66,7 +73,8 @@ const run = async () => {
 
   const ownerId = await upsertUser(OWNER);
   const sharedId = await upsertUser(SHARED);
-  console.log(`users ready: ${OWNER.email}, ${SHARED.email}`);
+  await upsertUser(ADMIN);
+  console.log(`users ready: ${OWNER.email}, ${SHARED.email}, ${ADMIN.email} (admin)`);
 
   const { data: existingAccount, error: accountLookupError } = await supabase
     .from('overwatch_accounts')
@@ -103,7 +111,12 @@ const run = async () => {
   console.log('\nDev credentials:');
   console.log(`  owner : ${OWNER.email} / ${OWNER.password}`);
   console.log(`  shared: ${SHARED.email} / ${SHARED.password}`);
+  console.log(`  admin : ${ADMIN.email} / ${ADMIN.password}`);
   console.log(`  account: ${ACCOUNT.accountTag} (password contains ' & < > #)`);
+  console.log(
+    '\nFor the envelope gate as an admin: SMOKE_ADMIN=1 SMOKE_EMAIL=' +
+      `${ADMIN.email} SMOKE_PASSWORD='${ADMIN.password}' node scripts/smoke-envelope.js`,
+  );
   process.exit(0);
 };
 

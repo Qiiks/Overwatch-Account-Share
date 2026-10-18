@@ -191,7 +191,8 @@ app.get('/health', async (req, res) => {
       await cache.set('health-check', 'ok', 10);
       const testResult = await cache.get('health-check');
       if (testResult === 'ok') {
-        cacheStatus = 'redis-connected';
+        // Without REDIS_URL the cache is the in-process map; do not advertise Redis.
+        cacheStatus = process.env.REDIS_URL ? 'redis-connected' : 'in-memory';
       }
     } catch (error) {
       cacheStatus = 'redis-disconnected';
@@ -210,10 +211,10 @@ app.get('/health', async (req, res) => {
     });
   } catch (error) {
     logger.error('Health check failed:', error);
+    // Fixed string: upstream messages must not reach the client (see errorMiddleware).
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
-      error: error.message,
     });
   }
 });
@@ -232,8 +233,8 @@ app.get('/ready', async (req, res) => {
   }
 });
 
-// API health check endpoint (sets CSRF token)
-app.get('/api/health', csrfProtection, (req, res) => {
+// API health check endpoint (csrfProtection already runs globally)
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -282,6 +283,10 @@ io.use(async (socket, next) => {
       .single();
 
     if (!error && user) {
+      if (user.isapproved === false) {
+        logger.debug('[Socket.IO Auth] Rejected suspended user', { userId: user.id });
+        return next();
+      }
       socket.user = user;
     }
   } catch (error) {

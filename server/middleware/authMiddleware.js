@@ -76,6 +76,12 @@ const authMiddleware = async (req, res, next) => {
       return next(new ApiError(401, "UNAUTHENTICATED", "User not found, authorization denied"));
     }
 
+    // Approval is re-checked on every request: a suspension must not wait for token expiry.
+    if (user.isapproved === false) {
+      securityLogger.logAuthAttempt(email, false, req.ip, userAgent);
+      return next(new ApiError(403, "FORBIDDEN", "Your account is suspended"));
+    }
+
     user.role = user.isadmin ? "admin" : "user";
     req.user = user;
     return next();

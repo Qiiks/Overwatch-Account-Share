@@ -1,6 +1,4 @@
 const bcrypt = require('bcrypt');
-const { cache } = require('../utils/cache');
-const { findEmailServiceByEmail } = require('./EmailService');
 const { getNormalizedEmail } = require('../utils/emailNormalizer');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { logger } = require('../utils/logger');
@@ -37,21 +35,8 @@ const createOverwatchAccount = async (accountData) => {
     });
   }
 
-  // Email service validation completely bypassed - table doesn't exist
-  // const cacheKey = `email-service:${accountEmail}`;
-  // let emailService = await cache.get(cacheKey);
-
-  // if (emailService === null) {
-  //   // Use the Supabase EmailService model
-  //   emailService = await findEmailServiceByEmail(accountEmail);
-  //   // Cache for 1 hour
-  //   await cache.set(cacheKey, emailService, 3600);
-  // }
-
-  // Temporarily bypass email service validation for testing
-  // if (!emailService || !emailService.isActive) {
-  //   throw new Error('The provided email is not a valid active email service');
-  // }
+  // Mailbox validation is not performed here: the OTP poller resolves the linked mailbox
+  // from user_google_accounts.
 
   // Use AES encryption for new passwords (reversible for credential viewing)
   // SECURITY: This allows the "View Credentials" feature to work
@@ -431,12 +416,38 @@ const findAccountsByNormalizedEmail = async (normalizedEmail) => {
 };
 
 /**
+ * Find an Overwatch account by account email, ignoring case.
+ *
+ * The OTP poller lowercases the recipient address from the mail headers while the row keeps
+ * whatever the owner typed, so an exact `.eq()` silently misses mixed-case addresses.
+ * `ilike` without wildcards is a case-insensitive equality match.
+ * @param {string} email - The account email to search for
+ * @returns {Object|null} The found account or null
+ */
+const findAccountByEmailInsensitive = async (email) => {
+  const { data, error } = await getSupabase()
+    .from('overwatch_accounts')
+    .select('*')
+    .ilike('accountemail', email)
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    throw new Error(error.message);
+  }
+  return data;
+};
+
+/**
  * Alias for findOverwatchAccountByAccountEmail for compatibility
  * @param {string} email - The account email to search for
  * @returns {Object|null} The found account or null
  */
 const findByEmail = async (email) => {
-  return findOverwatchAccountByAccountEmail(email);
+  return (
+    (await findAccountByEmailInsensitive(email)) ||
+    findOverwatchAccountByAccountEmail(email)
+  );
 };
 
 /**

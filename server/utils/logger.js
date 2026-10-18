@@ -202,6 +202,28 @@ const adminAuditLogger = {
   },
 
   /**
+   * Persist an audit event for the admin log views (fire-and-forget: an audit write must
+   * never fail the admin action it describes). Winston remains the durable sink.
+   */
+  persist: (action, adminId, details = {}) => {
+    const client = global.supabase;
+    if (!client || typeof client.from !== "function") return;
+
+    Promise.resolve(
+      client.from("admin_audit_logs").insert({
+        action,
+        adminid: adminId ? String(adminId) : null,
+        details,
+      })
+    ).catch((error) => {
+      logger.warn("ADMIN AUDIT: failed to persist audit event", {
+        action,
+        error: error && error.message,
+      });
+    });
+  },
+
+  /**
    * Log user deletion by admin
    */
   logUserDeleted: (adminId, adminUsername, deletedUserId, deletedUsername) => {
@@ -212,6 +234,11 @@ const adminAuditLogger = {
       targetUserId: deletedUserId,
       targetUsername: deletedUsername,
       timestamp: new Date().toISOString(),
+    });
+    adminAuditLogger.persist("admin_user_deleted", adminId, {
+      adminUsername,
+      targetUserId: deletedUserId,
+      targetUsername: deletedUsername,
     });
   },
 
@@ -275,6 +302,10 @@ const adminAuditLogger = {
         timestamp: new Date().toISOString(),
       }
     );
+    adminAuditLogger.persist("admin_registration_toggled", adminId, {
+      adminUsername,
+      registrationEnabled: enabled,
+    });
   },
 
   /**
@@ -329,6 +360,7 @@ const adminAuditLogger = {
       ...details,
       timestamp: new Date().toISOString(),
     });
+    adminAuditLogger.persist(action, adminId, details);
   },
 };
 

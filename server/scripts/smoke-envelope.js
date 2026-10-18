@@ -11,8 +11,9 @@
  *   1. anonymous  — proves the middleware chain answers in the envelope shape.
  *   2. authenticated — logs in as a dev user (SMOKE_EMAIL / SMOKE_PASSWORD, defaulting to
  *      the seed-dev owner) and replays every route with its session + CSRF token, so route
- *      handlers actually execute. Pass 2 is the one with teeth; without credentials the
- *      script says so and exits on pass 1 only.
+ *      handlers actually execute. Without credentials the script says so and exits on pass 1.
+ *      With SMOKE_ADMIN=1 (and an admin SMOKE_EMAIL) every admin handler runs too, except the
+ *      mutation routes listed in DESTRUCTIVE_ADMIN_PATHS.
  *
  * Health probes (/health, /ready, /api/health) are infrastructure contracts and are exempt.
  */
@@ -30,8 +31,23 @@ const EXEMPT = [
   '/api/health',
   // Browser redirect endpoint (Google OAuth callback) — not a JSON API.
   '/api/google-auth/otp/callback',
+  // CSV file download — a file body must not be wrapped in JSON.
+  '/api/admin/export-users',
 ];
 const SAMPLE_ID = '00000000-0000-4000-8000-000000000000';
+
+// Admin mutations that would change live state (force-logout invalidates every session,
+// clear-cache wipes the cache, the rest edit users/accounts). With SMOKE_ADMIN=1 the
+// authenticated pass runs as an admin and skips exactly these; their handlers stay covered
+// by the unit-level review and the Playwright suite, which seeds its own fixtures.
+const DESTRUCTIVE_ADMIN_PATHS = [
+  '/api/admin/force-logout',
+  '/api/admin/clear-cache',
+  '/api/admin/create-user',
+  '/api/admin/share-account',
+  '/api/admin/toggle-registrations',
+  '/api/admin/users',
+];
 
 const smokeEmail = process.env.SMOKE_EMAIL || 'dev-owner@example.com';
 const smokePassword = process.env.SMOKE_PASSWORD || 'DevPassw0rd!';
@@ -62,9 +78,16 @@ const checkBody = (method, url, status, body, offenders) => {
   }
 };
 
-const runPass = async (agent, routes, label, csrfToken) => {
+const runPass = async (agent, routes, label, csrfToken, options = {}) => {
   const offenders = [];
   for (const { method, url } of routes) {
+    if (
+      options.skipDestructiveAdmin &&
+      method !== 'GET' &&
+      DESTRUCTIVE_ADMIN_PATHS.some((prefix) => url.startsWith(prefix))
+    ) {
+      continue;
+    }
     let response;
     try {
       const pending = agent[method.toLowerCase()](url);
@@ -112,7 +135,15 @@ const main = async () => {
   if (login.status === 200) {
     authenticated = true;
     const token = await primeAgent(agent);
-    authenticatedOffenders = await runPass(agent, routes, 'authenticated', token);
+    const asAdmin = process.env.SMOKE_ADMIN === '1';
+    if (asAdmin) {
+      console.log(
+        '[authenticated] SMOKE_ADMIN=1 — running as an admin; destructive admin routes are skipped.',
+      );
+    }
+    authenticatedOffenders = await runPass(agent, routes, 'authenticated', token, {
+      skipDestructiveAdmin: asAdmin,
+    });
   } else {
     console.log(
       `[authenticated] skipped — login for ${smokeEmail} answered ${login.status} ` +

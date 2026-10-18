@@ -90,6 +90,17 @@ create table if not exists email_services (
     updatedat timestamptz default now()
 );
 
+-- Admin audit trail (written by utils/logger.js adminAuditLogger.persist, read by
+-- GET /api/admin/logs and the admin dashboard's flagged-activity count) --------------
+create table if not exists admin_audit_logs (
+    id uuid primary key default uuid_generate_v4(),
+    action text not null,
+    adminid text,
+    details jsonb,
+    createdat timestamptz default now()
+);
+create index if not exists idx_admin_audit_logs_createdat on admin_audit_logs(createdat desc);
+
 -- Settings (key/value) ------------------------------------------------------
 create table if not exists settings (
     id uuid primary key default uuid_generate_v4(),

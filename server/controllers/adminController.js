@@ -2,7 +2,9 @@ const User = require("../models/User");
 const OverwatchAccount = require("../models/OverwatchAccount");
 const Settings = require("../models/Settings");
 const { check, validationResult } = require("express-validator");
-const { cache, CACHE_TTL } = require("../utils/cache");
+const { cache, cacheKeys, CACHE_TTL } = require("../utils/cache");
+const { decrypt } = require("../utils/encryption");
+const { validatePassword } = require("../utils/passwordValidator");
 const ApiError = require("../utils/ApiError");
 const { ok } = require("../utils/respond");
 const {
@@ -10,6 +12,25 @@ const {
   performanceLogger,
   adminAuditLogger,
 } = require("../utils/logger");
+
+// accounttag is AES-256-GCM ciphertext; fall back to the raw value rather than hiding the row.
+const decryptTag = (value) => {
+  if (!value) return value;
+  try {
+    return decrypt(value);
+  } catch (error) {
+    return value;
+  }
+};
+
+// Admin mutations affect the same per-user caches the account controller maintains.
+const invalidateUserCachesFor = (userIds) =>
+  Promise.all(
+    [...new Set((userIds || []).filter(Boolean))].flatMap((id) => [
+      cache.del(cacheKeys.accounts(id)),
+      cache.del(cacheKeys.dashboard(id)),
+    ]),
+  );
 
 // Validation failures are thrown, never returned: errorMiddleware owns the shape.
 const failValidation = (req) => {
@@ -509,6 +530,8 @@ const deleteUser = async (req, res, next) => {
       throw deleteUserError;
     }
 
+    await invalidateUserCachesFor([req.params.id]);
+
     // Audit log the user deletion (critical security event)
     adminAuditLogger.logUserDeleted(
       req.user.id,
@@ -713,29 +736,51 @@ const createUser = async (req, res, next) => {
       );
     }
 
-    // Check if user already exists. Both terms are interpolated into a PostgREST
-    // filter, so they go through the same allowlist as the search endpoint.
-    const supabase = global.supabase;
-    const emailTerm = sanitizeSearchTerm(email).toLowerCase();
-    const usernameTerm = sanitizeSearchTerm(username).toLowerCase();
-    const { data: existingUsers, error: searchError } = await supabase
-      .from("users")
-      .select("email, username")
-      .or(`email.eq.${emailTerm},username.eq.${usernameTerm}`);
-
-    if (searchError) {
-      logger.error("Error checking existing users:", searchError);
-      throw searchError;
+    // Validate like the public register route does (this endpoint is admin-only but the
+    // stored values must satisfy the same invariants).
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const passwordCheck = validatePassword(password);
+    if (!emailValid) {
+      throw new ApiError(400, "VALIDATION_FAILED", "Please provide a valid email", {
+        email: "Please provide a valid email",
+      });
+    }
+    if (!passwordCheck.isValid) {
+      throw new ApiError(400, "VALIDATION_FAILED", "Password does not meet the policy", {
+        password: passwordCheck.errors.join(", "),
+      });
     }
 
-    if (existingUsers && existingUsers.length > 0) {
-      const existingUser = existingUsers[0];
-      const field = existingUser.email === emailTerm ? "email" : "username";
-      throw new ApiError(
-        409,
-        "CONFLICT",
-        `User with this ${field} already exists`,
-      );
+    // Uniqueness probe: two parameterised lookups. Values are never interpolated into a
+    // PostgREST filter expression (an email may contain "+", a comma, or be long).
+    const supabase = global.supabase;
+
+    const { data: emailHit, error: emailError } = await supabase
+      .from("users")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (emailError && emailError.code !== "PGRST116") {
+      logger.error("Error checking existing email:", emailError);
+      throw emailError;
+    }
+    if (emailHit) {
+      throw new ApiError(409, "CONFLICT", "User with this email already exists");
+    }
+
+    const { data: usernameHit, error: usernameError } = await supabase
+      .from("users")
+      .select("username")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (usernameError && usernameError.code !== "PGRST116") {
+      logger.error("Error checking existing username:", usernameError);
+      throw usernameError;
+    }
+    if (usernameHit) {
+      throw new ApiError(409, "CONFLICT", "User with this username already exists");
     }
 
     // Create user instance and save (password will be hashed)
@@ -869,7 +914,7 @@ const exportUserData = async (req, res, next) => {
       },
       ownedAccounts: (ownedAccounts || []).map((account) => ({
         id: account.id,
-        accountTag: account.accounttag,
+        accountTag: decryptTag(account.accounttag),
         accountEmail: account.accountemail,
         createdAt: account.createdat,
         updatedAt: account.updatedat,
@@ -878,14 +923,12 @@ const exportUserData = async (req, res, next) => {
       })),
       sharedAccountAccess: (sharedAccess || []).map((access) => ({
         accountId: access.overwatch_account_id,
-        accountTag: access.overwatch_accounts?.accounttag,
+        accountTag: decryptTag(access.overwatch_accounts?.accounttag),
         accountEmail: access.overwatch_accounts?.accountemail,
       })),
       sharedAccess: (sharedAccess || []).map((share) => ({
         accountId: share.overwatch_account_id,
-        accountTag: share.overwatch_accounts
-          ? share.overwatch_accounts.accounttag
-          : "Unknown",
+        accountTag: decryptTag(share.overwatch_accounts?.accounttag) || "Unknown",
         email: share.overwatch_accounts
           ? share.overwatch_accounts.accountemail
           : "Unknown",
@@ -984,17 +1027,21 @@ const shareAccountAccess = async (req, res, next) => {
       throw shareError;
     }
 
-    // Audit log
+    // Audit log + response carry the human-readable tag, never the ciphertext.
+    const accountTag = decryptTag(account.accounttag);
+
+    await invalidateUserCachesFor([targetUserId, account.owner_id]);
+
     adminAuditLogger.log("share_account", req.user.id, {
       adminUsername: req.user.username,
       targetUserId: targetUser.id,
       targetUsername: targetUser.username,
       accountId: account.id,
-      accountTag: account.accounttag,
+      accountTag,
     });
 
     return ok(res, {
-      message: `Access to ${account.accounttag} granted to ${targetUser.username}`,
+      message: `Access to ${accountTag} granted to ${targetUser.username}`,
     });
   } catch (error) {
     logger.error("Error in shareAccountAccess:", error);
@@ -1035,16 +1082,18 @@ const searchAccountsUsers = async (req, res, next) => {
         type: "user",
       }));
     } else if (type === "account") {
+      // accounttag is encrypted, so only the plaintext email column can be filtered;
+      // the tag is decrypted afterwards for display.
       const { data, error } = await supabase
         .from("overwatch_accounts")
         .select("id, accounttag, accountemail")
-        .or(`accounttag.ilike.%${term}%,accountemail.ilike.%${term}%`)
+        .ilike("accountemail", `%${term}%`)
         .limit(10);
 
       if (error) throw error;
       results = data.map((a) => ({
         id: a.id,
-        label: `${a.accounttag} (${a.accountemail})`,
+        label: `${decryptTag(a.accounttag)} (${a.accountemail})`,
         value: a.id,
         type: "account",
       }));

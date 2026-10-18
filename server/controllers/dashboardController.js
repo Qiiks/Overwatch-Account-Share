@@ -9,7 +9,7 @@ const ApiError = require('../utils/ApiError');
 // @desc    Get all data for the main dashboard
 // @route   GET /api/dashboard
 // @access  Private
-const getDashboard = async (req, res) => {
+const getDashboard = async (req, res, next) => {
     const startTime = process.hrtime.bigint();
     logger.debug('[PERF] Dashboard request started', { userId: req.user.id });
 
@@ -131,7 +131,7 @@ const getDashboard = async (req, res) => {
                     gamertag: decryptedAccountTag,
                     accountTag: decryptedAccountTag,
                     rank: account.rank,
-                    heroes: account.heroes,
+                    heroes: account.mainheroes,
                     lastUsed: account.lastused,
                     sharedWith: accountSharedUsers[account.id] || [], // Array of objects with {id, email}
                     status: account.status,
@@ -182,7 +182,8 @@ const getDashboard = async (req, res) => {
             stack: error.stack,
             userId: req.user.id
         });
-        throw error;
+        // Express 4 does not catch async rejections: throwing here would hang the request.
+        next(error);
     }
 };
 

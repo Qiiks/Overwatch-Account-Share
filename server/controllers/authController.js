@@ -361,30 +361,3 @@ exports.getRegistrationStatus = async (req, res, next) => {
     next(error);
   }
 };
-
-exports.setRegistrationStatus = [
-  body("allow_registration")
-    .isBoolean()
-    .withMessage("allow_registration must be a boolean")
-    .toBoolean(),
-
-  async (req, res, next) => {
-    try {
-      const invalid = failValidation(req);
-      if (invalid) throw invalid;
-
-      const { allow_registration } = matchedData(req);
-      await Settings.updateSetting("allow_registration", allow_registration);
-
-      logger.info("Registration toggle changed", {
-        event: "admin_registration_toggled",
-        adminId: req.user && req.user.id,
-        allow_registration,
-      });
-
-      return ok(res, { allow_registration });
-    } catch (error) {
-      next(error);
-    }
-  },
-];

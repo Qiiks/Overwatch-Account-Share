@@ -9,7 +9,6 @@ const {
   changePassword,
   createUserByAdmin,
   getRegistrationStatus,
-  setRegistrationStatus,
   getCsrfToken,
 } = require("../controllers/authController");
 const { protect, authorize } = require("../middleware/authMiddleware");
@@ -30,12 +29,7 @@ router.get("/admin", protect, authorize("admin"), (req, res) => {
 
 // Admin routes
 router.post("/create-user", protect, adminMiddleware, createUserByAdmin);
+// Public read of the registration gate. The single writer is POST /api/admin/toggle-registrations.
 router.get("/registration-status", getRegistrationStatus);
-router.post(
-  "/registration-status",
-  protect,
-  adminMiddleware,
-  setRegistrationStatus
-);
 
 module.exports = router;

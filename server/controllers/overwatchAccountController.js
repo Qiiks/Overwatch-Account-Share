@@ -6,7 +6,6 @@ const {
   updateOverwatchAccount,
   deleteOverwatchAccount,
   getAccessibleAccounts,
-  getDecryptedPassword,
 } = require("../models/OverwatchAccount");
 const dbClient = require("../config/db");
 const supabase = dbClient.supabase;
@@ -113,6 +112,17 @@ exports.addAccount = [
       const { accountTag, accountEmail, accountPassword } = extractAccountFields(
         req.body,
       );
+
+      // The per-field validators above are conditional (either naming style may be used),
+      // so the canonical trio is required here or encryption would receive undefined.
+      const missingFields = {};
+      if (!accountTag) missingFields.accountTag = "Battletag is required";
+      if (!accountEmail) missingFields.accountEmail = "Email is required";
+      if (!accountPassword) missingFields.accountPassword = "Password is required";
+      if (Object.keys(missingFields).length > 0) {
+        throw new ApiError(400, "VALIDATION_FAILED", "Validation failed", missingFields);
+      }
+
       const googleAccountId = req.body.googleAccountId;
 
       logger.debug("Processing account creation", {
@@ -200,16 +210,23 @@ exports.getAccounts = async (req, res, next) => {
     // Get accessible accounts
     const allAccounts = await getAccessibleAccounts(req.user.id);
 
-    // Apply search filter
-    let filteredAccounts = allAccounts;
+    // Apply search filter. accounttag is ciphertext, so the comparison runs against the
+    // decrypted value (and the plaintext email column).
     if (req.query.search) {
-      filteredAccounts = allAccounts.filter(
-        (account) =>
-          account.accounttag &&
-          account.accounttag
-            .toLowerCase()
-            .includes(req.query.search.toLowerCase()),
-      );
+      const needle = String(req.query.search).toLowerCase();
+      const decryptSafe = (value) => {
+        try {
+          return decrypt(value);
+        } catch (error) {
+          return value;
+        }
+      };
+
+      filteredAccounts = allAccounts.filter((account) => {
+        const tag = (decryptSafe(account.accounttag) || "").toLowerCase();
+        const email = (account.accountemail || "").toLowerCase();
+        return tag.includes(needle) || email.includes(needle);
+      });
       logger.debug("[PERF] Search query applied", { query: req.query.search });
     }
 
