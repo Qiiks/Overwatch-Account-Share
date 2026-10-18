@@ -61,6 +61,8 @@ const publicAccount = (account, { isOwner = false } = {}) => {
     sharingStatus: account.sharingstatus,
     owner_id: account.owner_id,
     isOwner,
+    // Same vocabulary the roster uses, so a consumer of either endpoint reads one shape.
+    accessType: isOwner ? "owner" : "shared",
     otp,
     // Only a live code has an expiry worth showing: pairing the placeholder with a stale
     // timestamp renders "expires 00:00" beside "--:--:--".
@@ -264,8 +266,9 @@ exports.getAccounts = async (req, res, next) => {
     // Apply sorting. Column names are lowercase in the database, so a camelCase sort key
     // (the default, or whatever the client sends) has to be lowered before it can index a
     // row — otherwise every comparison is undefined vs undefined and the order degrades to
-    // whatever the database returned, which makes paging non-deterministic.
-    const sortOption = req.query.sort || "-createdat";
+    // whatever the database returned, which makes paging non-deterministic. String() first:
+    // ?sort=a&sort=b arrives as an array, and .replace on it would 500.
+    const sortOption = String(req.query.sort || "-createdat");
     const sortField = sortOption.replace("-", "").toLowerCase();
     const sortDirection = sortOption.startsWith("-") ? -1 : 1;
 
@@ -353,6 +356,14 @@ exports.updateAccount = [
     .trim()
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters"),
+
+  // Same rule as the create path (and see PG_ERRORS: an invalid uuid would otherwise reach
+  // PostgREST as a 22P02 cast failure). An explicit null is the unlink signal and is allowed.
+  body("googleAccountId")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isUUID()
+    .withMessage("Invalid Google Account ID"),
 
   async (req, res, next) => {
     try {
@@ -461,6 +472,12 @@ exports.updateAccountAccess = async (req, res, next) => {
     const oldUserIds = oldAllowedUsers
       ? oldAllowedUsers.map((u) => u.user_id)
       : [];
+
+    // A non-array body reaches .in() — which expands a string into "in.(a,b,c)" — and then
+    // throws inside the .filter below, answering 500 where the caller's mistake is a 400.
+    if (userIds !== undefined && !Array.isArray(userIds)) {
+      throw new ApiError(400, "VALIDATION_FAILED", "userIds must be an array");
+    }
 
     // Validate that all userIds exist in the users table
     if (userIds && userIds.length > 0) {
@@ -811,14 +828,15 @@ exports.shareAccountByEmail = async (req, res, next) => {
       .single();
 
     if (userError || !targetUser) {
-      // PGRST116 here means several rows matched (users.email is unique case-sensitively, so
-      // an escaped ilike can hit both "Foo@x.com" and "foo@x.com"); that is a data problem to
-      // fix, but on its own it would look exactly like a missing user.
-      if (userError && userError.code === "PGRST116") {
-        logger.warn("[share] More than one user matches the requested email", {
-          email: targetEmail,
-        });
-      }
+      // The query is limited to one row, so PGRST116 here means no user matched — not a
+      // duplicate. Any other code is the lookup itself failing, which is worth a warning.
+      const expected = !userError || userError.code === "PGRST116";
+      const line = expected ? logger.debug : logger.warn;
+      line.call(logger, "[share] User lookup found no match", {
+        email: targetEmail,
+        code: userError ? userError.code : "no-row",
+        message: userError ? userError.message : undefined,
+      });
       throw new ApiError(404, "NOT_FOUND", "User with this email not found");
     }
 

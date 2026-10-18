@@ -10,10 +10,17 @@
  * Two passes:
  *   1. anonymous  — proves the middleware chain answers in the envelope shape.
  *   2. authenticated — logs in as a dev user (SMOKE_EMAIL / SMOKE_PASSWORD, defaulting to
- *      the seed-dev owner) and replays every route with its session + CSRF token, so route
- *      handlers actually execute. Without credentials the script says so and exits on pass 1.
- *      With SMOKE_ADMIN=1 (and an admin SMOKE_EMAIL) every admin handler runs too, except the
- *      mutation routes listed in DESTRUCTIVE_ADMIN_PATHS.
+ *      the seed-dev owner), proves the session with GET /api/auth/me, then replays every route
+ *      with its CSRF token so route handlers actually execute. If the login or that probe fails
+ *      the run exits 1: an anonymous-only pass proves nothing about authenticated handlers, so
+ *      accepting one is an explicit choice (SMOKE_ALLOW_ANON_ONLY=1). With SMOKE_ADMIN=1 (and
+ *      an admin SMOKE_EMAIL) every admin handler runs too, except the mutation routes listed in
+ *      DESTRUCTIVE_ADMIN_PATHS.
+ *
+ * A 5xx is always an offender — including the 502 the dummy-environment invocation above gets
+ * from every data route when Supabase is unreachable. SMOKE_ALLOW_UPSTREAM_DOWN=1 tolerates
+ * exactly that case and reports the count, because a gate that passes against a dead database
+ * says nothing about the handlers it claims to cover.
  *
  * Health probes (/health, /ready, /api/health) are infrastructure contracts and are exempt.
  */
@@ -35,6 +42,10 @@ const EXEMPT = [
   '/api/admin/export-users',
 ];
 const SAMPLE_ID = '00000000-0000-4000-8000-000000000000';
+
+// 5xx the operator explicitly accepted via SMOKE_ALLOW_UPSTREAM_DOWN=1 (the dummy-env mode).
+// Reported at the end: a degraded run must not read as full coverage.
+const tolerated = [];
 
 // Admin mutations that would change live state (force-logout invalidates every session,
 // clear-cache wipes the cache, the rest edit users/accounts). With SMOKE_ADMIN=1 the
@@ -68,6 +79,14 @@ const checkBody = (method, url, status, body, offenders) => {
   // A 5xx is the failure this gate exists to catch: errorMiddleware answers it with
   // { success: false, error }, so an envelope-only assertion passes a broken handler.
   if (typeof status === 'number' && status >= 500) {
+    // The dummy-environment mode the header documents answers 502 UPSTREAM_UNAVAILABLE on
+    // every data route. That is still not coverage, so it is only tolerated when the operator
+    // says so, and it is counted and printed — never silently dropped.
+    const upstreamDown = body && body.error && body.error.code === 'UPSTREAM_UNAVAILABLE';
+    if (upstreamDown && process.env.SMOKE_ALLOW_UPSTREAM_DOWN === '1') {
+      tolerated.push({ method, url, status });
+      return;
+    }
     offenders.push({ method, url, status, detail: 'server error' });
     return;
   }
@@ -140,6 +159,16 @@ const main = async () => {
 
   if (login.status === 200) {
     authenticated = true;
+    // Positive control before trusting the pass: a route that answers 401 with a valid error
+    // envelope is indistinguishable from one that ran, so the session itself must be proven.
+    const sessionProbe = await agent.get('/api/auth/me');
+    if (sessionProbe.status !== 200) {
+      console.log(
+        `[authenticated] failing: the session did not take — GET /api/auth/me answered ${sessionProbe.status} ` +
+          `(${JSON.stringify(sessionProbe.body)}).`,
+      );
+      process.exit(1);
+    }
     const token = await primeAgent(agent);
     const asAdmin = process.env.SMOKE_ADMIN === '1';
     if (asAdmin) {
@@ -165,6 +194,13 @@ const main = async () => {
   }
 
   const offenders = [...anonymousOffenders, ...authenticatedOffenders];
+  if (tolerated.length > 0) {
+    console.log(
+      `[tolerated] ${tolerated.length} route(s) answered 502 UPSTREAM_UNAVAILABLE with ` +
+        'SMOKE_ALLOW_UPSTREAM_DOWN=1: the envelope holds, but no data route was proven ' +
+        'against a database in this run.',
+    );
+  }
   if (offenders.length === 0) {
     console.log(
       authenticated

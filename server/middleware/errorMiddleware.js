@@ -6,6 +6,10 @@ const PG_ERRORS = {
   23505: [409, 'CONFLICT', 'A record with that value already exists'],
   23503: [409, 'CONFLICT', 'A related record constraint was violated'],
   PGRST116: [404, 'NOT_FOUND', 'Resource not found'],
+  // Invalid text representation: a malformed uuid or other typed value reaching PostgREST.
+  // The request is unprocessable rather than a server fault, so these answer 400 (this is the
+  // backstop for every unvalidated id, not just the routes that validate their fields).
+  '22P02': [400, 'VALIDATION_FAILED', 'A field has an invalid format'],
 };
 
 /**

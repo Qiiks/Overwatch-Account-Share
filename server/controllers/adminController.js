@@ -473,11 +473,17 @@ const deleteUser = async (req, res, next) => {
 const getLogs = async (req, res, next) => {
   try {
     const supabase = global.supabase;
-    const { data: logs, error } = await supabase
+    // The complete trail is the default: credential reveals are persisted precisely so they
+    // can be read here. ?action=<name> narrows the view when one event type is what you want.
+    const action = typeof req.query.action === "string" && req.query.action ? req.query.action : null;
+    let query = supabase
       .from("admin_audit_logs")
       .select("*")
       .order("createdat", { ascending: false })
       .limit(50);
+    if (action) query = query.eq("action", action);
+
+    const { data: logs, error } = await query;
 
     if (error) throw error;
     return ok(res, logs || []);

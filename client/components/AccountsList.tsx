@@ -26,8 +26,8 @@ interface OverwatchAccount {
   hasAccess: boolean;
   accessType: "owner" | "shared" | "none";
   otp?: string;
-  /** Live expiry of the pushed code, shipped by the list endpoints and the socket push. */
-  otpExpiresAt?: string;
+  /** Live expiry of the pushed code; null is the API's "no live code", not "unknown". */
+  otpExpiresAt?: string | null;
 }
 
 interface Credentials {
@@ -35,6 +35,8 @@ interface Credentials {
   accountEmail: string;
   accountPassword: string;
   otp: string;
+  /** Shipped by /:id/credentials too; preferred over the roster's copy after a reveal. */
+  otpExpiresAt?: string | null;
   hasAccess: boolean;
   accessType: string;
 }
@@ -131,16 +133,13 @@ export function AccountsList({ onDataChange }: AccountsListProps = {}) {
         }, 5000);
       }
 
-      // Carry the pushed expiry too: without it the readout only starts counting down after
-      // the next refetch, so a code that arrives over the socket shows no time left.
+      // The push carries both fields and is authoritative: the server sends the expiry only
+      // while the code is live, so falling back to the stored one would pair a fresh code with
+      // an old countdown.
       setAccounts((prevAccounts) =>
         prevAccounts.map((account) =>
           account.accountTag === data.accountTag
-            ? {
-                ...account,
-                otp: data.otp,
-                otpExpiresAt: data.otpExpiresAt ?? account.otpExpiresAt,
-              }
+            ? { ...account, otp: data.otp, otpExpiresAt: data.otpExpiresAt ?? null }
             : account,
         ),
       );
@@ -414,7 +413,7 @@ function FragmentRow({
               <CyberpunkCredentialDisplay
                 label="Login code"
                 variant="readout"
-                expiresAt={account.otpExpiresAt}
+                expiresAt={creds?.otpExpiresAt ?? account.otpExpiresAt}
                 value={
                   creds?.otp ||
                   account.otp ||

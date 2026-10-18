@@ -10,11 +10,12 @@ interface CyberpunkCredentialDisplayProps {
   onDecrypt?: () => void;
   /** "readout" renders the value large, as the relay's headline number (OTP). */
   variant?: "row" | "readout";
-  /** ISO date or epoch ms — when known, the readout states when the code dies. */
-  expiresAt?: string | number;
+  /** ISO date or epoch ms — when known, the readout states when the code dies. Null means
+   *  "no live code", which is the shape the API sends for a placeholder row. */
+  expiresAt?: string | number | null;
 }
 
-function expiryLabel(expiresAt?: string | number) {
+function expiryLabel(expiresAt?: string | number | null) {
   if (!expiresAt) return null;
   const at = typeof expiresAt === "number" ? expiresAt : Date.parse(expiresAt);
   if (!Number.isFinite(at)) return null;

@@ -60,6 +60,29 @@ test.describe('accounts', () => {
     const token = await freshSession(request);
     expect(token).toBeTruthy();
 
+    // Create a row of our own first: on an unseeded database the loop below would otherwise
+    // iterate an empty array and assert nothing, which is how this route had no coverage at all.
+    const tag = `E2E-LIST#${Date.now()}`;
+    const created = await request.post(`${API}/api/overwatch-accounts`, {
+      headers: { 'x-csrf-token': token },
+      data: {
+        accountTag: tag,
+        accountEmail: `e2e-list-${Date.now()}@example.com`,
+        accountPassword: TRICKY_PASSWORD,
+      },
+    });
+    expect(created.status()).toBe(201);
+    const accountId = (await created.json()).data.id as string;
+
+    // The bare GET must answer from its own query, not from whatever a previous request left
+    // behind: the original defect (an implicit global) served the earlier caller's filtered
+    // rows here, so a filtered miss must not narrow the unfiltered list.
+    const missed = await request.get(
+      `${API}/api/overwatch-accounts?search=${encodeURIComponent(`no-such-tag-${Date.now()}`)}`,
+    );
+    expect(missed.status()).toBe(200);
+    expect((await missed.json()).data).toEqual([]);
+
     // Every other account surface is covered elsewhere; this route had no test at all, which
     // is how it shipped a 500 on the bare call (an undeclared variable) plus the raw table row.
     const list = await request.get(`${API}/api/overwatch-accounts`);
@@ -69,7 +92,11 @@ test.describe('accounts', () => {
     expect(body.success).toBe(true);
     expect(Array.isArray(body.data)).toBe(true);
 
-    for (const row of body.data as Record<string, unknown>[]) {
+    const rows = body.data as Record<string, unknown>[];
+    const mine = rows.find((row) => row.id === accountId);
+    expect(mine, 'the account just created must appear in the list').toBeTruthy();
+
+    for (const row of rows) {
       expect(row).not.toHaveProperty('accountpassword');
       expect(row).not.toHaveProperty('accounttag');
       expect(row).not.toHaveProperty('normalized_account_email');
@@ -77,6 +104,11 @@ test.describe('accounts', () => {
       expect(row).toHaveProperty('accountTag');
       expect(row).toHaveProperty('otpExpiresAt');
     }
+
+    const removed = await request.delete(`${API}/api/overwatch-accounts/${accountId}`, {
+      headers: { 'x-csrf-token': token },
+    });
+    expect([200, 204]).toContain(removed.status());
   });
 
   test('the credential endpoint is rate limited', async ({ request }) => {
