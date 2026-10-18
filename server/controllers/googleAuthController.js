@@ -63,13 +63,17 @@ const decryptState = (text) => {
 };
 
 /**
- * The return path comes from the client, so it is a same-app path or nothing: absolute
- * URLs, protocol-relative "//host" and backslash tricks all fall back to the dashboard
- * rather than being concatenated onto the client origin in the callback redirect.
+ * The return path comes from the client, so it is a same-app path or nothing. Requiring a
+ * single leading "/" already rules out the userinfo trick ("@evil.com" can only be a path
+ * once the host is closed), "//host", and any scheme; control characters are rejected too so
+ * nothing odd can reach the Location header.
  */
 const safeRedirectPath = (value) => {
   const path = typeof value === 'string' ? value.trim() : '';
   if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+    return '/dashboard';
+  }
+  if (/[\u0000-\u001f\u007f]/.test(path)) {
     return '/dashboard';
   }
   return path;

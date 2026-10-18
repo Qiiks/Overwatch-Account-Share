@@ -27,6 +27,7 @@ interface Credential {
   isShared: boolean
   sharedWith: SharedUser[]
   owner: string
+  googleAccountId?: string
 }
 
 interface DashboardAccount {
@@ -39,6 +40,7 @@ interface DashboardAccount {
   owner_id?: string
   sharedWith?: SharedUser[]
   owner?: { username?: string } | null
+  googleAccountId?: string | null
 }
 
 interface DashboardPayload {
@@ -78,6 +80,7 @@ export default function DashboardPage() {
         owner:
           acc.owner?.username ||
           (userId && acc.owner_id === userId ? "me" : "another user"),
+        googleAccountId: acc.googleAccountId || "",
       })) as Credential[]
 
       setCredentials(mapped.filter(c => !c.isShared))

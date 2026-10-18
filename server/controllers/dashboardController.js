@@ -166,6 +166,9 @@ const getDashboard = async (req, res, next) => {
                         ownerUsernames[account.owner_id]
                             ? { username: ownerUsernames[account.owner_id] }
                             : null,
+                    // Feeds the manage-account modal's preferred-mailbox pre-select, which
+                    // read a key no endpoint emitted.
+                    googleAccountId: account.linked_google_account_id ?? null,
                     createdAt: account.createdat,
                     updatedAt: account.updatedat,
                     // include any other fields as needed

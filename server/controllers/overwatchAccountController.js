@@ -65,6 +65,9 @@ const publicAccount = (account, { isOwner = false } = {}) => {
     // Only a live code has an expiry worth showing: pairing the placeholder with a stale
     // timestamp renders "expires 00:00" beside "--:--:--".
     otpExpiresAt: otp === OTP_PLACEHOLDER ? null : account.otp_expires_at ?? null,
+    // The account modals pre-select the preferred mailbox from this key; the column is
+    // linked_google_account_id and nothing else in the API emitted it.
+    googleAccountId: account.linked_google_account_id ?? null,
     createdAt: account.createdat,
     updatedAt: account.updatedat,
   };
@@ -808,6 +811,14 @@ exports.shareAccountByEmail = async (req, res, next) => {
       .single();
 
     if (userError || !targetUser) {
+      // PGRST116 here means several rows matched (users.email is unique case-sensitively, so
+      // an escaped ilike can hit both "Foo@x.com" and "foo@x.com"); that is a data problem to
+      // fix, but on its own it would look exactly like a missing user.
+      if (userError && userError.code === "PGRST116") {
+        logger.warn("[share] More than one user matches the requested email", {
+          email: targetEmail,
+        });
+      }
       throw new ApiError(404, "NOT_FOUND", "User with this email not found");
     }
 
@@ -968,12 +979,14 @@ exports.getAllAccountsWithConditionalCredentials = async (req, res, next) => {
           // Same rule as the list endpoint: only a live code has an expiry worth showing.
           responseData.otpExpiresAt =
             otp === OTP_PLACEHOLDER ? null : (account.otp_expires_at ?? null);
+          responseData.googleAccountId = account.linked_google_account_id ?? null;
         } else {
           // Show cipher text for unauthorized users
           responseData.accountEmail = generateCipherText("email");
           responseData.accountPassword = generateCipherText("password");
           responseData.otp = generateCipherText("otp");
           responseData.otpExpiresAt = null;
+          responseData.googleAccountId = null;
         }
 
         return responseData;

@@ -11,6 +11,18 @@ const FETCH_INTERVAL_MS = parseInt(
   10,
 );
 
+/**
+ * The expiry travels with the code, so it is only ever the value that belongs to a live one:
+ * the poller's row was just written, but the dev harness pushes a synthetic code against a row
+ * whose stored expiry belongs to an earlier fetch, and a past timestamp would render as
+ * "expires 00:00" beside a code that has none.
+ */
+const liveExpiry = (value) => {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) && ms > Date.now() ? value : null;
+};
+
 class OTPService {
   constructor() {
     this.oauth2Clients = new Map();
@@ -421,10 +433,9 @@ class OTPService {
       otp,
       accountTag: decryptedAccountTag,
       accountEmail: account.accountemail,
-      // Unconditional here: this push only fires for a code that was just written, so the
-      // expiry is live by construction. (The list endpoints must instead null it out when
-      // freshOtp returns the placeholder, or the readout pairs 00:00 with --:--:--.)
-      otpExpiresAt: account.otp_expires_at ?? null,
+      // Gated, not assumed: this is the one payload shape both callers share (the poller and
+      // the dev harness), so the value is only sent when it is genuinely still in the future.
+      otpExpiresAt: liveExpiry(account.otp_expires_at),
       timestamp: new Date().toISOString(),
     };
 
