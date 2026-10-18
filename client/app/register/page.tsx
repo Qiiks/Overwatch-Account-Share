@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { GlassButton } from "@/components/ui/GlassButton"
@@ -56,12 +56,8 @@ export default function RegisterPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  // Redirect to login if registration is disabled
-  useEffect(() => {
-    if (!loading && settings && !settings.allow_registration) {
-      router.push("/login")
-    }
-  }, [settings, loading, router])
+  // No redirect when registration is closed: the dedicated card below states why and offers
+  // the way to log in. A redirect on the same condition only flashed that card before leaving.
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))

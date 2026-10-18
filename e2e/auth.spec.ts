@@ -65,7 +65,7 @@ test.describe('auth', () => {
     await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard', { timeout: 20_000 });
 
-    await page.getByRole('button', { name: /logout/i }).first().click();
+    await page.getByRole('button', { name: /log\s*out/i }).first().click();
     await page.waitForURL('**/login', { timeout: 15_000 });
 
     const cookies = await page.context().cookies();
@@ -94,7 +94,10 @@ test.describe('auth', () => {
     expect((await off.json()).data.enabled).toBe(false);
 
     await page.goto('/register');
-    await expect(page.getByText(/registration (is )?closed|disabled/i)).toBeVisible({
+    // Text, not role: GlassCardTitle renders a <div> (client/components/ui/GlassCard.tsx:39),
+    // so a heading locator would match nothing. The body says "currently disabled", so this
+    // exact string can only be the title.
+    await expect(page.getByText('Registration closed', { exact: true })).toBeVisible({
       timeout: 10_000,
     });
 
